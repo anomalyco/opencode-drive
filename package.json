@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "opencode-probe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "generate": "bun run src/index.ts",
+    "lint": "oxlint src",
+    "postinstall": "bun run sync:links",
+    "typecheck": "tsgo --noEmit",
+    "check": "bun run lint && bun run typecheck",
+    "sync:links": "rm -rf node_modules/effect && ln -s ../latest/node_modules/.bun/effect@4.0.0-beta.83/node_modules/effect node_modules/effect",
+    "update:opencode": "git -C latest pull --ff-only && bun --cwd latest install"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.83"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "1.3.13",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1",
+    "oxlint": "1.60.0",
+    "oxlint-tsgolint": "0.21.0",
+    "typescript": "5.8.2"
+  }
+}
