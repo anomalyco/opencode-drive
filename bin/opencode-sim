@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+usage: opencode-sim [--state DIR] [--renderer fake|visible] [--anchor DIR] -- COMMAND [ARGS...]
+
+Creates an isolated simulation anchor, exports the environment variables
+opencode needs, changes into the anchor, and execs COMMAND.
+EOF
+}
+
+state=""
+renderer=""
+anchor=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --state)
+      state="${2:-}"
+      shift 2
+      ;;
+    --renderer)
+      renderer="${2:-}"
+      shift 2
+      ;;
+    --anchor)
+      anchor="${2:-}"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if [[ $# -eq 0 ]]; then
+  usage
+  exit 2
+fi
+
+if [[ -z "$anchor" ]]; then
+  anchor="$(mktemp -d /tmp/opencode-sim-XXXXXX)"
+else
+  mkdir -p "$anchor"
+fi
+
+export OPENCODE_SIMULATION=1
+export OPENCODE_SIMULATION_ROOT="$anchor"
+export OPENCODE_CONFIG_DIR="$anchor/.config/opencode"
+export OPENCODE_TEST_HOME="$anchor"
+export XDG_DATA_HOME="$anchor/.local/share"
+export XDG_CACHE_HOME="$anchor/.cache"
+export XDG_STATE_HOME="$anchor/.local/state"
+export XDG_CONFIG_HOME="$anchor/.config"
+export OPENCODE_DB=":memory:"
+
+if [[ -n "$state" ]]; then
+  export OPENCODE_SIMULATION_STATE="$state"
+fi
+
+if [[ -n "$renderer" ]]; then
+  export OPENCODE_SIMULATION_RENDERER="$renderer"
+fi
+
+mkdir -p "$OPENCODE_CONFIG_DIR" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME" "$XDG_CONFIG_HOME"
+cd "$anchor"
+exec "$@"

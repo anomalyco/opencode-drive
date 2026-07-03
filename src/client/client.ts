@@ -210,7 +210,7 @@ function parseResponse(data: string): JsonRpcResponse | undefined {
     if (typeof code !== "number" || typeof message !== "string") return undefined
     return { jsonrpc: "2.0", id, error: { code, message } }
   }
-  return { jsonrpc: "2.0", id, result }
+  return { jsonrpc: "2.0", id, result: result as JsonRpcResponse["result"] }
 }
 
 function open(url: string): Promise<WebSocket> {
