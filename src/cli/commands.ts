@@ -3,11 +3,11 @@ import { connectBackendSimulation, connectSimulation } from "../client/index.js"
 import type { DriveCommand, InstanceManifest } from "./types.js"
 
 const noValue = new Set([
-  "ui-state",
+  "render",
+  "state",
+  "start-record",
+  "end-record",
   "enter",
-  "trace.list",
-  "trace.clear",
-  "trace.export",
   "llm.pending",
   "network.log",
 ])
@@ -72,7 +72,10 @@ async function execute(
   backend: () => Promise<Awaited<ReturnType<typeof connectBackendSimulation>>>,
 ) {
   switch (command.operation) {
-    case "ui-state": return (await ui()).state()
+    case "render": return (await ui()).render()
+    case "state": return (await ui()).state()
+    case "start-record": return (await ui()).startRecord()
+    case "end-record": return (await ui()).endRecord()
     case "type": return (await ui()).typeText(required(command))
     case "press": {
       const value = required(command)
@@ -93,9 +96,6 @@ async function execute(
       const input = object(required(command))
       return (await ui()).click(number(input.target, "target"), number(input.x, "x"), number(input.y, "y"))
     }
-    case "trace.list": return (await ui()).traceList()
-    case "trace.clear": return (await ui()).traceClear()
-    case "trace.export": return (await ui()).traceExport()
     case "llm.pending": return (await backend()).pendingExchanges()
     case "llm.respond": {
       const input = object(required(command))

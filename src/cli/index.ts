@@ -47,7 +47,7 @@ const sendCommand = Command.make("send", { name, driver }, (config) =>
     Command.withDescription("Connect to an existing drive-enabled OpenCode instance"),
     Command.withExamples([
       {
-        command: "opencode-drive send --name demo --command.type hello --command.press enter --command.ui-state",
+        command: "opencode-drive send --name demo --command.type hello --command.press enter --command.render --command.state",
         description: "Execute an ordered command batch",
       },
     ]),

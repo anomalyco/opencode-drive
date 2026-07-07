@@ -50,10 +50,10 @@ describe("opencode-drive", () => {
       "",
     ].join("\n"))
 
-    const command = spawn(["send", "--command.ui-state"], root)
+    const command = spawn(["send", "--command.state"], root)
     const [commandStatus, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
     expect(commandStatus).toBe(0)
-    expect(JSON.parse(stdout).screen).toBe("Fake OpenCode")
+    expect(JSON.parse(stdout).focused.editor).toBe(true)
 
     const duplicate = spawn(["start", "--", process.execPath, fixture("fake-opencode.ts")], root)
     const [duplicateStatus, stderr] = await Promise.all([duplicate.exited, new Response(duplicate.stderr).text()])
@@ -66,7 +66,7 @@ describe("opencode-drive", () => {
     const root = await temporary()
     const invalidConnect = spawn(["send", "--seed", "10"], root)
     const invalidConcurrency = spawn(["start", "--campaign", fixture("campaign.ts"), "--concurrency", "0"], root)
-    const invalidModes = spawn(["start", "--driver", fixture("driver.ts"), "--command.ui-state"], root)
+    const invalidModes = spawn(["start", "--driver", fixture("driver.ts"), "--command.state"], root)
     const invalidDevCommand = spawn(["start", "--dev", "/tmp/opencode", "--", "opencode2"], root)
     expect(await invalidConnect.exited).toBe(1)
     expect(await invalidConcurrency.exited).toBe(1)
@@ -85,7 +85,7 @@ describe("opencode-drive", () => {
       "hello",
       "--command.press",
       "enter",
-      "--command.ui-state",
+      "--command.render",
       "--",
       process.execPath,
       fixture("fake-opencode.ts"),
@@ -129,7 +129,7 @@ describe("opencode-drive", () => {
         "external-test",
         "--command.type",
         "connected",
-        "--command.ui-state",
+        "--command.render",
       ], root)
       const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
       expect(status).toBe(0)
@@ -168,10 +168,25 @@ describe("opencode-drive", () => {
     ], root)
     expect(await started.exited).toBe(0)
 
-    const command = spawn(["send", "--name", "detached-test", "--command.ui-state"], root)
+    const command = spawn(["send", "--name", "detached-test", "--command.state"], root)
     const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
     expect(status).toBe(0)
-    expect(JSON.parse(stdout).screen).toBe("Fake OpenCode")
+    expect(JSON.parse(stdout).focused.editor).toBe(true)
+
+    const render = spawn(["send", "--name", "detached-test", "--command.render"], root)
+    const [renderStatus, renderOutput] = await Promise.all([render.exited, new Response(render.stdout).text()])
+    expect(renderStatus).toBe(0)
+    expect(renderOutput).toBe("/tmp/opencode-drive-fake/screenshot.png\n")
+
+    const record = spawn(["send", "--name", "detached-test", "--command.start-record"], root)
+    const [recordStatus, recordOutput] = await Promise.all([record.exited, new Response(record.stdout).text()])
+    expect(recordStatus).toBe(0)
+    expect(JSON.parse(recordOutput)).toEqual({ recording: true })
+
+    const endRecord = spawn(["send", "--name", "detached-test", "--command.end-record"], root)
+    const [endRecordStatus, endRecordOutput] = await Promise.all([endRecord.exited, new Response(endRecord.stdout).text()])
+    expect(endRecordStatus).toBe(0)
+    expect(endRecordOutput).toBe("/tmp/opencode-drive-fake/recording.gif\n")
 
     const manifest = await Bun.file(join(root, "registry", "detached-test.json")).json()
     roots.push(manifest.artifacts)
@@ -239,7 +254,7 @@ describe("opencode-drive", () => {
     const artifacts = artifactPath(stderr)
     roots.push(artifacts)
     const result = await Bun.file(join(artifacts, "driver-result.json")).json()
-    expect(result.screen).toContain("driver-text")
+    expect(result.focused.editor).toBe(true)
   })
 
   test("runs fresh campaign cases and writes a summary", async () => {

@@ -47,5 +47,5 @@ export const flowProperties: ReadonlyArray<FlowProperty> = [
 ]
 
 export function isRunning(state: UiState) {
-  return state.screen.includes("esc interrupt") || state.screen.includes("again to interrupt")
+  return !state.focused.editor
 }

@@ -6,7 +6,10 @@ import {
 const defaultPort = 40900
 
 type Methods = {
+  readonly "ui.render": { readonly params: undefined; readonly result: Frontend.Render }
   readonly "ui.state": { readonly params: undefined; readonly result: Frontend.State }
+  readonly "ui.start-record": { readonly params: undefined; readonly result: Frontend.StartRecord }
+  readonly "ui.end-record": { readonly params: undefined; readonly result: Frontend.EndRecord }
   readonly "ui.action": { readonly params: Frontend.ActionParams; readonly result: Frontend.State }
   readonly "trace.list": { readonly params: undefined; readonly result: Frontend.TraceList }
   readonly "trace.clear": { readonly params: undefined; readonly result: { readonly cleared: true } }
@@ -118,6 +121,18 @@ export class SimulationClient {
   /** Current screen, focus, elements, and generated actions. */
   state(): Promise<Frontend.State> {
     return this.call("ui.state")
+  }
+
+  render(): Promise<Frontend.Render> {
+    return this.call("ui.render")
+  }
+
+  startRecord(): Promise<Frontend.StartRecord> {
+    return this.call("ui.start-record")
+  }
+
+  endRecord(): Promise<Frontend.EndRecord> {
+    return this.call("ui.end-record")
   }
 
   /** Executes one user-level action and returns the post-action state. */

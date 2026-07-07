@@ -27,16 +27,15 @@ await ui.pressEnter()
 
 for (let attempt = 0; attempt < 30; attempt++) {
   await new Promise((resolve) => setTimeout(resolve, 500))
-  const state = await ui.state()
-  if (state.screen.includes("Hello from opencode-probe.")) {
-    console.log("screen ok")
+  if ((await backend.pendingExchanges()).exchanges.length === 0) {
+    console.log("response complete")
     ui.close()
     backend.close()
     process.exit(0)
   }
 }
 
-console.log((await ui.state()).screen)
+console.log(await ui.state())
 ui.close()
 backend.close()
 throw new Error("assistant reply did not render")

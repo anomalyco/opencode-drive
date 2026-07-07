@@ -30,7 +30,11 @@ export async function start(options: StartOptions) {
       await instance.waitForDrive("both")
       const result = await executeCommands(instance.manifest, options.commands)
       await instance.stop()
-      if (options.commands.length === 1 && ["llm.pending", "ui-state"].includes(options.commands[0]?.operation ?? "")) {
+      if (options.commands.length === 1 && ["render", "end-record"].includes(options.commands[0]?.operation ?? "")) {
+        console.log(result.results[0]?.result)
+        return
+      }
+      if (options.commands.length === 1 && ["llm.pending", "state", "start-record"].includes(options.commands[0]?.operation ?? "")) {
         console.log(JSON.stringify(result.results[0]?.result, undefined, 2))
         return
       }

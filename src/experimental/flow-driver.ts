@@ -110,10 +110,10 @@ try {
     titleExchanges,
     traceRecords: trace.records.length,
     durationMs: Date.now() - started,
-    finalScreen: (await ui.state()).screen,
+    finalState: await ui.state(),
   }
   if (resultPath !== undefined) await Bun.write(resultPath, `${JSON.stringify(result, undefined, 2)}\n`)
-  console.log(JSON.stringify({ ...result, finalScreen: undefined }))
+  console.log(JSON.stringify({ ...result, finalState: undefined }))
 } catch (error) {
   if (resultPath !== undefined) {
     await Bun.write(`${resultPath}.failure.json`, `${JSON.stringify({
@@ -122,7 +122,7 @@ try {
       subagentExchanges,
       titleExchanges,
       pendingExchanges: (await backend.pendingExchanges()).exchanges,
-      screen: (await ui.state()).screen,
+      state: await ui.state(),
     }, undefined, 2)}\n`)
   }
   throw error
@@ -182,15 +182,7 @@ async function runProperties(stage: "afterSubmit" | "afterTerminal", context: Fl
 async function settleBlockingUi(expectedExchanges: number) {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline && responseCursor < expectedExchanges) {
-    const state = await ui.state()
-    if (state.screen.includes("Allow once") && state.screen.includes("enter confirm")) {
-      await ui.pressEnter()
-      continue
-    }
-    if (state.screen.includes("Choose the simulation path") && state.screen.includes("enter submit")) {
-      await ui.pressKey("1")
-      continue
-    }
+    await ui.pressEnter()
     await Bun.sleep(25)
   }
   if (responseCursor < expectedExchanges) throw new Error("timed out settling blocking tool UI")

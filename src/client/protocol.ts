@@ -83,7 +83,6 @@ export namespace Frontend {
   export interface Element extends Schema.Schema.Type<typeof Element> {}
 
   export const State = Schema.Struct({
-    screen: Schema.String,
     focused: Schema.Struct({
       renderable: Schema.optional(Schema.Number),
       editor: Schema.Boolean,
@@ -93,6 +92,15 @@ export namespace Frontend {
   })
   export interface State extends Schema.Schema.Type<typeof State> {}
 
+  export const Render = Schema.String
+  export type Render = Schema.Schema.Type<typeof Render>
+
+  export const StartRecord = Schema.Struct({ recording: Schema.Literal(true) })
+  export interface StartRecord extends Schema.Schema.Type<typeof StartRecord> {}
+
+  export const EndRecord = Schema.String
+  export type EndRecord = Schema.Schema.Type<typeof EndRecord>
+
   export const ActionParams = Schema.Struct({ action: Action })
   export interface ActionParams extends Schema.Schema.Type<typeof ActionParams> {}
 
@@ -100,7 +108,15 @@ export namespace Frontend {
     Schema.Struct({ ...JsonRpc.RequestFields, method: Schema.Literal("ui.action"), params: ActionParams }),
     Schema.Struct({
       ...JsonRpc.RequestFields,
-      method: Schema.Literals(["ui.state", "trace.list", "trace.clear", "trace.export"]),
+      method: Schema.Literals([
+        "ui.render",
+        "ui.state",
+        "ui.start-record",
+        "ui.end-record",
+        "trace.list",
+        "trace.clear",
+        "trace.export",
+      ]),
     }),
   ])
   export type Request = Schema.Schema.Type<typeof Request>

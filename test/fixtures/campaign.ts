@@ -6,7 +6,7 @@ export default defineCampaign({
   run: async ({ flow, ui }) => {
     await ui.typeText(flow.text)
     const state = await ui.state()
-    if (!state.screen.includes(flow.text)) throw new Error(`${flow.text} did not render`)
-    return { screen: state.screen }
+    if (!state.focused.editor) throw new Error("prompt editor is not focused")
+    return { focused: state.focused }
   },
 })

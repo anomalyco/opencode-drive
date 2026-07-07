@@ -50,6 +50,9 @@ await new Promise<void>((resolve) => {
 await Promise.all([ui.stop(true), backend.stop(true)])
 
 function frontend(method: string, params: unknown) {
+  if (method === "ui.render") return "/tmp/opencode-drive-fake/screenshot.png"
+  if (method === "ui.start-record") return { recording: true }
+  if (method === "ui.end-record") return "/tmp/opencode-drive-fake/recording.gif"
   if (method === "ui.action" && isRecord(params) && isRecord(params.action)) {
     const action = params.action
     if (action.type === "typeText" && typeof action.text === "string") screen.value += `\n${action.text}`

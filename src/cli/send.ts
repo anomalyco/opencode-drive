@@ -12,7 +12,11 @@ export async function send(options: SendOptions) {
     : await resolveInstance("default").catch(() => defaultManifest())
   if (options.commands.length > 0) {
     const result = await executeCommands(manifest, options.commands)
-    if (options.commands.length === 1 && ["llm.pending", "ui-state"].includes(options.commands[0]?.operation ?? "")) {
+    if (options.commands.length === 1 && ["render", "end-record"].includes(options.commands[0]?.operation ?? "")) {
+      console.log(result.results[0]?.result)
+      return
+    }
+    if (options.commands.length === 1 && ["llm.pending", "state", "start-record"].includes(options.commands[0]?.operation ?? "")) {
       console.log(JSON.stringify(result.results[0]?.result, undefined, 2))
       return
     }

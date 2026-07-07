@@ -9,7 +9,8 @@ bunx opencode-drive start --name demo
 bunx opencode-drive send --name demo \
   --command.type "hello" \
   --command.press enter \
-  --command.ui-state
+  --command.render \
+  --command.state
 ```
 
 `start` launches a detached headless simulated OpenCode process. Add
@@ -39,7 +40,7 @@ export default defineDriver(async ({ ui }) => {
   await ui.typeText("hello")
   await ui.pressEnter()
   const state = await ui.state()
-  if (!state.screen.includes("hello")) throw new Error("hello did not render")
+  if (!state.focused.editor) throw new Error("prompt editor is not focused")
 })
 ```
 
