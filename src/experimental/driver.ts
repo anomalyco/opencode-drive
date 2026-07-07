@@ -1,4 +1,4 @@
-import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "./client/index.js"
+import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "../client/index.js"
 
 const uiUrl = process.env.OPENCODE_SIMULATION_UI_WS
 const backendUrl = process.env.OPENCODE_SIMULATION_BACKEND_WS
@@ -16,7 +16,7 @@ await backend.attach(async (request: OpenedExchange) => {
 })
 
 for (let attempt = 0; attempt < 60; attempt++) {
-  const state = await ui.render()
+  const state = await ui.state()
   if (state.focused.editor) break
   await new Promise((resolve) => setTimeout(resolve, 250))
   if (attempt === 59) throw new Error("prompt editor did not become ready")
@@ -27,7 +27,7 @@ await ui.pressEnter()
 
 for (let attempt = 0; attempt < 30; attempt++) {
   await new Promise((resolve) => setTimeout(resolve, 500))
-  const state = await ui.render()
+  const state = await ui.state()
   if (state.screen.includes("Hello from opencode-probe.")) {
     console.log("screen ok")
     ui.close()

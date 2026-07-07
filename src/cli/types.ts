@@ -4,6 +4,7 @@ export interface InstanceManifest {
   readonly pid: number
   readonly startedAt: string
   readonly mode: "simulated" | "real"
+  readonly headless: boolean
   readonly cwd: string
   readonly artifacts: string
   readonly endpoints: {

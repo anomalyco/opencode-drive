@@ -11,27 +11,25 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client/index.ts"
+    "./client": "./src/client/index.ts",
+    "./experimental": "./src/experimental/index.ts"
   },
   "files": [
     "bin/opencode-drive",
     "src/cli",
     "src/client",
-    "src/campaign-api.ts",
-    "src/drive.ts",
+    "src/experimental",
     "src/index.ts",
     "README.md"
   ],
   "scripts": {
     "drive": "bun run src/cli/index.ts",
-    "campaign": "bun run src/campaign.ts",
-    "sim:client": "bun run src/sim-client.ts",
-    "reproduce:stale-running": "bun run src/reproduce-stale-running.ts",
-    "reproduce:stale-running:visible": "bun run src/reproduce-stale-running-visible.ts",
+    "campaign": "bun run src/experimental/campaign.ts",
+    "reproduce:stale-running": "bun run src/experimental/reproduce-stale-running.ts",
+    "reproduce:stale-running:visible": "bun run src/experimental/reproduce-stale-running-visible.ts",
     "reproduce:self-signed-provider": "bun run src/reproduce-self-signed-provider.ts",
     "lint": "oxlint src",
     "test": "bun test test/cli/parse.test.ts test/cli/integration.test.ts",
-    "typecheck:drive": "tsgo --noEmit -p tsconfig.drive.json",
     "typecheck": "tsgo --noEmit",
     "check": "bun run lint && bun run typecheck",
     "update:opencode": "git -C opencode-latest pull --ff-only && bun --cwd opencode-latest install",

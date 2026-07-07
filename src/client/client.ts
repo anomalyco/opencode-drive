@@ -1,24 +1,29 @@
 import {
-  defaultPort,
-  type JsonRpcResponse,
-  type KeyModifiers,
-  type MethodName,
-  type Methods,
-  type TraceCleared,
-  type TraceList,
-  type UiAction,
-  type UiState,
+  Frontend,
+  type JsonRpc,
 } from "./protocol.js"
+
+const defaultPort = 40900
+
+type Methods = {
+  readonly "ui.state": { readonly params: undefined; readonly result: Frontend.State }
+  readonly "ui.action": { readonly params: Frontend.ActionParams; readonly result: Frontend.State }
+  readonly "trace.list": { readonly params: undefined; readonly result: Frontend.TraceList }
+  readonly "trace.clear": { readonly params: undefined; readonly result: { readonly cleared: true } }
+  readonly "trace.export": { readonly params: undefined; readonly result: Frontend.TraceList }
+}
+
+type MethodName = keyof Methods
 
 /**
  * WebSocket client for the OpenCode simulation control server.
  *
  * Start OpenCode with `OPENCODE_SIMULATION=1` (optionally
- * `OPENCODE_SIMULATION_RENDERER=fake`), then connect from a probe run:
+ * `OPENCODE_SIMULATION_RENDERER=headless`), then connect from a probe run:
  *
  * ```ts
  * const client = await connectSimulation()
- * const state = await client.render()
+ * const state = await client.state()
  * await client.typeText("hello")
  * client.close()
  * ```
@@ -111,67 +116,50 @@ export class SimulationClient {
   // ── ui ────────────────────────────────────────────────────────────────
 
   /** Current screen, focus, elements, and generated actions. */
-  state(): Promise<UiState> {
+  state(): Promise<Frontend.State> {
     return this.call("ui.state")
   }
 
   /** Executes one user-level action and returns the post-action state. */
-  action(action: UiAction): Promise<UiState> {
+  action(action: Frontend.Action): Promise<Frontend.State> {
     return this.call("ui.action", { action })
   }
 
-  /** Forces a render pass and returns the state. */
-  render(): Promise<UiState> {
-    return this.call("ui.render")
-  }
-
-  eventPause() {
-    return this.call("event.pause")
-  }
-
-  eventResume() {
-    return this.call("event.resume")
-  }
-
-  eventState() {
-    return this.call("event.state")
-  }
-
-  typeText(text: string): Promise<UiState> {
+  typeText(text: string): Promise<Frontend.State> {
     return this.action({ type: "typeText", text })
   }
 
-  pressKey(key: string, modifiers?: KeyModifiers): Promise<UiState> {
+  pressKey(key: string, modifiers?: Frontend.KeyModifiers): Promise<Frontend.State> {
     return this.action({ type: "pressKey", key: key === "escape" ? "\u001b" : key, ...(modifiers === undefined ? {} : { modifiers }) })
   }
 
-  pressEnter(): Promise<UiState> {
+  pressEnter(): Promise<Frontend.State> {
     return this.action({ type: "pressEnter" })
   }
 
-  pressArrow(direction: "up" | "down" | "left" | "right"): Promise<UiState> {
+  pressArrow(direction: "up" | "down" | "left" | "right"): Promise<Frontend.State> {
     return this.action({ type: "pressArrow", direction })
   }
 
-  focus(target: number): Promise<UiState> {
+  focus(target: number): Promise<Frontend.State> {
     return this.action({ type: "focus", target })
   }
 
-  click(target: number, x: number, y: number): Promise<UiState> {
+  click(target: number, x: number, y: number): Promise<Frontend.State> {
     return this.action({ type: "click", target, x, y })
   }
 
   // ── trace ─────────────────────────────────────────────────────────────
 
-  traceList(): Promise<TraceList> {
+  traceList(): Promise<Frontend.TraceList> {
     return this.call("trace.list")
   }
 
-  traceClear(): Promise<TraceCleared> {
+  traceClear(): Promise<{ readonly cleared: true }> {
     return this.call("trace.clear")
   }
 
-  traceExport(): Promise<TraceList> {
+  traceExport(): Promise<Frontend.TraceList> {
     return this.call("trace.export")
   }
 
@@ -201,7 +189,7 @@ export class SimulationClient {
   }
 }
 
-function parseResponse(data: string): JsonRpcResponse | undefined {
+function parseResponse(data: string): JsonRpc.Response | undefined {
   let value: unknown
   try {
     value = JSON.parse(data)
@@ -222,7 +210,7 @@ function parseResponse(data: string): JsonRpcResponse | undefined {
     if (typeof code !== "number" || typeof message !== "string") return undefined
     return { jsonrpc: "2.0", id, error: { code, message } }
   }
-  return { jsonrpc: "2.0", id, result: result as JsonRpcResponse["result"] }
+  return { jsonrpc: "2.0", id, result: result as JsonRpc.Response["result"] }
 }
 
 function open(url: string): Promise<WebSocket> {

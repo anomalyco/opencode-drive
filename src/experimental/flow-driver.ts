@@ -1,4 +1,4 @@
-import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "./client/index.js"
+import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "../client/index.js"
 import { flowProperties, type FlowPropertyContext, type FlowResult, type FlowScenario, type TurnOutcome } from "./flows/index.js"
 
 const scenarioPath = process.argv[2]
@@ -55,11 +55,11 @@ await backend.attach(async (request: OpenedExchange) => {
 })
 
 try {
-  await waitFor("prompt editor", async () => (await ui.render()).focused.editor)
+  await waitFor("prompt editor", async () => (await ui.state()).focused.editor)
   let expectedExchanges = 0
   for (const turn of scenario.turns) {
     if (failure !== undefined) throw failure
-    await waitFor("prompt editor before submit", async () => (await ui.render()).focused.editor)
+    await waitFor("prompt editor before submit", async () => (await ui.state()).focused.editor)
     expectedExchanges += turn.responses.length
     const beforeChunks = chunksSent
     await ui.typeText(turn.prompt)
@@ -92,7 +92,7 @@ try {
       await settleTools
       await waitFor(turn.marker, async () => {
         if (failure !== undefined) throw failure
-        await ui.render()
+        await ui.state()
         return responseCursor >= expectedExchanges
       })
     }
@@ -182,7 +182,7 @@ async function runProperties(stage: "afterSubmit" | "afterTerminal", context: Fl
 async function settleBlockingUi(expectedExchanges: number) {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline && responseCursor < expectedExchanges) {
-    const state = await ui.render()
+    const state = await ui.state()
     if (state.screen.includes("Allow once") && state.screen.includes("enter confirm")) {
       await ui.pressEnter()
       continue

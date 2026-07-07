@@ -96,6 +96,7 @@ function isManifest(value: unknown): value is InstanceManifest {
   if (!("pid" in value) || typeof value.pid !== "number") return false
   if (!("startedAt" in value) || typeof value.startedAt !== "string") return false
   if (!("mode" in value) || (value.mode !== "simulated" && value.mode !== "real")) return false
+  if (!("headless" in value) || typeof value.headless !== "boolean") return false
   if (!("cwd" in value) || typeof value.cwd !== "string") return false
   if (!("artifacts" in value) || typeof value.artifacts !== "string") return false
   if (!("endpoints" in value) || typeof value.endpoints !== "object" || value.endpoints === null) return false

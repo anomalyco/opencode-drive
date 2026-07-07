@@ -1,5 +1,5 @@
-import { connectBackendSimulation, connectSimulation } from "./client/index.js"
-import type { BackendSimulationClient, SimulationClient } from "./client/index.js"
+import { connectBackendSimulation, connectSimulation } from "../client/index.js"
+import type { BackendSimulationClient, SimulationClient } from "../client/index.js"
 
 export interface DriveEndpoints {
   readonly ui: string

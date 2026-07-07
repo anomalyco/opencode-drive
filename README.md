@@ -9,7 +9,7 @@ bunx opencode-drive start --name demo
 bunx opencode-drive send --name demo \
   --command.type "hello" \
   --command.press enter \
-  --command.render
+  --command.ui-state
 ```
 
 `start` launches a detached headless simulated OpenCode process. Add
@@ -22,7 +22,7 @@ bunx opencode-drive start --name local --visible -- \
 ```
 
 Use `--dev` to run an OpenCode development checkout. The launcher installs the
-checkout's `@opentui/solid` runtime in its fake working directory and configures
+checkout's `@opentui/solid` runtime in its isolated working directory and configures
 Bun automatically:
 
 ```bash
@@ -33,17 +33,17 @@ Both `start` and `send` accept `--driver ./driver.ts`. Drivers may default
 export a function created with `defineDriver`:
 
 ```ts
-import { defineDriver } from "opencode-drive"
+import { defineDriver } from "opencode-drive/experimental"
 
 export default defineDriver(async ({ ui }) => {
   await ui.typeText("hello")
   await ui.pressEnter()
-  const state = await ui.render()
+  const state = await ui.state()
   if (!state.screen.includes("hello")) throw new Error("hello did not render")
 })
 ```
 
-Campaign modules use `defineCampaign`. Every case gets a fresh isolated,
+Experimental campaign modules use `defineCampaign` from `opencode-drive/experimental`. Every case gets a fresh isolated,
 headless OpenCode process. One deterministic case can use the same runner in a
 visible terminal:
 

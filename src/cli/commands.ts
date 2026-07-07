@@ -3,12 +3,8 @@ import { connectBackendSimulation, connectSimulation } from "../client/index.js"
 import type { DriveCommand, InstanceManifest } from "./types.js"
 
 const noValue = new Set([
-  "render",
-  "state",
+  "ui-state",
   "enter",
-  "event.pause",
-  "event.resume",
-  "event.state",
   "trace.list",
   "trace.clear",
   "trace.export",
@@ -76,8 +72,7 @@ async function execute(
   backend: () => Promise<Awaited<ReturnType<typeof connectBackendSimulation>>>,
 ) {
   switch (command.operation) {
-    case "render": return (await ui()).render()
-    case "state": return (await ui()).state()
+    case "ui-state": return (await ui()).state()
     case "type": return (await ui()).typeText(required(command))
     case "press": {
       const value = required(command)
@@ -98,9 +93,6 @@ async function execute(
       const input = object(required(command))
       return (await ui()).click(number(input.target, "target"), number(input.x, "x"), number(input.y, "y"))
     }
-    case "event.pause": return (await ui()).eventPause()
-    case "event.resume": return (await ui()).eventResume()
-    case "event.state": return (await ui()).eventState()
     case "trace.list": return (await ui()).traceList()
     case "trace.clear": return (await ui()).traceClear()
     case "trace.export": return (await ui()).traceExport()

@@ -1,4 +1,4 @@
-import type { BackendSimulationClient, SimulationClient, UiState } from "../client/index.js"
+import type { BackendSimulationClient, SimulationClient, UiState } from "../../client/index.js"
 import type { FlowTurn } from "./types.js"
 
 export type TurnOutcome = "completed" | "interrupted" | "provider-error"
@@ -24,7 +24,7 @@ export const flowProperties: ReadonlyArray<FlowProperty> = [
     name: "submitted-turn-shows-running",
     afterSubmit: (context) => {
       if (context.turn.responses.some((response) => response.terminal === "invalid-provider-event" || response.terminal === "disconnect")) return Promise.resolve()
-      return context.waitFor("submitted turn to show running", async () => isRunning(await context.ui.render()))
+      return context.waitFor("submitted turn to show running", async () => isRunning(await context.ui.state()))
     },
   }),
   defineProperty({
@@ -41,7 +41,7 @@ export const flowProperties: ReadonlyArray<FlowProperty> = [
     name: "terminal-turn-clears-running",
     afterTerminal: (context) =>
       context.waitFor("terminal turn to stop showing running", async () => {
-        return !isRunning(await context.ui.render())
+        return !isRunning(await context.ui.state())
       }),
   }),
 ]

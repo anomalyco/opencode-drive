@@ -1,4 +1,4 @@
-import type { BackendFinishReason, BackendItem } from "../client/index.js"
+import type { BackendFinishReason, BackendItem } from "../../client/index.js"
 
 export type ResponseKind = "text" | "chunked" | "reasoning" | "markdown" | "raw" | "tool"
 export type InteractionKind = "normal" | "double-submit" | "steer" | "interrupt" | "provider-drop"

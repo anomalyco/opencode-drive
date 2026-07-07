@@ -24,11 +24,49 @@ describe("opencode-drive", () => {
     })
   })
 
+  test("uses default for unnamed starts and rejects a duplicate", async () => {
+    const root = await temporary()
+    const started = spawn(["start", "--", process.execPath, fixture("fake-opencode.ts")], root)
+    expect(await started.exited).toBe(0)
+    const file = join(root, "registry", "default.json")
+    const manifest = await Bun.file(file).json()
+    roots.push(manifest.artifacts)
+    expect(manifest.name).toBe("default")
+    expect(manifest.artifacts).toMatch(/\/default-[a-f0-9]{6}$/)
+
+    const described = spawn(["describe"], root)
+    const [describeStatus, description] = await Promise.all([
+      described.exited,
+      new Response(described.stdout).text(),
+    ])
+    expect(describeStatus).toBe(0)
+    expect(description).toBe([
+      `PID: ${manifest.pid}`,
+      "Headless: true",
+      `Artifacts: ${manifest.artifacts}`,
+      `UI: ${manifest.endpoints.ui}`,
+      `Backend: ${manifest.endpoints.backend}`,
+      `Logs: ${join(manifest.artifacts, "home", ".local", "share", "opencode", "log", "opencode*.log")}`,
+      "",
+    ].join("\n"))
+
+    const command = spawn(["send", "--command.ui-state"], root)
+    const [commandStatus, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
+    expect(commandStatus).toBe(0)
+    expect(JSON.parse(stdout).screen).toBe("Fake OpenCode")
+
+    const duplicate = spawn(["start", "--", process.execPath, fixture("fake-opencode.ts")], root)
+    const [duplicateStatus, stderr] = await Promise.all([duplicate.exited, new Response(duplicate.stderr).text()])
+    expect(duplicateStatus).toBe(1)
+    expect(stderr).toContain('drive instance "default" is already running')
+    process.kill(manifest.pid, "SIGTERM")
+  })
+
   test("uses Effect CLI validation for command options", async () => {
     const root = await temporary()
     const invalidConnect = spawn(["send", "--seed", "10"], root)
     const invalidConcurrency = spawn(["start", "--campaign", fixture("campaign.ts"), "--concurrency", "0"], root)
-    const invalidModes = spawn(["start", "--driver", fixture("driver.ts"), "--command.render"], root)
+    const invalidModes = spawn(["start", "--driver", fixture("driver.ts"), "--command.ui-state"], root)
     const invalidDevCommand = spawn(["start", "--dev", "/tmp/opencode", "--", "opencode2"], root)
     expect(await invalidConnect.exited).toBe(1)
     expect(await invalidConcurrency.exited).toBe(1)
@@ -38,7 +76,6 @@ describe("opencode-drive", () => {
 
   test("runs a visible instance and executes an ordered command batch", async () => {
     const root = await temporary()
-    roots.push(join(tmpdir(), "opencode-drive", "command-test"))
     const child = spawn([
       "start",
       "--name",
@@ -48,17 +85,20 @@ describe("opencode-drive", () => {
       "hello",
       "--command.press",
       "enter",
-      "--command.render",
+      "--command.ui-state",
       "--",
       process.execPath,
       fixture("fake-opencode.ts"),
     ], root)
-    const [status, stdout] = await Promise.all([child.exited, new Response(child.stdout).text()])
+    const [status, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ])
     expect(status).toBe(0)
-    const result = JSON.parse(stdout) as { readonly results: ReadonlyArray<{ readonly result: { readonly screen: string } }> }
-    expect(result.results).toHaveLength(3)
-    expect(result.results[2]?.result.screen).toContain("hello\n[enter]")
-    const state = join(tmpdir(), "opencode-drive", "command-test", "state")
+    expect(stdout).toBe("success\n")
+    const state = join(artifactPath(stderr), "state")
+    roots.push(resolve(state, ".."))
     expect(await readdir(state)).toEqual(["files"])
     expect(await readdir(join(state, "files", ".git"))).toEqual([])
     expect(await Bun.file(join(state, "files", ".opencode", "opencode.jsonc")).json()).toMatchObject({
@@ -70,38 +110,54 @@ describe("opencode-drive", () => {
 
   test("connects repeatedly to a foreground named instance", async () => {
     const root = await temporary()
-    roots.push(join(tmpdir(), "opencode-drive", "external-test"))
     const running = spawn([
       "start",
       "--name",
       "external-test",
+      "--visible",
       "--",
       process.execPath,
       fixture("fake-opencode.ts"),
     ], root)
     try {
       await waitFor(join(root, "registry", "external-test.json"))
+      const manifest = await Bun.file(join(root, "registry", "external-test.json")).json()
+      roots.push(manifest.artifacts)
       const command = spawn([
         "send",
         "--name",
         "external-test",
         "--command.type",
         "connected",
-        "--command.render",
+        "--command.ui-state",
       ], root)
       const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
       expect(status).toBe(0)
-      expect(stdout).toContain("connected")
+      expect(stdout).toBe("success\n")
     } finally {
       running.kill("SIGINT")
       await running.exited
     }
   })
 
+  test("removes a visible instance manifest when the process exits", async () => {
+    const root = await temporary()
+    const child = spawn([
+      "start",
+      "--name",
+      "visible-exit-test",
+      "--visible",
+      "--",
+      process.execPath,
+      "-e",
+      "process.exit(0)",
+    ], root)
+    expect(await child.exited).toBe(0)
+    expect(await Bun.file(join(root, "registry", "visible-exit-test.json")).exists()).toBe(false)
+  })
+
   test("starts detached and accepts later commands", async () => {
     const root = await temporary()
-    const artifacts = join(tmpdir(), "opencode-drive", "detached-test")
-    roots.push(artifacts)
     const started = spawn([
       "start",
       "--name",
@@ -112,19 +168,62 @@ describe("opencode-drive", () => {
     ], root)
     expect(await started.exited).toBe(0)
 
-    const command = spawn(["send", "--name", "detached-test", "--command.render"], root)
+    const command = spawn(["send", "--name", "detached-test", "--command.ui-state"], root)
     const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
     expect(status).toBe(0)
-    expect(stdout).toContain("Fake OpenCode")
+    expect(JSON.parse(stdout).screen).toBe("Fake OpenCode")
 
     const manifest = await Bun.file(join(root, "registry", "detached-test.json")).json()
+    roots.push(manifest.artifacts)
     process.kill(manifest.pid, "SIGTERM")
+  })
+
+  test("keeps a detached headless manifest when the process exits", async () => {
+    const root = await temporary()
+    const started = spawn([
+      "start",
+      "--name",
+      "headless-exit-test",
+      "--",
+      process.execPath,
+      fixture("fake-opencode.ts"),
+    ], root)
+    expect(await started.exited).toBe(0)
+    const file = join(root, "registry", "headless-exit-test.json")
+    const manifest = await Bun.file(file).json()
+    roots.push(manifest.artifacts)
+    process.kill(manifest.pid, "SIGTERM")
+    await waitForExit(manifest.pid)
+    expect(await Bun.file(file).exists()).toBe(true)
+  })
+
+  test("prints pending LLM exchanges as JSON", async () => {
+    const root = await temporary()
+    const running = spawn([
+      "start",
+      "--name",
+      "pending-test",
+      "--visible",
+      "--",
+      process.execPath,
+      fixture("fake-opencode.ts"),
+    ], root)
+    try {
+      await waitFor(join(root, "registry", "pending-test.json"))
+      const manifest = await Bun.file(join(root, "registry", "pending-test.json")).json()
+      roots.push(manifest.artifacts)
+      const command = spawn(["send", "--name", "pending-test", "--command.llm.pending"], root)
+      const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
+      expect(status).toBe(0)
+      expect(JSON.parse(stdout)).toEqual({ exchanges: [] })
+    } finally {
+      running.kill("SIGINT")
+      await running.exited
+    }
   })
 
   test("runs a default-exported TypeScript driver", async () => {
     const root = await temporary()
-    const artifacts = join(tmpdir(), "opencode-drive", "driver-test")
-    roots.push(artifacts)
     const child = spawn([
       "start",
       "--name",
@@ -135,7 +234,10 @@ describe("opencode-drive", () => {
       process.execPath,
       fixture("fake-opencode.ts"),
     ], root)
-    expect(await child.exited).toBe(0)
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+    expect(status).toBe(0)
+    const artifacts = artifactPath(stderr)
+    roots.push(artifacts)
     const result = await Bun.file(join(artifacts, "driver-result.json")).json()
     expect(result.screen).toContain("driver-text")
   })
@@ -197,4 +299,23 @@ async function waitFor(file: string) {
     await Bun.sleep(25)
   }
   throw new Error(`timed out waiting for ${file}`)
+}
+
+async function waitForExit(pid: number) {
+  const deadline = Date.now() + 10_000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0)
+      await Bun.sleep(25)
+    } catch {
+      return
+    }
+  }
+  throw new Error(`timed out waiting for process ${pid} to exit`)
+}
+
+function artifactPath(stderr: string) {
+  const line = stderr.split("\n").find((value) => value.startsWith("opencode-drive: artifacts "))
+  if (!line) throw new Error("artifact path was not reported")
+  return line.slice("opencode-drive: artifacts ".length)
 }

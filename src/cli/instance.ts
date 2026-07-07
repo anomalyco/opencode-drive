@@ -14,8 +14,8 @@ export interface LaunchOptions {
 }
 
 export async function launchInstance(options: LaunchOptions = {}) {
-  const name = options.name ?? generatedName()
-  const artifacts = resolve(join(tmpdir(), "opencode-drive", name))
+  const name = options.name ?? "default"
+  const artifacts = resolve(join(tmpdir(), "opencode-drive", `${name}-${randomSuffix()}`))
   const cwd = artifacts
   const [uiPort, backendPort] = await Promise.all([freePort(), freePort()])
   const endpoints = {
@@ -28,6 +28,7 @@ export async function launchInstance(options: LaunchOptions = {}) {
     pid: process.pid,
     startedAt: new Date().toISOString(),
     mode: "simulated",
+    headless: options.visible !== true,
     cwd,
     artifacts,
     endpoints,
@@ -85,7 +86,7 @@ export async function launchInstance(options: LaunchOptions = {}) {
     OPENCODE_SIMULATE: "1",
     OPENCODE_SIMULATE_STATE: state,
     OPENCODE_DRIVE: name,
-    OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "fake",
+    OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "headless",
     OPENCODE_CONFIG_DIR: join(cwd, ".opencode"),
     OPENCODE_DB: ":memory:",
     XDG_CACHE_HOME: join(artifacts, "home", ".cache"),
@@ -106,7 +107,7 @@ export async function launchInstance(options: LaunchOptions = {}) {
     stdout: visible ? "inherit" : Bun.file(join(artifacts, "opencode.stdout.log")),
     stderr: visible ? "inherit" : Bun.file(join(artifacts, "opencode.stderr.log")),
   })
-  const stopped = { value: false }
+  const lifecycle = { detached: false, stopping: undefined as Promise<void> | undefined }
   return {
     manifest,
     child,
@@ -119,24 +120,23 @@ export async function launchInstance(options: LaunchOptions = {}) {
     async detach() {
       await transferInstance(manifest, child.pid)
       child.unref()
-      stopped.value = true
+      lifecycle.detached = true
     },
-    async stop(force = false) {
-      if (stopped.value) return
-      stopped.value = true
-      if (force) {
+    stop(force = false) {
+      if (lifecycle.detached) return Promise.resolve()
+      if (lifecycle.stopping) return lifecycle.stopping
+      lifecycle.stopping = (async () => {
+        if (force) {
+          if (child.exitCode === null) child.kill("SIGKILL")
+        } else if (child.exitCode === null) {
+          child.kill("SIGTERM")
+          await Promise.race([child.exited, Bun.sleep(1_000)])
+        }
         if (child.exitCode === null) child.kill("SIGKILL")
         await child.exited
         await unregisterInstance(name, process.pid)
-        return
-      }
-      if (child.exitCode === null) {
-        child.kill("SIGTERM")
-        await Promise.race([child.exited, Bun.sleep(1_000)])
-      }
-      if (child.exitCode === null) child.kill("SIGKILL")
-      await child.exited
-      await unregisterInstance(name, process.pid)
+      })()
+      return lifecycle.stopping
     },
   }
 }
@@ -209,8 +209,8 @@ function open(url: string) {
   })
 }
 
-function generatedName() {
-  return `drive-${crypto.randomUUID().slice(0, 6)}`
+function randomSuffix() {
+  return crypto.randomUUID().slice(0, 6)
 }
 
 function cleanEnv(env: Readonly<Record<string, string | undefined>>) {

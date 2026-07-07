@@ -1,4 +1,4 @@
-import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "./client/index.js"
+import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "../client/index.js"
 import { isRunning } from "./flows/index.js"
 
 const ui = await connectSimulation({ url: requiredEnv("OPENCODE_SIMULATION_UI_WS") })
@@ -21,23 +21,18 @@ await backend.attach(async (request: OpenedExchange) => {
 })
 
 try {
-  await waitFor("prompt editor", async () => (await ui.render()).focused.editor)
+  await waitFor("prompt editor", async () => (await ui.state()).focused.editor)
   await ui.typeText("Reproduce stale running status across an event-stream reconnect")
   await ui.pressEnter()
   await requestOpened.promise
-  await waitFor("running TUI", async () => isRunning(await ui.render()))
+  await waitFor("running TUI", async () => isRunning(await ui.state()))
 
-  await ui.eventPause()
   releaseResponse.resolve()
   await responseFinished.promise
   await waitFor("provider drain", async () => (await backend.pendingExchanges()).exchanges.length === 0)
-  await Bun.sleep(300)
-
-  await ui.eventResume()
-  await waitFor("event reconnect", async () => (await ui.eventState()).state === "connected")
   await Bun.sleep(1_000)
 
-  const state = await ui.render()
+  const state = await ui.state()
   if (!isRunning(state)) throw new Error("stale running status was not reproduced")
   console.log("REPRODUCED: backend provider work is idle while the TUI still displays running.")
   await Bun.sleep(Number(process.env.OPENCODE_PROBE_HOLD_MS ?? "10000"))

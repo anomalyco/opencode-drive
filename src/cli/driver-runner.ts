@@ -1,7 +1,7 @@
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-import { connectDrive } from "../drive.js"
-import type { Driver } from "../drive.js"
+import { connectDrive } from "../experimental/drive.js"
+import type { Driver } from "../experimental/drive.js"
 
 const driver = process.argv[2]
 if (!driver) throw new Error("driver file is required")

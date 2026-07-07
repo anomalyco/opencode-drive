@@ -55,8 +55,6 @@ function frontend(method: string, params: unknown) {
     if (action.type === "typeText" && typeof action.text === "string") screen.value += `\n${action.text}`
     if (action.type === "pressEnter") screen.value += "\n[enter]"
   }
-  if (method === "event.pause") return { state: "paused" }
-  if (method === "event.resume" || method === "event.state") return { state: "connected" }
   if (method === "trace.list" || method === "trace.export") return { records: [] }
   if (method === "trace.clear") return { cleared: true }
   return {

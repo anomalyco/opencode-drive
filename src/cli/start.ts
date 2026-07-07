@@ -1,6 +1,6 @@
 import { resolve } from "node:path"
 import { executeCommands } from "./commands.js"
-import { runCampaign } from "./campaign.js"
+import { runCampaign } from "../experimental/cli-campaign.js"
 import { runDriver } from "./driver.js"
 import { launchInstance } from "./instance.js"
 import type { StartOptions } from "./types.js"
@@ -30,7 +30,11 @@ export async function start(options: StartOptions) {
       await instance.waitForDrive("both")
       const result = await executeCommands(instance.manifest, options.commands)
       await instance.stop()
-      console.log(JSON.stringify(result, undefined, 2))
+      if (options.commands.length === 1 && ["llm.pending", "ui-state"].includes(options.commands[0]?.operation ?? "")) {
+        console.log(JSON.stringify(result.results[0]?.result, undefined, 2))
+        return
+      }
+      console.log("success")
       return
     }
     if (options.driver) {

@@ -80,7 +80,7 @@ for (let index = 0; index < options.count; index++) {
     "--state", path.join(directory, "state"),
     "--anchor", path.join(directory, "anchor"),
     "--renderer", options.renderer,
-    "--driver", `bun ${path.resolve("src/flow-driver.ts")} ${path.join(directory, "scenario.json")} ${path.join(directory, "result.json")}`,
+    "--driver", `bun ${path.resolve("src/experimental/flow-driver.ts")} ${path.join(directory, "scenario.json")} ${path.join(directory, "result.json")}`,
     "--",
     "bun", "run", "--conditions=browser", "--preload=@opentui/solid/preload",
     "/root/projects/opencode-latest/packages/cli/src/index.ts", "--standalone",
@@ -133,7 +133,7 @@ function parseArgs(args: string[]) {
     count: Number(value("--count", "10")),
     seed: Number(value("--seed", String(Date.now() % 1_000_000))),
     turns: Number(value("--turns", "7")),
-    renderer: value("--renderer", "fake") === "visible" ? "visible" as const : "fake" as const,
+    renderer: value("--renderer", "headless") === "visible" ? "visible" as const : "headless" as const,
     stepDelay: Number(value("--step-delay", "0")),
     chunkDelay: Number(value("--chunk-delay", "30")),
   }

@@ -1,13 +1,20 @@
 import {
-  defaultBackendPort,
-  type BackendFinishReason,
-  type BackendItem,
-  type BackendMethodName,
-  type BackendMethods,
-  type JsonRpcResponse,
-  type NetworkLogEntry,
-  type OpenedExchange,
+  Backend,
+  type JsonRpc,
 } from "./protocol.js"
+
+const defaultBackendPort = 40950
+
+type BackendMethods = {
+  readonly "llm.attach": { readonly params: undefined; readonly result: { readonly attached: true } }
+  readonly "llm.chunk": { readonly params: Backend.ChunkParams; readonly result: { readonly ok: true } }
+  readonly "llm.finish": { readonly params: Partial<Backend.FinishParams> & Pick<Backend.FinishParams, "id">; readonly result: { readonly ok: true } }
+  readonly "llm.disconnect": { readonly params: Backend.DisconnectParams; readonly result: { readonly ok: true } }
+  readonly "llm.pending": { readonly params: undefined; readonly result: { readonly exchanges: ReadonlyArray<Backend.OpenedExchange> } }
+  readonly "network.log": { readonly params: undefined; readonly result: { readonly entries: ReadonlyArray<Backend.NetworkLogEntry> } }
+}
+
+type BackendMethodName = keyof BackendMethods
 
 export interface BackendSimulationClientOptions {
   readonly url?: string
@@ -40,7 +47,7 @@ export class BackendSimulationClient {
   private readonly timeout: number
   private nextId = 1
   private readonly pending = new Map<number, Waiter>()
-  private readonly llmRequests = new Set<(request: OpenedExchange) => void>()
+  private readonly llmRequests = new Set<(request: Backend.OpenedExchange) => void>()
 
   private constructor(socket: WebSocket, url: string, timeout: number) {
     this.socket = socket
@@ -82,16 +89,16 @@ export class BackendSimulationClient {
     return (await promise) as BackendMethods[M]["result"]
   }
 
-  async attach(onRequest: (request: OpenedExchange) => void | Promise<void>) {
+  async attach(onRequest: (request: Backend.OpenedExchange) => void | Promise<void>) {
     this.llmRequests.add((request) => void onRequest(request))
     return await this.call("llm.attach")
   }
 
-  chunk(id: string, items: ReadonlyArray<BackendItem>) {
-    return this.call("llm.chunk", { id, items })
+  chunk(id: string, items: ReadonlyArray<Backend.Item>) {
+    return this.call("llm.chunk", { id, items: [...items] })
   }
 
-  finish(id: string, reason?: BackendFinishReason) {
+  finish(id: string, reason?: Backend.FinishReason) {
     return this.call("llm.finish", { id, ...(reason === undefined ? {} : { reason }) })
   }
 
@@ -103,7 +110,7 @@ export class BackendSimulationClient {
     return this.call("llm.pending")
   }
 
-  networkLog(): Promise<{ readonly entries: ReadonlyArray<NetworkLogEntry> }> {
+  networkLog(): Promise<{ readonly entries: ReadonlyArray<Backend.NetworkLogEntry> }> {
     return this.call("network.log")
   }
 
@@ -116,7 +123,7 @@ export class BackendSimulationClient {
     if (message === undefined) return
     if ("method" in message) {
       if (message.method === "llm.request") {
-        for (const listener of this.llmRequests) listener(message.params as OpenedExchange)
+        for (const listener of this.llmRequests) listener(message.params as Backend.OpenedExchange)
       }
       return
     }
@@ -138,7 +145,7 @@ export class BackendSimulationClient {
   }
 }
 
-function parseResponse(data: string): JsonRpcResponse | { readonly method: string; readonly params: unknown } | undefined {
+function parseResponse(data: string): JsonRpc.Response | { readonly method: string; readonly params: unknown } | undefined {
   try {
     const value = JSON.parse(data) as unknown
     if (typeof value !== "object" || value === null) return undefined
@@ -147,7 +154,7 @@ function parseResponse(data: string): JsonRpcResponse | { readonly method: strin
       return { method: value.method, params: "params" in value ? value.params : undefined }
     }
     if (!("id" in value)) return undefined
-    return value as JsonRpcResponse
+    return value as JsonRpc.Response
   } catch {
     return undefined
   }

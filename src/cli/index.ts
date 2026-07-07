@@ -2,8 +2,8 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/unstable/cli"
-import { CommandBatchError } from "./commands.js"
 import { send } from "./send.js"
+import { describe } from "./describe.js"
 import { extractCommands } from "./parse.js"
 import { start } from "./start.js"
 import type { DriveCommand, SendOptions, StartOptions } from "./types.js"
@@ -47,15 +47,20 @@ const sendCommand = Command.make("send", { name, driver }, (config) =>
     Command.withDescription("Connect to an existing drive-enabled OpenCode instance"),
     Command.withExamples([
       {
-        command: "opencode-drive send --name demo --command.type hello --command.press enter --command.render",
+        command: "opencode-drive send --name demo --command.type hello --command.press enter --command.ui-state",
         description: "Execute an ordered command batch",
       },
     ]),
   )
 
+const describeCommand = Command.make("describe", { name }, (config) =>
+  execute(() => describe(Option.getOrUndefined(config.name)))).pipe(
+    Command.withDescription("Describe a registered OpenCode instance"),
+  )
+
 const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
-  Command.withSubcommands([startCommand, sendCommand]),
+  Command.withSubcommands([startCommand, sendCommand, describeCommand]),
 )
 
 Command.runWith(root, { version: "0.1.0" })(extracted.args).pipe(
@@ -137,11 +142,7 @@ function assertExecutionMode(driver: string | undefined, campaign: string | unde
 function execute(task: () => Promise<void>) {
   return Effect.tryPromise({ try: task, catch: (error) => error }).pipe(
     Effect.catch((error) => Effect.sync(() => {
-      if (error instanceof CommandBatchError) {
-        console.error(JSON.stringify({ name: error.instance, results: error.results, error: error.message }, undefined, 2))
-      } else {
-        console.error(`opencode-drive: ${error instanceof Error ? error.message : String(error)}`)
-      }
+      console.error(`error: ${error instanceof Error ? error.message : String(error)}`)
       process.exitCode = 1
     })),
   )

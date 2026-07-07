@@ -2,10 +2,10 @@ import { mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-import type { DefinedCampaign } from "../campaign-api.js"
-import { connectDrive } from "../drive.js"
-import { launchInstance } from "./instance.js"
-import type { StartOptions } from "./types.js"
+import type { DefinedCampaign } from "./campaign-api.js"
+import { connectDrive } from "./drive.js"
+import { launchInstance } from "../cli/instance.js"
+import type { StartOptions } from "../cli/types.js"
 
 interface CaseResult {
   readonly index: number
@@ -147,7 +147,7 @@ async function runCase(
 function replayCommand(campaignFile: string, index: number, options: StartOptions) {
   const args = [
     "opencode-drive",
-    "run",
+    "start",
     "--campaign",
     campaignFile,
     "--seed",

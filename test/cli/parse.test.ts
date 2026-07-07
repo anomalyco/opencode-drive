@@ -11,14 +11,14 @@ describe("drive CLI parser", () => {
       "hello",
       "--command.press",
       "enter",
-      "--command.render",
+      "--command.ui-state",
     ])).toEqual({
       args: ["send", "--name", "demo"],
       app: [],
       commands: [
         { operation: "type", value: "hello" },
         { operation: "press", value: "enter" },
-        { operation: "render" },
+        { operation: "ui-state" },
       ],
     })
   })

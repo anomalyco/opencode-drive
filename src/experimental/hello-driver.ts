@@ -1,4 +1,4 @@
-import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "./client/index.js"
+import { connectBackendSimulation, connectSimulation, type OpenedExchange } from "../client/index.js"
 
 const ui = await connectSimulation({ url: requiredEnv("OPENCODE_SIMULATION_UI_WS") })
 const backend = await connectBackendSimulation({ url: requiredEnv("OPENCODE_SIMULATION_BACKEND_WS") })
@@ -14,12 +14,12 @@ await backend.attach(async (request: OpenedExchange) => {
 })
 
 try {
-  await waitFor(async () => (await ui.render()).focused.editor)
+  await waitFor(async () => (await ui.state()).focused.editor)
   await ui.typeText("Say hello")
   await ui.pressEnter()
   await responseCompleted
   await waitFor(async () => (await backend.pendingExchanges()).exchanges.length === 0)
-  await ui.render()
+  await ui.state()
   await Bun.sleep(Number(process.env.OPENCODE_PROBE_HOLD_MS ?? "10000"))
 } finally {
   ui.close()

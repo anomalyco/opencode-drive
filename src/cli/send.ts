@@ -7,9 +7,16 @@ import { resolveInstance } from "./registry.js"
 import type { SendOptions } from "./types.js"
 
 export async function send(options: SendOptions) {
-  const manifest = options.name ? await resolveInstance(options.name) : defaultManifest()
+  const manifest = options.name
+    ? await resolveInstance(options.name)
+    : await resolveInstance("default").catch(() => defaultManifest())
   if (options.commands.length > 0) {
-    console.log(JSON.stringify(await executeCommands(manifest, options.commands), undefined, 2))
+    const result = await executeCommands(manifest, options.commands)
+    if (options.commands.length === 1 && ["llm.pending", "ui-state"].includes(options.commands[0]?.operation ?? "")) {
+      console.log(JSON.stringify(result.results[0]?.result, undefined, 2))
+      return
+    }
+    console.log("success")
     return
   }
   if (options.driver) {
@@ -26,6 +33,7 @@ function defaultManifest() {
     pid: 0,
     startedAt: new Date().toISOString(),
     mode: "real" as const,
+    headless: false,
     cwd: process.cwd(),
     artifacts: join(tmpdir(), "opencode-drive", "default"),
     endpoints: {
