@@ -4,9 +4,9 @@ import { defaultBackendPort, defaultPort } from "../client/index.js"
 import { executeCommands } from "./commands.js"
 import { runDriver } from "./driver.js"
 import { resolveInstance } from "./registry.js"
-import type { ConnectOptions } from "./types.js"
+import type { SendOptions } from "./types.js"
 
-export async function connect(options: ConnectOptions) {
+export async function send(options: SendOptions) {
   const manifest = options.name ? await resolveInstance(options.name) : defaultManifest()
   if (options.commands.length > 0) {
     console.log(JSON.stringify(await executeCommands(manifest, options.commands), undefined, 2))

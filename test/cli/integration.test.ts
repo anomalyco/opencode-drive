@@ -12,7 +12,7 @@ afterEach(async () => {
 describe("opencode-drive", () => {
   test("connects to the default ports when name is omitted", async () => {
     const root = await temporary()
-    const child = spawn(["connect"], root)
+    const child = spawn(["send"], root)
     const [status, stdout] = await Promise.all([child.exited, new Response(child.stdout).text()])
     expect(status).toBe(0)
     expect(JSON.parse(stdout)).toMatchObject({
@@ -26,10 +26,10 @@ describe("opencode-drive", () => {
 
   test("uses Effect CLI validation for command options", async () => {
     const root = await temporary()
-    const invalidConnect = spawn(["connect", "--seed", "10"], root)
-    const invalidConcurrency = spawn(["run", "--campaign", fixture("campaign.ts"), "--concurrency", "0"], root)
-    const invalidModes = spawn(["run", "--driver", fixture("driver.ts"), "--command.render"], root)
-    const invalidDevCommand = spawn(["run", "--dev", "/tmp/opencode", "--", "opencode2"], root)
+    const invalidConnect = spawn(["send", "--seed", "10"], root)
+    const invalidConcurrency = spawn(["start", "--campaign", fixture("campaign.ts"), "--concurrency", "0"], root)
+    const invalidModes = spawn(["start", "--driver", fixture("driver.ts"), "--command.render"], root)
+    const invalidDevCommand = spawn(["start", "--dev", "/tmp/opencode", "--", "opencode2"], root)
     expect(await invalidConnect.exited).toBe(1)
     expect(await invalidConcurrency.exited).toBe(1)
     expect(await invalidModes.exited).toBe(1)
@@ -40,7 +40,7 @@ describe("opencode-drive", () => {
     const root = await temporary()
     roots.push(join(tmpdir(), "opencode-drive", "command-test"))
     const child = spawn([
-      "run",
+      "start",
       "--name",
       "command-test",
       "--visible",
@@ -61,16 +61,18 @@ describe("opencode-drive", () => {
     const state = join(tmpdir(), "opencode-drive", "command-test", "state")
     expect(await readdir(state)).toEqual(["files"])
     expect(await readdir(join(state, "files", ".git"))).toEqual([])
-    expect(await Bun.file(join(state, "files", ".opencode", "opencode.jsonc")).text()).toBe(
-      '{\n  "$schema": "https://opencode.ai/config.json"\n}\n',
-    )
+    expect(await Bun.file(join(state, "files", ".opencode", "opencode.jsonc")).json()).toMatchObject({
+      model: "simulation/sim-model",
+      permissions: [{ action: "*", resource: "*", effect: "allow" }],
+      providers: { simulation: { models: { "sim-model": { name: "Simulated Model" } } } },
+    })
   })
 
   test("connects repeatedly to a foreground named instance", async () => {
     const root = await temporary()
     roots.push(join(tmpdir(), "opencode-drive", "external-test"))
     const running = spawn([
-      "run",
+      "start",
       "--name",
       "external-test",
       "--",
@@ -80,7 +82,7 @@ describe("opencode-drive", () => {
     try {
       await waitFor(join(root, "registry", "external-test.json"))
       const command = spawn([
-        "connect",
+        "send",
         "--name",
         "external-test",
         "--command.type",
@@ -96,12 +98,35 @@ describe("opencode-drive", () => {
     }
   })
 
+  test("starts detached and accepts later commands", async () => {
+    const root = await temporary()
+    const artifacts = join(tmpdir(), "opencode-drive", "detached-test")
+    roots.push(artifacts)
+    const started = spawn([
+      "start",
+      "--name",
+      "detached-test",
+      "--",
+      process.execPath,
+      fixture("fake-opencode.ts"),
+    ], root)
+    expect(await started.exited).toBe(0)
+
+    const command = spawn(["send", "--name", "detached-test", "--command.render"], root)
+    const [status, stdout] = await Promise.all([command.exited, new Response(command.stdout).text()])
+    expect(status).toBe(0)
+    expect(stdout).toContain("Fake OpenCode")
+
+    const manifest = await Bun.file(join(root, "registry", "detached-test.json")).json()
+    process.kill(manifest.pid, "SIGTERM")
+  })
+
   test("runs a default-exported TypeScript driver", async () => {
     const root = await temporary()
     const artifacts = join(tmpdir(), "opencode-drive", "driver-test")
     roots.push(artifacts)
     const child = spawn([
-      "run",
+      "start",
       "--name",
       "driver-test",
       "--driver",
@@ -119,7 +144,7 @@ describe("opencode-drive", () => {
     const root = await temporary()
     const out = join(root, "campaign")
     const campaign = spawn([
-      "run",
+      "start",
       "--campaign",
       fixture("campaign.ts"),
       "--seed",

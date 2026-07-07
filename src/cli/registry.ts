@@ -41,6 +41,15 @@ export async function unregisterInstance(name: string, pid: number) {
   await rm(file, { force: true })
 }
 
+export async function transferInstance(manifest: InstanceManifest, pid: number) {
+  const file = manifestPath(manifest.name)
+  const current = await readManifest(file)
+  if (current?.pid !== manifest.pid) throw new Error(`drive instance "${manifest.name}" changed ownership`)
+  const temporary = `${file}.${process.pid}.tmp`
+  await Bun.write(temporary, `${JSON.stringify({ ...manifest, pid }, undefined, 2)}\n`)
+  await rename(temporary, file)
+}
+
 export async function resolveInstance(name?: string) {
   const instances = await listInstances()
   if (name) {

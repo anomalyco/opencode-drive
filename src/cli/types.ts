@@ -23,8 +23,9 @@ export interface CommonOptions {
   readonly commands: ReadonlyArray<DriveCommand>
 }
 
-export interface RunOptions extends CommonOptions {
-  readonly kind: "run"
+export interface StartOptions extends CommonOptions {
+  readonly kind: "start"
+  readonly detach: boolean
   readonly campaign?: string
   readonly seed: number
   readonly caseIndex?: number
@@ -37,8 +38,8 @@ export interface RunOptions extends CommonOptions {
   readonly command: ReadonlyArray<string>
 }
 
-export interface ConnectOptions extends CommonOptions {
-  readonly kind: "connect"
+export interface SendOptions extends CommonOptions {
+  readonly kind: "send"
 }
 
-export type CliOptions = RunOptions | ConnectOptions
+export type CliOptions = StartOptions | SendOptions

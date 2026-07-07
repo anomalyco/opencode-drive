@@ -16,8 +16,8 @@ OPENCODE_DRIVE=demo  # instance name used to resolve drive WebSocket ports
 The CLI has two commands:
 
 ```sh
-opencode-drive run
-opencode-drive connect
+opencode-drive start
+opencode-drive send
 ```
 
 ### Run
@@ -25,13 +25,13 @@ opencode-drive connect
 `run` launches and owns a local OpenCode process with both environment variables enabled. It is headless and blocking by default; `--visible` shows it in the terminal.
 
 ```sh
-opencode-drive run --name demo
-opencode-drive run --name demo --visible --driver ./driver.ts
-opencode-drive run --visible --dev ~/projects/opencode-latest
-opencode-drive run --name demo \
+opencode-drive start --name demo
+opencode-drive start --name demo --visible --driver ./driver.ts
+opencode-drive start --visible --dev ~/projects/opencode-latest
+opencode-drive start --name demo \
   --command.type "hello" \
   --command.press enter
-opencode-drive run --name demo -- opencode2 --standalone
+opencode-drive start --name demo -- opencode2 --standalone
 ```
 
 When `--visible` is supplied, OpenCode remains visible while commands or a driver operate it. `run` cleans up when they finish, OpenCode exits, or the user interrupts it.
@@ -41,12 +41,12 @@ When `--visible` is supplied, OpenCode remains visible while commands or a drive
 `connect` targets an existing drive-enabled OpenCode instance and never owns or terminates it. The target may use simulated or real services.
 
 ```sh
-opencode-drive connect --name demo --command.render
-opencode-drive connect --name demo \
+opencode-drive send --name demo --command.render
+opencode-drive send --name demo \
   --command.type "hello" \
   --command.press enter \
   --command.render
-opencode-drive connect --name demo --driver ./driver.ts
+opencode-drive send --name demo --driver ./driver.ts
 ```
 
 Each `--command.<operation>` flag represents one command. Scalar commands accept a scalar value, commands with structured input accept JSON, and commands without input are bare flags. Command flags may be repeated and execute sequentially over one WebSocket connection in argument order. The invocation prints an ordered JSON result and exits; the first failed command stops the batch and produces a nonzero exit status.
@@ -67,10 +67,10 @@ A campaign generates serializable flows and launches a fresh isolated, headless 
 
 ```sh
 # Run a campaign headlessly
-opencode-drive run --campaign ./campaign.ts --seed 42000
+opencode-drive start --campaign ./campaign.ts --seed 42000
 
 # Generate and visibly replay one exact flow
-opencode-drive run --campaign ./campaign.ts --seed 42000 --case 17 --visible
+opencode-drive start --campaign ./campaign.ts --seed 42000 --case 17 --visible
 ```
 
 Visible replay uses the same generated flow, runner, and properties as the full campaign.

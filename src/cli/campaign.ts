@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url"
 import type { DefinedCampaign } from "../campaign-api.js"
 import { connectDrive } from "../drive.js"
 import { launchInstance } from "./instance.js"
-import type { RunOptions } from "./types.js"
+import type { StartOptions } from "./types.js"
 
 interface CaseResult {
   readonly index: number
@@ -17,7 +17,7 @@ interface CaseResult {
   readonly result?: unknown
 }
 
-export async function runCampaign(options: RunOptions) {
+export async function runCampaign(options: StartOptions) {
   const file = resolve(options.campaign!)
   const campaign = await loadCampaign(file)
   const root = resolve(process.env.DRIVE_CAMPAIGN_ROOT ?? join(tmpdir(), `opencode-drive-campaign-${Date.now()}`))
@@ -75,7 +75,7 @@ async function runCase(
   campaignFile: string,
   root: string,
   index: number,
-  options: RunOptions,
+  options: StartOptions,
   signal: AbortSignal,
   active: Set<Awaited<ReturnType<typeof launchInstance>>>,
 ): Promise<CaseResult> {
@@ -144,7 +144,7 @@ async function runCase(
   }
 }
 
-function replayCommand(campaignFile: string, index: number, options: RunOptions) {
+function replayCommand(campaignFile: string, index: number, options: StartOptions) {
   const args = [
     "opencode-drive",
     "run",

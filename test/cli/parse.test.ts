@@ -4,7 +4,7 @@ import { extractCommands } from "../../src/cli/parse.js"
 describe("drive CLI parser", () => {
   test("preserves namespaced command order", () => {
     expect(extractCommands([
-      "connect",
+      "send",
       "--name",
       "demo",
       "--command.type",
@@ -13,7 +13,7 @@ describe("drive CLI parser", () => {
       "enter",
       "--command.render",
     ])).toEqual({
-      args: ["connect", "--name", "demo"],
+      args: ["send", "--name", "demo"],
       app: [],
       commands: [
         { operation: "type", value: "hello" },
@@ -24,14 +24,14 @@ describe("drive CLI parser", () => {
   })
 
   test("keeps the custom OpenCode argv intact", () => {
-    expect(extractCommands(["run", "--name", "demo", "--", "bun", "app.ts", "--standalone", "--help"])).toEqual({
-      args: ["run", "--name", "demo"],
+    expect(extractCommands(["start", "--name", "demo", "--", "bun", "app.ts", "--standalone", "--help"])).toEqual({
+      args: ["start", "--name", "demo"],
       app: ["bun", "app.ts", "--standalone", "--help"],
       commands: [],
     })
   })
 
   test("rejects unknown namespaced commands", () => {
-    expect(() => extractCommands(["connect", "--command.unknown"])).toThrow("unknown drive command")
+    expect(() => extractCommands(["send", "--command.unknown"])).toThrow("unknown drive command")
   })
 })

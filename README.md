@@ -4,20 +4,20 @@ Drive visible, headless, simulated, or real OpenCode instances through a
 publishable Bun CLI and TypeScript SDK.
 
 ```bash
-bunx opencode-drive run --name demo
+bunx opencode-drive start --name demo
 
-bunx opencode-drive connect --name demo \
+bunx opencode-drive send --name demo \
   --command.type "hello" \
   --command.press enter \
   --command.render
 ```
 
-`run` launches a headless simulated OpenCode process and owns its lifetime. Add
-`--visible` to show it in the terminal. Pass a custom OpenCode command after
+`start` launches a detached headless simulated OpenCode process. Add
+`--visible` to keep it in the foreground and show it in the terminal. Pass a custom OpenCode command after
 `--`:
 
 ```bash
-bunx opencode-drive run --name local --visible -- \
+bunx opencode-drive start --name local --visible -- \
   opencode2 --standalone
 ```
 
@@ -26,10 +26,10 @@ checkout's `@opentui/solid` runtime in its fake working directory and configures
 Bun automatically:
 
 ```bash
-bunx opencode-drive run --visible --dev ~/projects/opencode-latest
+bunx opencode-drive start --visible --dev ~/projects/opencode-latest
 ```
 
-Both `run` and `connect` accept `--driver ./driver.ts`. Drivers may default
+Both `start` and `send` accept `--driver ./driver.ts`. Drivers may default
 export a function created with `defineDriver`:
 
 ```ts
@@ -48,8 +48,8 @@ headless OpenCode process. One deterministic case can use the same runner in a
 visible terminal:
 
 ```bash
-bunx opencode-drive run --campaign ./campaign.ts --seed 42000
-bunx opencode-drive run --campaign ./campaign.ts --seed 42000 --case 17 --visible
+bunx opencode-drive start --campaign ./campaign.ts --seed 42000
+bunx opencode-drive start --campaign ./campaign.ts --seed 42000 --case 17 --visible
 ```
 
 OpenCode starts its drive interfaces when `OPENCODE_DRIVE` contains an instance

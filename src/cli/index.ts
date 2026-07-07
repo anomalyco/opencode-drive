@@ -3,16 +3,16 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/unstable/cli"
 import { CommandBatchError } from "./commands.js"
-import { connect } from "./connect.js"
+import { send } from "./send.js"
 import { extractCommands } from "./parse.js"
-import { run } from "./run.js"
-import type { ConnectOptions, DriveCommand, RunOptions } from "./types.js"
+import { start } from "./start.js"
+import type { DriveCommand, SendOptions, StartOptions } from "./types.js"
 
 const extracted = extract()
 const name = Flag.string("name").pipe(Flag.optional, Flag.withDescription("Instance name"))
 const driver = Flag.string("driver").pipe(Flag.optional, Flag.withDescription("TypeScript driver module"))
 
-const runCommand = Command.make("run", {
+const startCommand = Command.make("start", {
   name,
   driver,
   campaign: Flag.string("campaign").pipe(Flag.optional, Flag.withDescription("Campaign module")),
@@ -30,23 +30,24 @@ const runCommand = Command.make("run", {
     Flag.withDefault(1),
   ),
   visible: Flag.boolean("visible").pipe(Flag.withDescription("Show OpenCode in the terminal")),
+  detach: Flag.boolean("detach").pipe(Flag.withDescription("Keep OpenCode running in the background (default)")),
   dev: Flag.string("dev").pipe(Flag.optional, Flag.withDescription("Path to an OpenCode development checkout")),
   state: Flag.string("state").pipe(Flag.optional, Flag.withDescription("Simulation snapshot containing files/")),
   anchor: Flag.string("anchor").pipe(Flag.optional),
-}, (config) => execute(() => run(toRunOptions(config, extracted.commands, extracted.app)))).pipe(
+}, (config) => execute(() => start(toStartOptions(config, extracted.commands, extracted.app)))).pipe(
   Command.withDescription("Launch and own a local simulated OpenCode instance"),
   Command.withExamples([
-    { command: "opencode-drive run --name demo --visible", description: "Launch a visible simulated instance" },
-    { command: "opencode-drive run --command.render", description: "Launch, render once, and exit" },
+    { command: "opencode-drive start --name demo --visible", description: "Launch a visible simulated instance" },
+    { command: "opencode-drive start --name demo --detach", description: "Launch a background simulated instance" },
   ]),
 )
 
-const connectCommand = Command.make("connect", { name, driver }, (config) =>
-  execute(() => connect(toConnectOptions(config, extracted.commands, extracted.app)))).pipe(
+const sendCommand = Command.make("send", { name, driver }, (config) =>
+  execute(() => send(toSendOptions(config, extracted.commands, extracted.app)))).pipe(
     Command.withDescription("Connect to an existing drive-enabled OpenCode instance"),
     Command.withExamples([
       {
-        command: "opencode-drive connect --name demo --command.type hello --command.press enter --command.render",
+        command: "opencode-drive send --name demo --command.type hello --command.press enter --command.render",
         description: "Execute an ordered command batch",
       },
     ]),
@@ -54,7 +55,7 @@ const connectCommand = Command.make("connect", { name, driver }, (config) =>
 
 const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
-  Command.withSubcommands([runCommand, connectCommand]),
+  Command.withSubcommands([startCommand, sendCommand]),
 )
 
 Command.runWith(root, { version: "0.1.0" })(extracted.args).pipe(
@@ -62,7 +63,7 @@ Command.runWith(root, { version: "0.1.0" })(extracted.args).pipe(
   NodeRuntime.runMain,
 )
 
-function toRunOptions(
+function toStartOptions(
   config: {
     readonly name: Option.Option<string>
     readonly driver: Option.Option<string>
@@ -72,23 +73,28 @@ function toRunOptions(
     readonly count: Option.Option<number>
     readonly concurrency: number
     readonly visible: boolean
+    readonly detach: boolean
     readonly dev: Option.Option<string>
     readonly state: Option.Option<string>
     readonly anchor: Option.Option<string>
   },
   commands: ReadonlyArray<DriveCommand>,
   app: ReadonlyArray<string>,
-): RunOptions {
+): StartOptions {
+  const driver = Option.getOrUndefined(config.driver)
+  const campaign = Option.getOrUndefined(config.campaign)
+  const visible = config.visible
   const options = {
-    kind: "run" as const,
+    kind: "start" as const,
     name: Option.getOrUndefined(config.name),
-    driver: Option.getOrUndefined(config.driver),
-    campaign: Option.getOrUndefined(config.campaign),
+    driver,
+    campaign,
     seed: config.seed,
     caseIndex: Option.getOrUndefined(config.caseIndex),
     count: Option.getOrUndefined(config.count),
     concurrency: config.concurrency,
-    visible: config.visible,
+    visible,
+    detach: !visible && (config.detach || (driver === undefined && campaign === undefined && commands.length === 0)),
     dev: Option.getOrUndefined(config.dev),
     state: Option.getOrUndefined(config.state),
     anchor: Option.getOrUndefined(config.anchor),
@@ -101,17 +107,20 @@ function toRunOptions(
   if (options.visible && options.campaign !== undefined && options.caseIndex === undefined) {
     throw new Error("visible campaign runs require --case")
   }
+  if (config.detach && (options.driver !== undefined || options.campaign !== undefined || commands.length > 0)) {
+    throw new Error("--detach cannot be combined with --driver, --campaign, or command flags")
+  }
   return options
 }
 
-function toConnectOptions(
+function toSendOptions(
   config: { readonly name: Option.Option<string>; readonly driver: Option.Option<string> },
   commands: ReadonlyArray<DriveCommand>,
   app: ReadonlyArray<string>,
-): ConnectOptions {
-  if (app.length > 0) throw new Error("connect does not accept a command after --")
+): SendOptions {
+  if (app.length > 0) throw new Error("send does not accept a command after --")
   const options = {
-    kind: "connect" as const,
+    kind: "send" as const,
     name: Option.getOrUndefined(config.name),
     driver: Option.getOrUndefined(config.driver),
     commands,

@@ -1,7 +1,7 @@
 import { mkdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { registerInstance, registryDirectory, unregisterInstance } from "./registry.js"
+import { registerInstance, registryDirectory, transferInstance, unregisterInstance } from "./registry.js"
 import type { InstanceManifest } from "./types.js"
 
 export interface LaunchOptions {
@@ -115,6 +115,11 @@ export async function launchInstance(options: LaunchOptions = {}) {
         ? [endpoints.ui, endpoints.backend]
         : [requirement === "ui" ? endpoints.ui : endpoints.backend]
       await Promise.all(urls.map((url) => waitForWebSocket(url, child.exited, timeout)))
+    },
+    async detach() {
+      await transferInstance(manifest, child.pid)
+      child.unref()
+      stopped.value = true
     },
     async stop(force = false) {
       if (stopped.value) return

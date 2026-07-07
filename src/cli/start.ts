@@ -3,9 +3,9 @@ import { executeCommands } from "./commands.js"
 import { runCampaign } from "./campaign.js"
 import { runDriver } from "./driver.js"
 import { launchInstance } from "./instance.js"
-import type { RunOptions } from "./types.js"
+import type { StartOptions } from "./types.js"
 
-export async function run(options: RunOptions) {
+export async function start(options: StartOptions) {
   if (options.campaign) return runCampaign(options)
   const instance = await launchInstance({
     name: options.name,
@@ -16,7 +16,12 @@ export async function run(options: RunOptions) {
   })
   console.error(`opencode-drive: ${instance.manifest.name}`)
   console.error(`opencode-drive: artifacts ${instance.manifest.artifacts}`)
-  console.error(`opencode-drive: connect with opencode-drive connect --name ${instance.manifest.name}`)
+  console.error(`opencode-drive: send commands with opencode-drive send --name ${instance.manifest.name}`)
+  if (options.detach) {
+    await instance.waitForDrive("both")
+    await instance.detach()
+    return
+  }
   const interrupt = () => void instance.stop()
   process.once("SIGINT", interrupt)
   process.once("SIGTERM", interrupt)
