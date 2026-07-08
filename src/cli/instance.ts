@@ -98,10 +98,11 @@ export async function launchInstance(options: LaunchOptions) {
     DRIVE_REGISTRY_DIR: drive,
     OPENCODE_DRIVE: options.name,
     OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "headless",
+    OPENCODE_DRIVE_MEDIA_DIR: media,
     OPENCODE_CONFIG_DIR: join(files, ".opencode"),
     OPENCODE_DB: ":memory:",
     OPENCODE_LOG_LEVEL: !options.visible
-      ? "INFO"
+      ? "DEBUG"
       : process.env.OPENCODE_LOG_LEVEL,
     OPENCODE_TEST_HOME: artifacts,
     XDG_CACHE_HOME: join(artifacts, "home", ".cache"),
