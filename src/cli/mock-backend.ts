@@ -1,25 +1,37 @@
 import { connectBackendSimulation } from "../client/index.js"
+import { generateResponse } from "./response-generator.js"
+import type { createResponseSettings } from "./response-generator.js"
 
-const response = "This is a sample response from opencode-drive."
-
-export async function connectMockBackend(endpoint: string) {
+export async function connectMockBackend(
+  endpoint: string,
+  responses: ReturnType<typeof createResponseSettings>,
+) {
   const backend = await connectBackendSimulation({ url: endpoint })
-  let closing = false
-  await backend.attach((request) => {
-    void backend
-      .chunk(request.id, [{ type: "textDelta", text: response }])
-      .then(() => backend.finish(request.id))
-      .catch((error) => {
-        if (!closing)
-          console.error(
-            `error: ${error instanceof Error ? error.message : String(error)}`,
-          )
-      })
+  await backend.attach(async (request) => {
+    const response = generateResponse(responses.current(), request)
+    for (const item of response.items) {
+      if (item.type !== "textDelta" && item.type !== "reasoningDelta") {
+        await backend.chunk(request.id, [item])
+        continue
+      }
+      for (const text of splitText(item.text)) {
+        await backend.chunk(request.id, [{ ...item, text }])
+        await Bun.sleep(45 + Math.floor(Math.random() * 35))
+      }
+    }
+    await backend.finish(request.id, response.finish)
   })
   return {
     close() {
-      closing = true
       backend.close()
     },
   }
+}
+
+export function splitText(text: string) {
+  const words = text.match(/\S+\s*/g) ?? [text]
+  return Array.from(
+    { length: Math.ceil(words.length / 3) },
+    (_, index) => words.slice(index * 3, index * 3 + 3).join(""),
+  )
 }

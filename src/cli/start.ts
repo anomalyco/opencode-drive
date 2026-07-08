@@ -1,10 +1,16 @@
 import { launchInstance } from "./instance.js"
+import { mkdir, rm } from "node:fs/promises"
+import { join } from "node:path"
 import { connectMockBackend } from "./mock-backend.js"
+import { createResponseSettings } from "./response-generator.js"
 import { runScript } from "./script.js"
 import { listenControl } from "./control.js"
 import {
   controlPath,
+  markReady,
+  markStarting,
   register,
+  registryDirectory,
   resolveInstance,
   unregister,
 } from "./registry.js"
@@ -13,6 +19,7 @@ import type { StartOptions } from "./types.js"
 export async function start(options: StartOptions) {
   if (!options.visible && !options.script && !options.daemon)
     return startDetached(options)
+  const responses = createResponseSettings()
   const instance = await launchInstance({
     name: options.name,
     command: options.command,
@@ -25,8 +32,11 @@ export async function start(options: StartOptions) {
     version: 1,
     name: options.name,
     pid: process.pid,
+    startedAt: new Date().toISOString(),
+    cwd: process.cwd(),
     artifacts: instance.artifacts,
     visible: options.visible,
+    status: "starting",
     endpoints: instance.endpoints,
     control: controlPath(options.name),
   }).catch(async (error) => {
@@ -40,32 +50,39 @@ export async function start(options: StartOptions) {
   let stopping = false
   process.once("SIGINT", interrupt)
   process.once("SIGTERM", interrupt)
-  const closeControl = await listenControl(controlPath(options.name), {
-    restart: () => {
-      if (restarting) return restarting
-      restarting = (async () => {
-        const previous = current
-        previous?.abort.abort(new Error("script restarted"))
-        await previous?.promise.catch(() => undefined)
-        await instance.restart()
-        current = run(options, instance)
-        await current.ready
-        await Bun.write(`${instance.artifacts}/ready`, "ready\n")
-      })().finally(() => {
-        restarting = undefined
-      })
-      return restarting
-    },
-    stop: async () => {
-      stopping = true
-      current?.abort.abort(new Error("opencode-drive stopped"))
-      await instance.stop()
-    },
-  })
+  let closeControl: (() => Promise<void>) | undefined
   try {
-    current = run(options, instance)
+    closeControl = await listenControl(controlPath(options.name), {
+      restart: () => {
+        if (restarting) return restarting
+        restarting = (async () => {
+          await markStarting(options.name, process.pid)
+          const previous = current
+          previous?.abort.abort(new Error("script restarted"))
+          await previous?.promise.catch(() => undefined)
+          await instance.restart()
+          current = run(options, instance, responses)
+          await current.ready
+          await markReady(options.name, process.pid)
+        })().finally(() => {
+          restarting = undefined
+        })
+        return restarting
+      },
+      stop: async () => {
+        stopping = true
+        current?.abort.abort(new Error("opencode-drive stopped"))
+        await instance.stop()
+      },
+      responses: async (input) => {
+        if (options.script)
+          throw new Error("responses are unavailable when --script owns the simulation backend")
+        return responses.update(input)
+      },
+    })
+    current = run(options, instance, responses)
     await current.ready
-    await Bun.write(`${instance.artifacts}/ready`, "ready\n")
+    await markReady(options.name, process.pid)
     if (options.visible) {
       const status = await instance.wait()
       if (status !== 0 && !stopping) process.exitCode = status
@@ -87,18 +104,21 @@ export async function start(options: StartOptions) {
     process.off("SIGINT", interrupt)
     process.off("SIGTERM", interrupt)
     current?.abort.abort(new Error("opencode-drive stopped"))
-    await closeControl()
+    await closeControl?.()
     await instance.stop()
-    await unregister(options.name)
+    await unregister(options.name, process.pid)
     if (options.script && !options.visible)
       report(instance, completed ? "completed" : undefined)
   }
 }
 
 async function startDetached(options: StartOptions) {
-  const existing = await resolveInstance(options.name).catch(() => undefined)
+  const existing = await resolveInstance(options.name, { ready: false }).catch(() => undefined)
   if (existing)
     throw new Error(`drive instance "${options.name}" is already running`)
+  const ownerLog = join(registryDirectory(), `${options.name}.log`)
+  await mkdir(registryDirectory(), { recursive: true })
+  await rm(ownerLog, { force: true })
   const child = Bun.spawn(
     [
       process.execPath,
@@ -117,14 +137,14 @@ async function startDetached(options: StartOptions) {
       env: process.env,
       stdin: "ignore",
       stdout: "ignore",
-      stderr: "ignore",
+      stderr: Bun.file(ownerLog),
     },
   )
   child.unref()
   const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {
     const manifest = await resolveInstance(options.name).catch(() => undefined)
-    if (manifest && (await Bun.file(`${manifest.artifacts}/ready`).exists())) {
+    if (manifest?.pid === child.pid) {
       report({
         artifacts: manifest.artifacts,
         logs: `${manifest.artifacts}/logs`,
@@ -132,15 +152,30 @@ async function startDetached(options: StartOptions) {
       return
     }
     if (child.exitCode !== null)
-      throw new Error(`detached instance exited with status ${child.exitCode}`)
+      throw new Error(
+        `detached instance exited with status ${child.exitCode}; see ${ownerLog}`,
+      )
     await Bun.sleep(50)
   }
-  throw new Error(`timed out starting drive instance "${options.name}"`)
+  await terminateOwner(child)
+  throw new Error(
+    `timed out starting drive instance "${options.name}"; see ${ownerLog}`,
+  )
+}
+
+async function terminateOwner(child: Bun.Subprocess) {
+  if (child.exitCode !== null) return
+  child.kill("SIGTERM")
+  const deadline = Date.now() + 1_000
+  while (child.exitCode === null && Date.now() < deadline) await Bun.sleep(25)
+  if (child.exitCode === null) child.kill("SIGKILL")
+  await child.exited
 }
 
 function run(
   options: StartOptions,
   instance: Awaited<ReturnType<typeof launchInstance>>,
+  responses: ReturnType<typeof createResponseSettings>,
 ) {
   const abort = new AbortController()
   const child = instance.child
@@ -174,7 +209,7 @@ function run(
         }
         return
       }
-      const mock = await connectMockBackend(instance.endpoints.backend)
+      const mock = await connectMockBackend(instance.endpoints.backend, responses)
       ready()
       abort.signal.addEventListener("abort", () => mock.close(), { once: true })
       const status = await Promise.race([

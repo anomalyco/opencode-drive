@@ -42,37 +42,44 @@ export async function launchInstance(options: LaunchOptions) {
     await Promise.all([
       mkdir(join(state, "files", ".git"), { recursive: true }),
       mkdir(join(state, "files", ".opencode"), { recursive: true }),
+      mkdir(join(state, "files", "src"), { recursive: true }),
     ])
-    await Bun.write(
-      join(state, "files", ".opencode", "opencode.jsonc"),
-      `${JSON.stringify(
-        {
-          model: "simulation/sim-model",
-          permissions: [{ action: "*", resource: "*", effect: "allow" }],
-          providers: {
-            simulation: {
-              name: "Simulation",
-              package: "aisdk:@ai-sdk/openai-compatible",
-              settings: { baseURL: "https://api.openai.com/v1" },
-              request: { body: { apiKey: "sim-key" } },
-              models: {
-                "sim-model": {
-                  name: "Simulated Model",
-                  capabilities: {
-                    tools: true,
-                    input: ["text"],
-                    output: ["text"],
+    await Promise.all([
+      Bun.write(
+        join(state, "files", ".opencode", "opencode.jsonc"),
+        `${JSON.stringify(
+          {
+            model: "simulation/gpt-sim-model",
+            permissions: [{ action: "*", resource: "*", effect: "allow" }],
+            providers: {
+              simulation: {
+                name: "Simulation",
+                package: "aisdk:@ai-sdk/openai-compatible",
+                settings: { baseURL: "https://api.openai.com/v1" },
+                request: { body: { apiKey: "sim-key" } },
+                models: {
+                  "gpt-sim-model": {
+                    name: "Simulated Model",
+                    capabilities: {
+                      tools: true,
+                      input: ["text"],
+                      output: ["text"],
+                    },
+                    limit: { context: 128000, output: 16000 },
                   },
-                  limit: { context: 128000, output: 16000 },
                 },
               },
             },
           },
-        },
-        undefined,
-        2,
-      )}\n`,
-    )
+          undefined,
+          2,
+        )}\n`,
+      ),
+      Bun.write(
+        join(state, "files", "src", "garden.js"),
+        'export function greet(name) {\n  return `Hello, ${name}.`\n}\n',
+      ),
+    ])
   }
   const environment = cleanEnv({
     ...process.env,

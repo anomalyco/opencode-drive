@@ -2,6 +2,18 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import {
+  controlPath,
+  listInstances,
+  manifestPath,
+  register,
+  unregister,
+} from "../../src/cli/registry.js"
+import {
+  createResponseSettings,
+  generateResponse,
+} from "../../src/cli/response-generator.js"
+import { splitText } from "../../src/cli/mock-backend.js"
 
 const roots: string[] = []
 const instances: Array<{ root: string; name: string }> = []
@@ -32,7 +44,7 @@ describe("opencode-drive", () => {
     expect(stdout).not.toContain("llm.")
   })
 
-  test("starts, drives, describes, restarts, and stops a named detached instance", async () => {
+  test("starts, drives, lists logs, restarts, and stops a named detached instance", async () => {
     const root = await temporary()
     const name = "detached-test"
     const started = spawn(
@@ -63,7 +75,7 @@ describe("opencode-drive", () => {
     expect(manifest.endpoints.ui).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
     expect(manifest.endpoints.backend).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
 
-    const state = spawn(["send", "--name", name, "--command.ui.state"], root)
+    const state = spawn(["send", "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
     expect(
       JSON.parse(await new Response(state.stdout).text()).focused.editor,
@@ -78,22 +90,56 @@ describe("opencode-drive", () => {
       "/tmp/opencode-drive-fake/screenshot.png\n",
     )
 
-    const described = spawn(["describe", "--name", name], root)
-    expect(await described.exited).toBe(0)
-    expect(await new Response(described.stdout).text()).toContain(
-      `UI: ${manifest.endpoints.ui}`,
+    const defaults = spawn(["responses"], root)
+    expect(await defaults.exited).toBe(0)
+    expect(await new Response(defaults.stdout).text()).toBe(
+      "Types: text,reasoning,diff,tool\nTools: write,apply_patch\n",
     )
 
-    const restarted = spawn(["restart", "--name", name], root)
+    const configured = spawn(
+      [
+        "responses",
+        "--types",
+        "reasoning,tool,reasoning",
+        "--tools",
+        "read,grep,read",
+      ],
+      root,
+    )
+    expect(await configured.exited).toBe(0)
+    expect(await new Response(configured.stdout).text()).toBe(
+      "Types: reasoning,tool\nTools: read,grep\n",
+    )
+
+    const invalid = spawn(["responses", "--types", "unknown"], root)
+    expect(await invalid.exited).toBe(1)
+    expect(await new Response(invalid.stderr).text()).toContain(
+      "unknown response types: unknown",
+    )
+
+    const listed = spawn(["logs"], root)
+    expect(await listed.exited).toBe(0)
+    expect(await new Response(listed.stdout).text()).toBe(
+      `${join(manifest.artifacts, "logs", "opencode", "log", "opencode*.log")}\n`,
+    )
+
+    const restarted = spawn(["restart"], root)
     expect(await restarted.exited).toBe(0)
     await waitForLines(join(manifest.artifacts, "launches.txt"), 2)
+    const persisted = spawn(["responses"], root)
+    expect(await persisted.exited).toBe(0)
+    expect(await new Response(persisted.stdout).text()).toBe(
+      "Types: reasoning,tool\nTools: read,grep\n",
+    )
     expect(
       await spawn(["send", "--name", name, "--command.ui.state"], root).exited,
     ).toBe(0)
 
-    const stopped = spawn(["stop", "--name", name], root)
+    const stopped = spawn(["stop"], root)
     expect(await stopped.exited).toBe(0)
-    await waitForMissing(join(root, "registry", `${name}.json`))
+    expect(
+      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
+    ).toBe(false)
     instances.splice(
       instances.findIndex((item) => item.name === name),
       1,
@@ -120,6 +166,105 @@ describe("opencode-drive", () => {
     ])
     expect(status).toBe(1)
     expect(stderr).toContain(`drive instance "${name}" is already running`)
+  })
+
+  test("only the owning detached launcher reports concurrent startup success", async () => {
+    const root = await temporary()
+    const name = "concurrent-start"
+    const args = [
+      "start",
+      "--name",
+      name,
+      "--",
+      process.execPath,
+      fixture("fake-opencode.ts"),
+    ]
+    const children = [spawn(args, root), spawn(args, root)]
+    expect((await Promise.all(children.map((child) => child.exited))).sort()).toEqual([
+      0, 1,
+    ])
+    const manifest = await Bun.file(
+      join(root, "registry", `${name}.json`),
+    ).json()
+    roots.push(manifest.artifacts)
+    instances.push({ root, name })
+  })
+
+  test("registers only one concurrent owner for a name", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      const results = await Promise.allSettled([
+        register(testManifest("racing", process.pid)),
+        register(testManifest("racing", process.pid)),
+      ])
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
+        1,
+      )
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(
+        1,
+      )
+    })
+  })
+
+  test("does not let a stale owner remove its replacement", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      const stalePid = 2_000_000_000
+      await register(testManifest("replacement", stalePid))
+      await register(testManifest("replacement", process.pid))
+      await unregister("replacement", stalePid)
+      expect((await Bun.file(manifestPath("replacement")).json()).pid).toBe(
+        process.pid,
+      )
+    })
+  })
+
+  test("refuses to drive an instance that is still starting", async () => {
+    const root = await temporary()
+    await withRegistry(root, () =>
+      register(testManifest("starting", process.pid, "starting")),
+    )
+    const child = spawn(
+      ["send", "--name", "starting", "--command.ui.state"],
+      root,
+    )
+    const [status, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+    ])
+    expect(status).toBe(1)
+    expect(stderr).toContain('drive instance "starting" is still starting')
+  })
+
+  test("lists sorted active instances and prunes stale state", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      await register(testManifest("zeta", process.pid))
+      await register(testManifest("alpha", process.pid))
+      await register(testManifest("stale", 2_000_000_000))
+      await Bun.write(controlPath("orphan"), "")
+      expect((await listInstances()).map((manifest) => manifest.name)).toEqual([
+        "alpha",
+        "zeta",
+      ])
+      expect(await Bun.file(manifestPath("stale")).exists()).toBe(false)
+      expect(await Bun.file(controlPath("stale")).exists()).toBe(false)
+      expect(await Bun.file(controlPath("orphan")).exists()).toBe(false)
+    })
+    const listed = spawn(["list"], root)
+    expect(await listed.exited).toBe(0)
+    expect(await new Response(listed.stdout).text()).toBe(
+      `alpha: ${join(root, "registry", "alpha.json")}\nzeta: ${join(root, "registry", "zeta.json")}\n`,
+    )
+  })
+
+  test("reports optional-name discovery errors", async () => {
+    const root = await temporary()
+    const missing = spawn(["logs"], root)
+    expect(await missing.exited).toBe(1)
+    expect(await new Response(missing.stderr).text()).toContain(
+      "no drive instances are running",
+    )
   })
 
   test("runs multiple named instances concurrently", async () => {
@@ -152,6 +297,39 @@ describe("opencode-drive", () => {
       await spawn(["send", "--name", "second", "--command.ui.state"], root)
         .exited,
     ).toBe(0)
+
+    const ambiguous = spawn(["logs"], root)
+    const [status, stderr] = await Promise.all([
+      ambiguous.exited,
+      new Response(ambiguous.stderr).text(),
+    ])
+    expect(status).toBe(1)
+    expect(stderr).toContain(
+      "multiple drive instances are running; pass --name (first, second)",
+    )
+    const listed = spawn(["list"], root)
+    expect(await listed.exited).toBe(0)
+    expect(await new Response(listed.stdout).text()).toBe(
+      `first: ${join(root, "registry", "first.json")}\nsecond: ${join(root, "registry", "second.json")}\n`,
+    )
+  })
+
+  test("surfaces the owner log when detached startup fails", async () => {
+    const root = await temporary()
+    const name = "failed-start"
+    const child = spawn(
+      ["start", "--name", name, "--", process.execPath, "-e", "process.exit(7)"],
+      root,
+    )
+    const [status, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+    ])
+    expect(status).toBe(1)
+    expect(stderr).toContain(`see ${join(root, "registry", `${name}.log`)}`)
+    expect(
+      await Bun.file(join(root, "registry", `${name}.log`)).text(),
+    ).toContain("OpenCode exited with status 7")
   })
 
   test("keeps visible instances in the foreground", async () => {
@@ -216,6 +394,184 @@ describe("opencode-drive", () => {
     const root = await temporary()
     expect(await spawn(["send", "--command.llm.pending"], root).exited).toBe(1)
   })
+
+  test("generates configured tool calls from offered schemas", () => {
+    const settings = createResponseSettings()
+    settings.update({ types: ["tool"], tools: ["read"] })
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "shell",
+          parameters: {
+            type: "object",
+            properties: { command: { type: "string" } },
+            required: ["command"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "read",
+          parameters: {
+            type: "object",
+            properties: {
+              path: { type: "string" },
+              offset: { type: "integer" },
+              limit: { type: "integer" },
+            },
+            required: ["path", "offset", "limit"],
+          },
+        },
+      },
+    ]
+    const response = generateResponse(settings.current(), {
+      id: "ex_1",
+      url: "https://api.openai.com/v1/chat/completions",
+      body: { tools },
+    })
+    expect(response.finish).toBe("tool-calls")
+    expect(response.items).toEqual([
+      {
+        type: "toolCall",
+        index: 0,
+        id: expect.stringMatching(/^call_[a-f0-9]{16}$/),
+        name: "read",
+        input: {
+          path: ".opencode/opencode.jsonc",
+          offset: 1,
+          limit: 120,
+        },
+      },
+    ])
+
+    settings.update({ types: ["tool"], tools: ["shell", "read"] })
+    const multiple = generateResponse(settings.current(), {
+      id: "ex_2",
+      url: "https://api.openai.com/v1/chat/completions",
+      body: { tools },
+    })
+    expect(multiple.items).toHaveLength(2)
+    expect(multiple.items).toMatchObject([
+      { type: "toolCall", index: 0, name: "shell" },
+      { type: "toolCall", index: 1, name: "read" },
+    ])
+  })
+
+  test("generates patches and finishes tool continuations with text", () => {
+    const settings = createResponseSettings()
+    settings.update({ types: ["diff"], tools: ["apply_patch"] })
+    const body = {
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "apply_patch",
+            parameters: {
+              type: "object",
+              properties: { patchText: { type: "string" } },
+              required: ["patchText"],
+            },
+          },
+        },
+      ],
+    }
+    const response = generateResponse(settings.current(), {
+      id: "ex_1",
+      url: "https://api.openai.com/v1/chat/completions",
+      body,
+    })
+    expect(response.finish).toBe("tool-calls")
+    expect(response.items[0]).toMatchObject({
+      type: "toolCall",
+      name: "apply_patch",
+      input: {
+        patchText: expect.stringMatching(
+          /\n-export function greet\([^)]+\)[\s\S]+\n\+export function greet\(/,
+        ),
+      },
+    })
+
+    const continuation = generateResponse(settings.current(), {
+      id: "ex_2",
+      url: "https://api.openai.com/v1/chat/completions",
+      body: { ...body, messages: [{ role: "tool", content: "done" }] },
+    })
+    expect(continuation.finish).toBe("stop")
+    expect(continuation.items[0]).toMatchObject({ type: "textDelta" })
+
+    const laterTurn = generateResponse(settings.current(), {
+      id: "ex_later",
+      url: "https://api.openai.com/v1/chat/completions",
+      body: {
+        ...body,
+        messages: [
+          { role: "tool", content: "done" },
+          { role: "assistant", content: "Finished." },
+          { role: "user", content: "Make another change." },
+        ],
+      },
+    })
+    expect(laterTurn.finish).toBe("tool-calls")
+
+    settings.update({ types: ["diff"], tools: ["edit", "write"] })
+    const write = generateResponse(settings.current(), {
+      id: "ex_3",
+      url: "https://api.openai.com/v1/chat/completions",
+      body: {
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "edit",
+              parameters: {
+                type: "object",
+                properties: {
+                  path: { type: "string" },
+                  oldString: { type: "string" },
+                  newString: { type: "string" },
+                },
+                required: ["path", "oldString", "newString"],
+              },
+            },
+          },
+          {
+            type: "function",
+            function: {
+              name: "write",
+              parameters: {
+                type: "object",
+                properties: {
+                  path: { type: "string" },
+                  content: { type: "string" },
+                },
+                required: ["path", "content"],
+              },
+            },
+          },
+        ],
+      },
+    })
+    expect(write.items[0]).toMatchObject({
+      type: "toolCall",
+      name: "write",
+      input: {
+        path: "src/garden.js",
+        content: expect.stringContaining("export function greet"),
+      },
+    })
+  })
+
+  test("splits generated prose into small streaming chunks", () => {
+    const text = "Mushrooms gather quietly while flowers map the path home."
+    const chunks = splitText(text)
+    expect(chunks.join("")).toBe(text)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.every((chunk) => chunk.trim().split(/\s+/).length <= 3)).toBe(
+      true,
+    )
+  })
 })
 
 function spawn(args: ReadonlyArray<string>, root: string) {
@@ -274,5 +630,38 @@ function running(pid: number) {
     return true
   } catch {
     return false
+  }
+}
+
+function testManifest(
+  name: string,
+  pid: number,
+  status: "starting" | "ready" = "ready",
+) {
+  return {
+    version: 1 as const,
+    name,
+    pid,
+    startedAt: new Date().toISOString(),
+    cwd: process.cwd(),
+    artifacts: join(tmpdir(), name),
+    visible: false,
+    status,
+    endpoints: {
+      ui: "ws://127.0.0.1:1",
+      backend: "ws://127.0.0.1:2",
+    },
+    control: join(tmpdir(), `${name}.sock`),
+  }
+}
+
+async function withRegistry<T>(root: string, task: () => Promise<T>) {
+  const previous = process.env.DRIVE_REGISTRY_DIR
+  process.env.DRIVE_REGISTRY_DIR = join(root, "registry")
+  try {
+    return await task()
+  } finally {
+    if (previous === undefined) delete process.env.DRIVE_REGISTRY_DIR
+    else process.env.DRIVE_REGISTRY_DIR = previous
   }
 }

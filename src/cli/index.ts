@@ -4,23 +4,29 @@ import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/unstable/cli"
 import { api } from "./api.js"
 import { extractCommands } from "./parse.js"
+import { list } from "./list.js"
+import { logs } from "./logs.js"
+import { restart } from "./restart.js"
+import { responses } from "./responses.js"
 import { send } from "./send.js"
 import { start } from "./start.js"
-import { restart } from "./restart.js"
 import { stop } from "./stop.js"
-import { describe } from "./describe.js"
 import type { DriveCommand, SendOptions, StartOptions } from "./types.js"
 
 const extracted = extract()
-const name = Flag.string("name").pipe(
+const startName = Flag.string("name").pipe(
   Flag.withDefault("default"),
   Flag.withDescription("Instance name"),
+)
+const name = Flag.string("name").pipe(
+  Flag.optional,
+  Flag.withDescription("Instance name (inferred when exactly one is running)"),
 )
 
 const startCommand = Command.make(
   "start",
   {
-    name,
+    name: startName,
     daemon: Flag.boolean("daemon").pipe(
       Flag.withDescription("Run as detached instance owner"),
     ),
@@ -64,7 +70,13 @@ const startCommand = Command.make(
 
 const sendCommand = Command.make("send", { name }, (config) =>
   execute(() =>
-    send(toSendOptions(config.name, extracted.commands, extracted.app)),
+    send(
+      toSendOptions(
+        Option.getOrUndefined(config.name),
+        extracted.commands,
+        extracted.app,
+      ),
+    ),
   ),
 ).pipe(
   Command.withDescription("Send UI commands to OpenCode on the default port"),
@@ -82,7 +94,7 @@ const apiCommand = Command.make("api", {}, () => execute(api)).pipe(
 )
 
 const restartCommand = Command.make("restart", { name }, (config) =>
-  execute(() => restart(config.name)),
+  execute(() => restart(Option.getOrUndefined(config.name))),
 ).pipe(
   Command.withDescription(
     "Restart a named OpenCode instance and rerun its script",
@@ -90,19 +102,48 @@ const restartCommand = Command.make("restart", { name }, (config) =>
 )
 
 const stopCommand = Command.make("stop", { name }, (config) =>
-  execute(() => stop(config.name)),
+  execute(() => stop(Option.getOrUndefined(config.name))),
 ).pipe(Command.withDescription("Stop a named OpenCode instance"))
 
-const describeCommand = Command.make("describe", { name }, (config) =>
-  execute(() => describe(config.name)),
-).pipe(Command.withDescription("Describe a named OpenCode instance"))
+const logsCommand = Command.make("logs", { name }, (config) =>
+  execute(() => logs(Option.getOrUndefined(config.name))),
+).pipe(Command.withDescription("List log files for a named OpenCode instance"))
+
+const listCommand = Command.make("list", {}, () => execute(list)).pipe(
+  Command.withDescription("List active OpenCode instances"),
+)
+
+const responsesCommand = Command.make(
+  "responses",
+  {
+    name,
+    types: Flag.string("types").pipe(
+      Flag.optional,
+      Flag.withDescription("Comma-delimited response types"),
+    ),
+    tools: Flag.string("tools").pipe(
+      Flag.optional,
+      Flag.withDescription("Comma-delimited tool names, or * for all tools"),
+    ),
+  },
+  (config) =>
+    execute(() =>
+      responses({
+        name: Option.getOrUndefined(config.name),
+        types: Option.getOrUndefined(config.types),
+        tools: Option.getOrUndefined(config.tools),
+      }),
+    ),
+).pipe(Command.withDescription("Configure simulated LLM response generation"))
 
 const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
   Command.withSubcommands([
     startCommand,
     sendCommand,
-    describeCommand,
+    listCommand,
+    responsesCommand,
+    logsCommand,
     restartCommand,
     stopCommand,
     apiCommand,
@@ -144,7 +185,7 @@ function toStartOptions(
 }
 
 function toSendOptions(
-  name: string,
+  name: string | undefined,
   commands: ReadonlyArray<DriveCommand>,
   app: ReadonlyArray<string>,
 ): SendOptions {

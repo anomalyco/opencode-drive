@@ -191,6 +191,7 @@ export namespace Backend {
     }),
     Schema.Struct({
       type: Schema.Literal("toolCall"),
+      index: Schema.Number,
       id: Schema.String,
       name: Schema.String,
       input: Schema.Json,

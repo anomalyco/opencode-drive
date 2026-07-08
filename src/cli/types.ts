@@ -16,7 +16,7 @@ export interface StartOptions {
 
 export interface SendOptions {
   readonly kind: "send"
-  readonly name: string
+  readonly name?: string
   readonly commands: ReadonlyArray<DriveCommand>
 }
 
