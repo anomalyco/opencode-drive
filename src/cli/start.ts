@@ -1,4 +1,4 @@
-import { launchInstance } from "./instance.js"
+import { initializeInstance, launchInstance } from "./instance.js"
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { connectSimulation } from "../client/index.js"
@@ -12,6 +12,7 @@ import {
   controlPath,
   markReady,
   markStarting,
+  initializeManifest,
   register,
   registryDirectory,
   resolveInstance,
@@ -20,11 +21,12 @@ import {
 import type { StartOptions } from "./types.js"
 
 export async function start(options: StartOptions) {
-  if (!options.visible && !options.script && !options.daemon)
-    return startDetached(options)
+  const initialized = await initializeManifest(options.name, process.cwd(), initializeInstance)
+  if (!options.visible && !options.script && !options.daemon) return startDetached(options)
   const script = options.script ? await loadScript(options.script) : undefined
   const responses = createResponseSettings()
   const instance = await launchInstance({
+    artifacts: initialized.artifacts,
     name: options.name,
     command: options.command,
     dev: options.dev,
@@ -56,8 +58,7 @@ export async function start(options: StartOptions) {
   let driveReady = false
   let recording: Promise<string | undefined> | undefined
   const finishCurrentRecording = (onProgress?: (percent: number) => void) => {
-    if (!options.record || options.visible || !driveReady)
-      return Promise.resolve(undefined)
+    if (!options.record || options.visible || !driveReady) return Promise.resolve(undefined)
     recording ??= finishRecording(instance, onProgress)
     return recording
   }
@@ -104,9 +105,7 @@ export async function start(options: StartOptions) {
           driveReady = false
           await instance.restart()
           recording = undefined
-          current = run(options, instance, responses, script?.run, (path) =>
-            screenshots.push(path),
-          )
+          current = run(options, instance, responses, script?.run, (path) => screenshots.push(path))
           await current.ready
           driveReady = true
           await markReady(options.name, process.pid)
@@ -123,9 +122,7 @@ export async function start(options: StartOptions) {
         return responses.update(input)
       },
     })
-    current = run(options, instance, responses, script?.run, (path) =>
-      screenshots.push(path),
-    )
+    current = run(options, instance, responses, script?.run, (path) => screenshots.push(path))
     await current.ready
     driveReady = true
     await markReady(options.name, process.pid)
@@ -170,10 +167,8 @@ export async function start(options: StartOptions) {
     await closeControl?.()
     await instance.stop()
     await unregister(options.name, process.pid)
-    if (options.script && !options.visible)
-      report(instance, completed ? "completed" : undefined)
-    if (options.script && recordingPath)
-      console.error(`opencode-drive: recording ${recordingPath}`)
+    if (options.script && !options.visible) report(instance, completed ? "completed" : undefined)
+    if (options.script && recordingPath) console.error(`opencode-drive: recording ${recordingPath}`)
   }
 }
 
@@ -187,7 +182,10 @@ async function finishRecording(
   if (instance.child.exitCode !== null) {
     timeline = expected.timeline
   } else {
-    const ui = await connectSimulation({ url: instance.endpoints.ui, timeout: 60_000 })
+    const ui = await connectSimulation({
+      url: instance.endpoints.ui,
+      timeout: 60_000,
+    })
     try {
       timeline = await ui.finishRecording()
     } finally {
@@ -204,8 +202,7 @@ async function finishRecording(
 
 async function startDetached(options: StartOptions) {
   const existing = await resolveInstance(options.name, { ready: false }).catch(() => undefined)
-  if (existing)
-    throw new Error(`drive instance "${options.name}" is already running`)
+  if (existing) throw new Error(`drive instance "${options.name}" is already running`)
   const ownerLog = join(registryDirectory(), `${options.name}.log`)
   await mkdir(registryDirectory(), { recursive: true })
   await rm(ownerLog, { force: true })
@@ -242,15 +239,11 @@ async function startDetached(options: StartOptions) {
       return
     }
     if (child.exitCode !== null)
-      throw new Error(
-        `detached instance exited with status ${child.exitCode}; see ${ownerLog}`,
-      )
+      throw new Error(`detached instance exited with status ${child.exitCode}; see ${ownerLog}`)
     await Bun.sleep(50)
   }
   await terminateOwner(child)
-  throw new Error(
-    `timed out starting drive instance "${options.name}"; see ${ownerLog}`,
-  )
+  throw new Error(`timed out starting drive instance "${options.name}"; see ${ownerLog}`)
 }
 
 async function terminateOwner(child: Bun.Subprocess) {
@@ -306,7 +299,9 @@ function run(
       }
       const mock = await connectMockBackend(instance.endpoints.backend, responses)
       ready()
-      abort.signal.addEventListener("abort", () => mock.close(), { once: true })
+      abort.signal.addEventListener("abort", () => mock.close(), {
+        once: true,
+      })
       const status = await Promise.race([
         child.exited,
         new Promise<number>((resolve) =>
@@ -321,10 +316,7 @@ function run(
   }
 }
 
-function report(
-  instance: { readonly artifacts: string; readonly logs: string },
-  status?: string,
-) {
+function report(instance: { readonly artifacts: string; readonly logs: string }, status?: string) {
   if (status) console.error(`opencode-drive: ${status}`)
   console.error(`opencode-drive: artifacts ${instance.artifacts}`)
 }

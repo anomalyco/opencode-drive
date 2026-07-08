@@ -4,6 +4,7 @@ import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/unstable/cli"
 import packageJson from "../../package.json" with { type: "json" }
 import { extractCommands } from "./parse.js"
+import { init } from "./init.js"
 import { list } from "./list.js"
 import { logs } from "./logs.js"
 import { restart } from "./restart.js"
@@ -15,12 +16,23 @@ import type { DriveCommand, SendOptions, StartOptions } from "./types.js"
 
 const extracted = extract()
 const startName = Flag.string("name").pipe(
-  Flag.withDefault("default"),
   Flag.withDescription("Instance name"),
 )
 const name = Flag.string("name").pipe(
   Flag.optional,
   Flag.withDescription("Instance name (inferred when exactly one is running)"),
+)
+
+const initCommand = Command.make("init", { name: startName }, (config) =>
+  execute(() => init(config.name)),
+).pipe(
+  Command.withDescription("Initialize an instance without launching OpenCode"),
+  Command.withExamples([
+    {
+      command: "opencode-drive init --name demo",
+      description: "Create an instance and print its artifact directory",
+    },
+  ]),
 )
 
 const startCommand = Command.make(
@@ -35,9 +47,7 @@ const startCommand = Command.make(
       Flag.optional,
       Flag.withDescription("JavaScript or TypeScript automation module"),
     ),
-    visible: Flag.boolean("visible").pipe(
-      Flag.withDescription("Show OpenCode in the terminal"),
-    ),
+    visible: Flag.boolean("visible").pipe(Flag.withDescription("Show OpenCode in the terminal")),
     record: Flag.boolean("record").pipe(
       Flag.withDescription("Record the complete headless session and export it on stop"),
     ),
@@ -46,23 +56,20 @@ const startCommand = Command.make(
       Flag.withDescription("Path to an OpenCode development checkout"),
     ),
   },
-  (config) =>
-    execute(() =>
-      start(toStartOptions(config, extracted.commands, extracted.app)),
-    ),
+  (config) => execute(() => start(toStartOptions(config, extracted.commands, extracted.app))),
 ).pipe(
   Command.withDescription("Launch a local simulated OpenCode instance"),
   Command.withExamples([
     {
-      command: "opencode-drive start",
+      command: "opencode-drive start --name demo",
       description: "Launch headless OpenCode on the default ports",
     },
     {
-      command: "opencode-drive start --visible",
+      command: "opencode-drive start --name demo --visible",
       description: "Launch visible OpenCode on the default ports",
     },
     {
-      command: "opencode-drive start --script ./drive.ts",
+      command: "opencode-drive start --name demo --script ./drive.ts",
       description: "Launch headless OpenCode and run a script",
     },
   ]),
@@ -70,20 +77,13 @@ const startCommand = Command.make(
 
 const sendCommand = Command.make("send", { name }, (config) =>
   execute(() =>
-    send(
-      toSendOptions(
-        Option.getOrUndefined(config.name),
-        extracted.commands,
-        extracted.app,
-      ),
-    ),
+    send(toSendOptions(Option.getOrUndefined(config.name), extracted.commands, extracted.app)),
   ),
 ).pipe(
   Command.withDescription("Send UI commands to OpenCode on the default port"),
   Command.withExamples([
     {
-      command:
-        'opencode-drive send --command.ui.type \'{"text":"hello"}\' --command.ui.state',
+      command: 'opencode-drive send --command.ui.type \'{"text":"hello"}\' --command.ui.state',
       description: "Execute an ordered UI command batch",
     },
   ]),
@@ -101,11 +101,7 @@ const screenshotCommand = Command.make("screenshot", { name }, (config) =>
 
 const restartCommand = Command.make("restart", { name }, (config) =>
   execute(() => restart(Option.getOrUndefined(config.name))),
-).pipe(
-  Command.withDescription(
-    "Restart a named OpenCode instance and rerun its script",
-  ),
-)
+).pipe(Command.withDescription("Restart a named OpenCode instance and rerun its script"))
 
 const stopCommand = Command.make("stop", { name }, (config) =>
   execute(() => stop(Option.getOrUndefined(config.name))),
@@ -145,6 +141,7 @@ const responsesCommand = Command.make(
 const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
   Command.withSubcommands([
+    initCommand,
     startCommand,
     sendCommand,
     screenshotCommand,
@@ -203,9 +200,7 @@ function execute(task: () => Promise<void>) {
   return Effect.tryPromise({ try: task, catch: (error) => error }).pipe(
     Effect.catch((error) =>
       Effect.sync(() => {
-        console.error(
-          `error: ${error instanceof Error ? error.message : String(error)}`,
-        )
+        console.error(`error: ${error instanceof Error ? error.message : String(error)}`)
         process.exitCode = 1
       }),
     ),
@@ -216,9 +211,7 @@ function extract() {
   try {
     return extractCommands(process.argv.slice(2))
   } catch (error) {
-    console.error(
-      `opencode-drive: ${error instanceof Error ? error.message : String(error)}`,
-    )
+    console.error(`opencode-drive: ${error instanceof Error ? error.message : String(error)}`)
     return process.exit(1)
   }
 }

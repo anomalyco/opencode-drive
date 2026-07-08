@@ -2,14 +2,15 @@
 
 This project gives your agents control over OpenCode:
 
-* Run it during development and let your agents see and poke at the running instance
-* Allow your agents to run it in headless mode and drive it to test things
+- Run it during development and let your agents see and poke at the running instance
+- Allow your agents to run it in headless mode and drive it to test things
 
 ## Skill
 
 ```sh
 npx skills add jlongster/opencode-drive --agent opencode --skill opencode-drive
 ```
+
 ## OpenCode development
 
 Run this:
@@ -33,8 +34,19 @@ If you are doing UI development in OpenCode, you might want to run it in a simul
 Run it in visible mode:
 
 ```sh
-opencode-drive start --visible --dev ~/projects/opencode
+opencode-drive start --name demo --visible --dev ~/projects/opencode
 ```
+
+Initialize first when you need to customize the isolated environment before OpenCode starts:
+
+```sh
+artifacts=$(opencode-drive init --name demo)
+cp -R ./fixtures/home/. "$artifacts/"
+cp -R ./fixtures/project/. "$artifacts/files/"
+opencode-drive start --name demo --visible --dev ~/projects/opencode
+```
+
+`start` reuses the prepared artifacts for that name. If `init` was not run, `start` initializes them automatically.
 
 While developing, you can run `opencode-drive restart` to restart only the UI (the server will persist as a separate process). Do this with agents, and they will always restart and get the UI where you want it to be automatically.
 

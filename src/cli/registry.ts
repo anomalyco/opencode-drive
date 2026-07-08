@@ -15,6 +15,17 @@ export interface InstanceManifest {
   readonly control: string
 }
 
+export interface InitializedManifest {
+  readonly version: 1
+  readonly name: string
+  readonly createdAt: string
+  readonly cwd: string
+  readonly artifacts: string
+  readonly status: "initialized"
+}
+
+export type Manifest = InstanceManifest | InitializedManifest
+
 export function registryDirectory() {
   return (
     process.env.DRIVE_REGISTRY_DIR ??
@@ -34,10 +45,38 @@ export function controlPath(name: string) {
   return join(registryDirectory(), `${validateName(name)}.sock`)
 }
 
+export async function initializeManifest(name: string, cwd: string, create: () => Promise<string>) {
+  let initialized: InitializedManifest | undefined
+  await withLock(name, false, async () => {
+    const existing = await read(manifestPath(name))
+    if (existing?.status === "initialized") {
+      initialized = existing
+      return
+    }
+    if (existing && alive(existing.pid))
+      throw new Error(`drive instance "${name}" is already running`)
+    initialized = {
+      version: 1,
+      name,
+      createdAt: new Date().toISOString(),
+      cwd,
+      artifacts: await create(),
+      status: "initialized",
+    }
+    await Promise.all([
+      rm(manifestPath(name), { force: true }),
+      rm(controlPath(name), { force: true }),
+    ])
+    await write(initialized)
+  })
+  if (!initialized) throw new Error(`failed to initialize drive instance "${name}"`)
+  return initialized
+}
+
 export async function register(manifest: InstanceManifest) {
   await withLock(manifest.name, false, async () => {
     const existing = await read(manifestPath(manifest.name))
-    if (existing && alive(existing.pid))
+    if (existing && existing.status !== "initialized" && alive(existing.pid))
       throw new Error(`drive instance "${manifest.name}" is already running`)
     await Promise.all([
       rm(manifestPath(manifest.name), { force: true }),
@@ -55,23 +94,16 @@ export async function markStarting(name: string, pid: number) {
   await markStatus(name, pid, "starting")
 }
 
-async function markStatus(
-  name: string,
-  pid: number,
-  status: InstanceManifest["status"],
-) {
+async function markStatus(name: string, pid: number, status: InstanceManifest["status"]) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
-    if (!manifest || manifest.pid !== pid)
+    if (!manifest || manifest.status === "initialized" || manifest.pid !== pid)
       throw new Error(`drive instance "${name}" changed ownership`)
     await write({ ...manifest, status })
   })
 }
 
-export async function resolveInstance(
-  name?: string,
-  options: { readonly ready?: boolean } = {},
-) {
+export async function resolveInstance(name?: string, options: { readonly ready?: boolean } = {}) {
   const instances = await listInstances()
   const manifest = name
     ? instances.find((item) => item.name === name)
@@ -84,9 +116,7 @@ export async function resolveInstance(
         `multiple drive instances are running; pass --name (${instances.map((item) => item.name).join(", ")})`,
       )
     throw new Error(
-      name
-        ? `drive instance "${name}" was not found`
-        : "no drive instances are running",
+      name ? `drive instance "${name}" was not found` : "no drive instances are running",
     )
   }
   if (options.ready !== false && manifest.status !== "ready")
@@ -95,6 +125,12 @@ export async function resolveInstance(
 }
 
 export async function listInstances() {
+  return (await listManifests()).filter(
+    (manifest): manifest is InstanceManifest => manifest.status !== "initialized",
+  )
+}
+
+export async function listManifests() {
   await mkdir(registryDirectory(), { recursive: true })
   const files = await readdir(registryDirectory())
   const manifests = await Promise.all(
@@ -107,22 +143,21 @@ export async function listInstances() {
           return undefined
         }
         const manifest = await read(join(registryDirectory(), file))
-        if (manifest?.name === name && alive(manifest.pid)) return manifest
-        await prune(name, manifest?.pid)
+        if (manifest?.name === name) {
+          if (manifest.status === "initialized" || alive(manifest.pid)) return manifest
+        }
+        await prune(name, manifest?.status === "initialized" ? undefined : manifest?.pid)
         return undefined
       }),
   )
-  const active = manifests.filter(
-    (manifest): manifest is InstanceManifest => manifest !== undefined,
-  )
+  const active = manifests.filter((manifest): manifest is Manifest => manifest !== undefined)
   const names = new Set(active.map((manifest) => manifest.name))
   await Promise.all(
     files
       .filter((file) => file.endsWith(".sock"))
       .flatMap((file) => {
         const name = basename(file, ".sock")
-        if (!validName(name))
-          return [rm(join(registryDirectory(), file), { force: true })]
+        if (!validName(name)) return [rm(join(registryDirectory(), file), { force: true })]
         if (!names.has(name)) return [prune(name)]
         return []
       }),
@@ -133,7 +168,7 @@ export async function listInstances() {
 export async function unregister(name: string, pid: number) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
-    if (manifest?.pid !== pid) return
+    if (!manifest || manifest.status === "initialized" || manifest.pid !== pid) return
     await Promise.all([
       rm(manifestPath(name), { force: true }),
       rm(controlPath(name), { force: true }),
@@ -144,6 +179,7 @@ export async function unregister(name: string, pid: number) {
 async function prune(name: string, pid?: number) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
+    if (manifest?.status === "initialized") return
     if (manifest && (manifest.pid !== pid || alive(manifest.pid))) return
     await Promise.all([
       rm(manifestPath(name), { force: true }),
@@ -152,7 +188,7 @@ async function prune(name: string, pid?: number) {
   })
 }
 
-async function write(manifest: InstanceManifest) {
+async function write(manifest: Manifest) {
   const file = manifestPath(manifest.name)
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`
   try {
@@ -163,7 +199,7 @@ async function write(manifest: InstanceManifest) {
   }
 }
 
-async function read(file: string): Promise<InstanceManifest | undefined> {
+async function read(file: string): Promise<Manifest | undefined> {
   const value: unknown = await Bun.file(file)
     .json()
     .catch(() => undefined)
@@ -171,11 +207,7 @@ async function read(file: string): Promise<InstanceManifest | undefined> {
   return undefined
 }
 
-async function withLock(
-  name: string,
-  wait: boolean,
-  task: () => Promise<void>,
-) {
+async function withLock(name: string, wait: boolean, task: () => Promise<void>) {
   await mkdir(registryDirectory(), { recursive: true })
   const lock = `${manifestPath(name)}.lock`
   const deadline = Date.now() + 10_000
@@ -198,10 +230,8 @@ async function withLock(
       await rm(lock, { force: true })
       continue
     }
-    if (!wait)
-      throw new Error(`drive instance "${name}" is already starting`)
-    if (Date.now() >= deadline)
-      throw new Error(`timed out updating drive instance "${name}"`)
+    if (!wait) throw new Error(`drive instance "${name}" is already starting`)
+    if (Date.now() >= deadline) throw new Error(`timed out updating drive instance "${name}"`)
     await Bun.sleep(10)
   }
 }
@@ -216,28 +246,28 @@ async function staleLock(file: string) {
   return Number.isInteger(pid) && !alive(pid)
 }
 
-function isManifest(value: unknown): value is InstanceManifest {
+function isManifest(value: unknown): value is Manifest {
   if (typeof value !== "object" || value === null) return false
   if (!("version" in value) || value.version !== 1) return false
   if (!("name" in value) || typeof value.name !== "string") return false
+  if ("status" in value && value.status === "initialized")
+    return (
+      "createdAt" in value &&
+      typeof value.createdAt === "string" &&
+      "cwd" in value &&
+      typeof value.cwd === "string" &&
+      "artifacts" in value &&
+      typeof value.artifacts === "string"
+    )
   if (!("pid" in value) || typeof value.pid !== "number") return false
-  if (!("startedAt" in value) || typeof value.startedAt !== "string")
-    return false
+  if (!("startedAt" in value) || typeof value.startedAt !== "string") return false
   if (!("cwd" in value) || typeof value.cwd !== "string") return false
-  if (!("artifacts" in value) || typeof value.artifacts !== "string")
-    return false
+  if (!("artifacts" in value) || typeof value.artifacts !== "string") return false
   if (!("visible" in value) || typeof value.visible !== "boolean") return false
-  if (
-    !("status" in value) ||
-    (value.status !== "starting" && value.status !== "ready")
-  )
+  if (!("status" in value) || (value.status !== "starting" && value.status !== "ready"))
     return false
   if (!("control" in value) || typeof value.control !== "string") return false
-  if (
-    !("endpoints" in value) ||
-    typeof value.endpoints !== "object" ||
-    value.endpoints === null
-  )
+  if (!("endpoints" in value) || typeof value.endpoints !== "object" || value.endpoints === null)
     return false
   return (
     "ui" in value.endpoints &&

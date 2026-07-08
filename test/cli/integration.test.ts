@@ -9,10 +9,7 @@ import {
   register,
   unregister,
 } from "../../src/cli/registry.js"
-import {
-  createResponseSettings,
-  generateResponse,
-} from "../../src/cli/response-generator.js"
+import { createResponseSettings, generateResponse } from "../../src/cli/response-generator.js"
 import { splitText } from "../../src/cli/mock-backend.js"
 
 const roots: string[] = []
@@ -24,25 +21,72 @@ afterEach(async () => {
       await spawn(["stop", "--name", name], root).exited
     }),
   )
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
-  )
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
 
 describe("opencode-drive", () => {
+  test("requires an explicit name to initialize or start", async () => {
+    const root = await temporary()
+    for (const command of ["init", "start"]) {
+      const child = spawn([command], root)
+      expect(await child.exited).toBe(1)
+      expect(await new Response(child.stderr).text()).toContain("--name")
+    }
+  })
+
+  test("initializes artifacts and starts from the prepared instance", async () => {
+    const root = await temporary()
+    const name = "initialized-test"
+    const initialized = spawn(["init", "--name", name], root)
+    const [initStatus, initOutput] = await Promise.all([
+      initialized.exited,
+      new Response(initialized.stdout).text(),
+    ])
+    expect(initStatus).toBe(0)
+    const artifacts = initOutput.trim()
+    roots.push(artifacts)
+    expect(await Bun.file(join(artifacts, "files", ".opencode", "opencode.jsonc")).exists()).toBe(
+      true,
+    )
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).json()).toMatchObject({
+      name,
+      artifacts,
+      status: "initialized",
+    })
+    const repeated = spawn(["init", "--name", name], root)
+    expect(await repeated.exited).toBe(0)
+    expect((await new Response(repeated.stdout).text()).trim()).toBe(artifacts)
+    const listed = spawn(["list"], root)
+    expect(await listed.exited).toBe(0)
+    expect(await new Response(listed.stdout).text()).toBe(
+      `${name}: ${join(root, "registry", `${name}.json`)}\n`,
+    )
+
+    await Bun.write(join(artifacts, "prepared.txt"), "prepared before start\n")
+    const started = spawn(
+      ["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")],
+      root,
+    )
+    const [startStatus, startError] = await Promise.all([
+      started.exited,
+      new Response(started.stderr).text(),
+    ])
+    expect(startStatus).toBe(0)
+    expect(startError).toContain(`opencode-drive: artifacts ${artifacts}`)
+    instances.push({ root, name })
+    expect(await Bun.file(join(artifacts, "prepared.txt")).text()).toBe("prepared before start\n")
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).json()).toMatchObject({
+      name,
+      artifacts,
+      status: "ready",
+    })
+  })
+
   test("starts, drives, lists logs, restarts, and stops a named detached instance", async () => {
     const root = await temporary()
     const name = "detached-test"
     const started = spawn(
-      [
-        "start",
-        "--name",
-        name,
-        "--record",
-        "--",
-        process.execPath,
-        fixture("fake-opencode.ts"),
-      ],
+      ["start", "--name", name, "--record", "--", process.execPath, fixture("fake-opencode.ts")],
       root,
     )
     const [startStatus, startError] = await Promise.all([
@@ -54,9 +98,7 @@ describe("opencode-drive", () => {
     expect(startError).not.toContain(`opencode-drive: ${name}`)
     instances.push({ root, name })
 
-    const manifest = await Bun.file(
-      join(root, "registry", `${name}.json`),
-    ).json()
+    const manifest = await Bun.file(join(root, "registry", `${name}.json`)).json()
     roots.push(manifest.artifacts)
     expect(manifest.visible).toBe(false)
     expect(manifest.endpoints.ui).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
@@ -64,18 +106,12 @@ describe("opencode-drive", () => {
 
     const state = spawn(["send", "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
-    expect(
-      JSON.parse(await new Response(state.stdout).text()).focused.editor,
-    ).toBe(true)
+    expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
 
     const screenshot = spawn(["screenshot", "--name", name], root)
     expect(await screenshot.exited).toBe(0)
     const screenshotPath = (await new Response(screenshot.stdout).text()).trim()
-    expect(
-      screenshotPath.startsWith(
-        `${join(root, "output")}/screenshot-`,
-      ),
-    ).toBe(true)
+    expect(screenshotPath.startsWith(`${join(root, "output")}/screenshot-`)).toBe(true)
     expect(screenshotPath.endsWith(".png")).toBe(true)
 
     const defaults = spawn(["responses"], root)
@@ -85,13 +121,7 @@ describe("opencode-drive", () => {
     )
 
     const configured = spawn(
-      [
-        "responses",
-        "--types",
-        "reasoning,tool,reasoning",
-        "--tools",
-        "read,grep,read",
-      ],
+      ["responses", "--types", "reasoning,tool,reasoning", "--tools", "read,grep,read"],
       root,
     )
     expect(await configured.exited).toBe(0)
@@ -101,9 +131,7 @@ describe("opencode-drive", () => {
 
     const invalid = spawn(["responses", "--types", "unknown"], root)
     expect(await invalid.exited).toBe(1)
-    expect(await new Response(invalid.stderr).text()).toContain(
-      "unknown response types: unknown",
-    )
+    expect(await new Response(invalid.stderr).text()).toContain("unknown response types: unknown")
 
     const listed = spawn(["logs"], root)
     expect(await listed.exited).toBe(0)
@@ -122,9 +150,7 @@ describe("opencode-drive", () => {
     expect(await new Response(persisted.stdout).text()).toBe(
       "Types: reasoning,tool\nTools: read,grep\n",
     )
-    expect(
-      await spawn(["send", "--name", name, "--command.ui.state"], root).exited,
-    ).toBe(0)
+    expect(await spawn(["send", "--name", name, "--command.ui.state"], root).exited).toBe(0)
 
     const stopped = spawn(["stop"], root)
     const [stoppedStatus, stoppedOutput, stoppedError] = await Promise.all([
@@ -134,20 +160,14 @@ describe("opencode-drive", () => {
     ])
     expect(stoppedStatus).toBe(0)
     expect(stoppedOutput).toBe("")
-    const stoppedRecording = stoppedError.match(
-      /Video successfully created: (.+\.mp4)/,
-    )?.[1]
+    const stoppedRecording = stoppedError.match(/Video successfully created: (.+\.mp4)/)?.[1]
     expect(stoppedRecording).toBeDefined()
     expect(stoppedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
     expect(await Bun.file(stoppedRecording!).exists()).toBe(true)
     expect(stoppedError).toContain("Rendering video: 10%")
     expect(stoppedError).toContain("Rendering video: 100%")
-    expect(stoppedError).toContain(
-      `Video successfully created: ${stoppedRecording}`,
-    )
-    expect(
-      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
-    ).toBe(false)
+    expect(stoppedError).toContain(`Video successfully created: ${stoppedRecording}`)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
     instances.splice(
       instances.findIndex((item) => item.name === name),
       1,
@@ -158,10 +178,22 @@ describe("opencode-drive", () => {
     const root = await temporary()
     const name = "exited-recording-test"
     const started = spawn(
-      ["start", "--name", name, "--record", "--", process.execPath, fixture("fake-opencode.ts"), "500"],
+      [
+        "start",
+        "--name",
+        name,
+        "--record",
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+        "500",
+      ],
       root,
     )
-    const [status, stderr] = await Promise.all([started.exited, new Response(started.stderr).text()])
+    const [status, stderr] = await Promise.all([
+      started.exited,
+      new Response(started.stderr).text(),
+    ])
     expect(status).toBe(0)
     const artifacts = stderr.match(/opencode-drive: artifacts (.+)/)?.[1]
     expect(artifacts).toBeDefined()
@@ -175,7 +207,7 @@ describe("opencode-drive", () => {
     const files = await readdir(join(root, "output"))
     const video = files.find((file) => file.endsWith(".mp4"))
     expect(video).toBeDefined()
-    expect((await Bun.file(join(root, "output", video!)).size)).toBeGreaterThan(500)
+    expect(await Bun.file(join(root, "output", video!)).size).toBeGreaterThan(500)
   }, 15_000)
 
   test("does not record unless start receives --record", async () => {
@@ -203,14 +235,7 @@ describe("opencode-drive", () => {
   test("rejects duplicate names", async () => {
     const root = await temporary()
     const name = "duplicate-test"
-    const args = [
-      "start",
-      "--name",
-      name,
-      "--",
-      process.execPath,
-      fixture("fake-opencode.ts"),
-    ]
+    const args = ["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")]
     expect(await spawn(args, root).exited).toBe(0)
     instances.push({ root, name })
     const duplicate = spawn(args, root)
@@ -225,21 +250,10 @@ describe("opencode-drive", () => {
   test("only the owning detached launcher reports concurrent startup success", async () => {
     const root = await temporary()
     const name = "concurrent-start"
-    const args = [
-      "start",
-      "--name",
-      name,
-      "--",
-      process.execPath,
-      fixture("fake-opencode.ts"),
-    ]
+    const args = ["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")]
     const children = [spawn(args, root), spawn(args, root)]
-    expect((await Promise.all(children.map((child) => child.exited))).sort()).toEqual([
-      0, 1,
-    ])
-    const manifest = await Bun.file(
-      join(root, "registry", `${name}.json`),
-    ).json()
+    expect((await Promise.all(children.map((child) => child.exited))).sort()).toEqual([0, 1])
+    const manifest = await Bun.file(join(root, "registry", `${name}.json`)).json()
     roots.push(manifest.artifacts)
     instances.push({ root, name })
   })
@@ -251,12 +265,8 @@ describe("opencode-drive", () => {
         register(testManifest("racing", process.pid)),
         register(testManifest("racing", process.pid)),
       ])
-      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
-        1,
-      )
-      expect(results.filter((result) => result.status === "rejected")).toHaveLength(
-        1,
-      )
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(1)
     })
   })
 
@@ -267,25 +277,15 @@ describe("opencode-drive", () => {
       await register(testManifest("replacement", stalePid))
       await register(testManifest("replacement", process.pid))
       await unregister("replacement", stalePid)
-      expect((await Bun.file(manifestPath("replacement")).json()).pid).toBe(
-        process.pid,
-      )
+      expect((await Bun.file(manifestPath("replacement")).json()).pid).toBe(process.pid)
     })
   })
 
   test("refuses to drive an instance that is still starting", async () => {
     const root = await temporary()
-    await withRegistry(root, () =>
-      register(testManifest("starting", process.pid, "starting")),
-    )
-    const child = spawn(
-      ["send", "--name", "starting", "--command.ui.state"],
-      root,
-    )
-    const [status, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-    ])
+    await withRegistry(root, () => register(testManifest("starting", process.pid, "starting")))
+    const child = spawn(["send", "--name", "starting", "--command.ui.state"], root)
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
     expect(status).toBe(1)
     expect(stderr).toContain('drive instance "starting" is still starting')
   })
@@ -297,10 +297,7 @@ describe("opencode-drive", () => {
       await register(testManifest("alpha", process.pid))
       await register(testManifest("stale", 2_000_000_000))
       await Bun.write(controlPath("orphan"), "")
-      expect((await listInstances()).map((manifest) => manifest.name)).toEqual([
-        "alpha",
-        "zeta",
-      ])
+      expect((await listInstances()).map((manifest) => manifest.name)).toEqual(["alpha", "zeta"])
       expect(await Bun.file(manifestPath("stale")).exists()).toBe(false)
       expect(await Bun.file(controlPath("stale")).exists()).toBe(false)
       expect(await Bun.file(controlPath("orphan")).exists()).toBe(false)
@@ -316,9 +313,7 @@ describe("opencode-drive", () => {
     const root = await temporary()
     const missing = spawn(["logs"], root)
     expect(await missing.exited).toBe(1)
-    expect(await new Response(missing.stderr).text()).toContain(
-      "no drive instances are running",
-    )
+    expect(await new Response(missing.stderr).text()).toContain("no drive instances are running")
   })
 
   test("runs multiple named instances concurrently", async () => {
@@ -326,14 +321,7 @@ describe("opencode-drive", () => {
     for (const name of ["first", "second"]) {
       expect(
         await spawn(
-          [
-            "start",
-            "--name",
-            name,
-            "--",
-            process.execPath,
-            fixture("fake-opencode.ts"),
-          ],
+          ["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")],
           root,
         ).exited,
       ).toBe(0)
@@ -343,14 +331,8 @@ describe("opencode-drive", () => {
     const second = await Bun.file(join(root, "registry", "second.json")).json()
     roots.push(first.artifacts, second.artifacts)
     expect(first.endpoints.ui).not.toBe(second.endpoints.ui)
-    expect(
-      await spawn(["send", "--name", "first", "--command.ui.state"], root)
-        .exited,
-    ).toBe(0)
-    expect(
-      await spawn(["send", "--name", "second", "--command.ui.state"], root)
-        .exited,
-    ).toBe(0)
+    expect(await spawn(["send", "--name", "first", "--command.ui.state"], root).exited).toBe(0)
+    expect(await spawn(["send", "--name", "second", "--command.ui.state"], root).exited).toBe(0)
 
     const ambiguous = spawn(["logs"], root)
     const [status, stderr] = await Promise.all([
@@ -358,9 +340,7 @@ describe("opencode-drive", () => {
       new Response(ambiguous.stderr).text(),
     ])
     expect(status).toBe(1)
-    expect(stderr).toContain(
-      "multiple drive instances are running; pass --name (first, second)",
-    )
+    expect(stderr).toContain("multiple drive instances are running; pass --name (first, second)")
     const listed = spawn(["list"], root)
     expect(await listed.exited).toBe(0)
     expect(await new Response(listed.stdout).text()).toBe(
@@ -382,9 +362,9 @@ describe("opencode-drive", () => {
     ])
     expect(status).toBe(1)
     expect(stderr).toContain(`see ${join(root, "registry", `${name}.log`)}`)
-    expect(
-      await Bun.file(join(root, "registry", `${name}.log`)).text(),
-    ).toContain("OpenCode exited with status 7")
+    expect(await Bun.file(join(root, "registry", `${name}.log`)).text()).toContain(
+      "OpenCode exited with status 7",
+    )
   })
 
   test("keeps visible instances in the foreground", async () => {
@@ -404,9 +384,7 @@ describe("opencode-drive", () => {
       root,
     )
     expect(await running.exited).toBe(0)
-    expect(
-      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
-    ).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
   test("blocks and stops the instance after a script completes", async () => {
@@ -435,20 +413,14 @@ describe("opencode-drive", () => {
     expect(Date.now() - started).toBeLessThan(5_000)
     const artifacts = artifactPath(stderr)
     roots.push(artifacts)
-    expect(await Bun.file(join(artifacts, "script-result.json")).exists()).toBe(
-      true,
+    expect(await Bun.file(join(artifacts, "script-result.json")).exists()).toBe(true)
+    expect(await Bun.file(join(artifacts, "seeded-at-launch.txt")).text()).toBe(
+      "export const seeded = true\n",
     )
-    expect(
-      await Bun.file(join(artifacts, "seeded-at-launch.txt")).text(),
-    ).toBe("export const seeded = true\n")
-    expect(await Bun.file(join(artifacts, "child-cwd.txt")).text()).toBe(
-      join(artifacts, "files"),
-    )
+    expect(await Bun.file(join(artifacts, "child-cwd.txt")).text()).toBe(join(artifacts, "files"))
     const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
     expect(running(pid)).toBe(false)
-    expect(
-      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
-    ).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
   test("stops a visible instance after a script completes", async () => {
@@ -469,9 +441,7 @@ describe("opencode-drive", () => {
       root,
     )
     expect(await child.exited).toBe(0)
-    expect(
-      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
-    ).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
   test("stops a hanging script after the OpenCode child exits", async () => {
@@ -492,9 +462,7 @@ describe("opencode-drive", () => {
       root,
     )
     expect(await child.exited).toBe(0)
-    expect(
-      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
-    ).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
   test("rejects removed LLM commands", async () => {
@@ -675,9 +643,7 @@ describe("opencode-drive", () => {
     const chunks = splitText(text)
     expect(chunks.join("")).toBe(text)
     expect(chunks.length).toBeGreaterThan(1)
-    expect(chunks.every((chunk) => chunk.trim().split(/\s+/).length <= 3)).toBe(
-      true,
-    )
+    expect(chunks.every((chunk) => chunk.trim().split(/\s+/).length <= 3)).toBe(true)
   })
 })
 
@@ -728,9 +694,7 @@ async function waitForMissing(file: string) {
 }
 
 function artifactPath(stderr: string) {
-  const line = stderr
-    .split("\n")
-    .find((value) => value.startsWith("opencode-drive: artifacts "))
+  const line = stderr.split("\n").find((value) => value.startsWith("opencode-drive: artifacts "))
   if (!line) throw new Error("artifact path was not reported")
   return line.slice("opencode-drive: artifacts ".length)
 }
@@ -744,11 +708,7 @@ function running(pid: number) {
   }
 }
 
-function testManifest(
-  name: string,
-  pid: number,
-  status: "starting" | "ready" = "ready",
-) {
+function testManifest(name: string, pid: number, status: "starting" | "ready" = "ready") {
   return {
     version: 1 as const,
     name,

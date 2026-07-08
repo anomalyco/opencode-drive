@@ -5,6 +5,7 @@ import { ensureMediaDirectory } from "./media.js"
 import type { DriveScriptSetup } from "./script.js"
 
 export interface LaunchOptions {
+  readonly artifacts: string
   readonly name: string
   readonly command?: ReadonlyArray<string>
   readonly dev?: string
@@ -15,17 +16,12 @@ export interface LaunchOptions {
   readonly setup?: DriveScriptSetup
 }
 
-export async function launchInstance(options: LaunchOptions) {
+export async function initializeInstance() {
   const artifacts = resolve(
     join(tmpdir(), "opencode-drive", `run-${crypto.randomUUID().slice(0, 6)}`),
   )
   const logs = join(artifacts, "logs")
-  const endpoints = {
-    ui: `ws://127.0.0.1:${await freePort()}`,
-    backend: `ws://127.0.0.1:${await freePort()}`,
-  }
   const drive = join(artifacts, "drive")
-  const media = await ensureMediaDirectory()
   await Promise.all([
     mkdir(logs, { recursive: true }),
     mkdir(drive, { recursive: true }),
@@ -34,20 +30,6 @@ export async function launchInstance(options: LaunchOptions) {
     mkdir(join(artifacts, "home", ".local", "share"), { recursive: true }),
     mkdir(join(artifacts, "home", ".local", "state"), { recursive: true }),
   ])
-  let recording = options.record ? recordingPaths(media) : undefined
-  const writeDriveManifest = () =>
-    Bun.write(
-      join(drive, `${options.name}.json`),
-      `${JSON.stringify(
-        {
-          endpoints,
-          ...(recording ? { recording: { timeline: recording.timeline } } : {}),
-        },
-        undefined,
-        2,
-      )}\n`,
-    )
-  await writeDriveManifest()
   const files = join(artifacts, "files")
   await Promise.all([
     mkdir(join(files, ".git"), { recursive: true }),
@@ -87,9 +69,36 @@ export async function launchInstance(options: LaunchOptions) {
     ),
     Bun.write(
       join(files, "src", "garden.js"),
-      'export function greet(name) {\n  return `Hello, ${name}.`\n}\n',
+      "export function greet(name) {\n  return `Hello, ${name}.`\n}\n",
     ),
   ])
+  return artifacts
+}
+
+export async function launchInstance(options: LaunchOptions) {
+  const artifacts = resolve(options.artifacts)
+  const logs = join(artifacts, "logs")
+  const drive = join(artifacts, "drive")
+  const endpoints = {
+    ui: `ws://127.0.0.1:${await freePort()}`,
+    backend: `ws://127.0.0.1:${await freePort()}`,
+  }
+  const media = await ensureMediaDirectory()
+  const files = join(artifacts, "files")
+  let recording = options.record ? recordingPaths(media) : undefined
+  const writeDriveManifest = () =>
+    Bun.write(
+      join(drive, `${options.name}.json`),
+      `${JSON.stringify(
+        {
+          endpoints,
+          ...(recording ? { recording: { timeline: recording.timeline } } : {}),
+        },
+        undefined,
+        2,
+      )}\n`,
+    )
+  await writeDriveManifest()
   await options.setup?.({ directory: files })
   const environment = cleanEnv({
     ...process.env,
@@ -101,9 +110,7 @@ export async function launchInstance(options: LaunchOptions) {
     OPENCODE_DRIVE_MEDIA_DIR: media,
     OPENCODE_CONFIG_DIR: join(files, ".opencode"),
     OPENCODE_DB: ":memory:",
-    OPENCODE_LOG_LEVEL: !options.visible
-      ? "DEBUG"
-      : process.env.OPENCODE_LOG_LEVEL,
+    OPENCODE_LOG_LEVEL: !options.visible ? "DEBUG" : process.env.OPENCODE_LOG_LEVEL,
     OPENCODE_TEST_HOME: artifacts,
     XDG_CACHE_HOME: join(artifacts, "home", ".cache"),
     XDG_CONFIG_HOME: join(artifacts, "home", ".config"),
@@ -120,12 +127,8 @@ export async function launchInstance(options: LaunchOptions) {
       cwd: files,
       env: environment,
       stdin: options.visible ? "inherit" : "ignore",
-      stdout: !options.visible
-        ? Bun.file(join(logs, "opencode.stdout.log"))
-        : "inherit",
-      stderr: !options.visible
-        ? Bun.file(join(logs, "opencode.stderr.log"))
-        : "inherit",
+      stdout: !options.visible ? Bun.file(join(logs, "opencode.stdout.log")) : "inherit",
+      stderr: !options.visible ? Bun.file(join(logs, "opencode.stderr.log")) : "inherit",
     })
   let child = spawn()
   let stopping: Promise<void> | undefined
@@ -140,17 +143,10 @@ export async function launchInstance(options: LaunchOptions) {
     get child() {
       return child
     },
-    async waitForDrive(
-      requirement: "ui" | "backend" | "both" = "both",
-      timeout = 60_000,
-    ) {
+    async waitForDrive(requirement: "ui" | "backend" | "both" = "both", timeout = 60_000) {
       const urls =
-        requirement === "both"
-          ? [endpoints.ui, endpoints.backend]
-          : [endpoints[requirement]]
-      await Promise.all(
-        urls.map((url) => waitForWebSocket(url, child.exited, timeout)),
-      )
+        requirement === "both" ? [endpoints.ui, endpoints.backend] : [endpoints[requirement]]
+      await Promise.all(urls.map((url) => waitForWebSocket(url, child.exited, timeout)))
     },
     async restart() {
       if (restarting) return restarting
@@ -248,14 +244,8 @@ async function prepareDev(cwd: string, directory: string) {
     stderr: "ignore",
   })
   const status = await install.exited
-  if (status !== 0)
-    throw new Error(`bun install failed in ${cwd} with status ${status}`)
-  return [
-    process.execPath,
-    "--conditions=browser",
-    "--preload=@opentui/solid/preload",
-    entrypoint,
-  ]
+  if (status !== 0) throw new Error(`bun install failed in ${cwd} with status ${status}`)
+  return [process.execPath, "--conditions=browser", "--preload=@opentui/solid/preload", entrypoint]
 }
 
 async function freePort() {
@@ -298,10 +288,7 @@ async function stopService(state: string) {
 
 function isServiceInfo(value: unknown): value is { readonly pid: number } {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "pid" in value &&
-    typeof value.pid === "number"
+    typeof value === "object" && value !== null && "pid" in value && typeof value.pid === "number"
   )
 }
 
@@ -323,11 +310,7 @@ function isPackageInfo(value: unknown): value is { readonly version: string } {
   )
 }
 
-async function waitForWebSocket(
-  url: string,
-  exited: Promise<number>,
-  timeout: number,
-) {
+async function waitForWebSocket(url: string, exited: Promise<number>, timeout: number) {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
     const connected = await Promise.race([
@@ -338,9 +321,7 @@ async function waitForWebSocket(
         })
         .catch(() => false),
       exited.then((code) => {
-        throw new Error(
-          `OpenCode exited with status ${code} before ${url} became ready`,
-        )
+        throw new Error(`OpenCode exited with status ${code} before ${url} became ready`)
       }),
     ])
     if (connected) return
@@ -355,18 +336,14 @@ function open(url: string) {
     socket.addEventListener("open", () => resolveSocket(socket), {
       once: true,
     })
-    socket.addEventListener(
-      "error",
-      () => reject(new Error(`cannot connect to ${url}`)),
-      { once: true },
-    )
+    socket.addEventListener("error", () => reject(new Error(`cannot connect to ${url}`)), {
+      once: true,
+    })
   })
 }
 
 function cleanEnv(env: Readonly<Record<string, string | undefined>>) {
   return Object.fromEntries(
-    Object.entries(env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined,
-    ),
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
   )
 }

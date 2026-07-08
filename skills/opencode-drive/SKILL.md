@@ -35,6 +35,19 @@ opencode-drive send --name demo \
 opencode-drive stop --name demo
 ```
 
+## Prepare The Environment
+
+Use `init` when files must be added to the isolated home or project before OpenCode starts. It prints the artifact directory without launching OpenCode. A later `start` with the same name reuses it.
+
+```bash
+artifacts=$(opencode-drive init --name demo)
+cp -R ./fixtures/home/. "$artifacts/"
+cp -R ./fixtures/project/. "$artifacts/files/"
+opencode-drive start --name demo --dev ~/projects/opencode
+```
+
+The simulated project is under `$artifacts/files`. Running `start` without a prior `init` initializes the artifacts automatically.
+
 ## Send UI Commands
 
 - Every `send` opens a connection to the named instance, runs its commands in order, and exits.
@@ -150,7 +163,10 @@ import { join } from "node:path"
 import { defineScript, type ScriptSetupContext } from "opencode-drive"
 
 export async function setup({ directory }: ScriptSetupContext) {
-  await Bun.write(join(directory, "src", "example.ts"), "export const value = 1\n")
+  await Bun.write(
+    join(directory, "src", "example.ts"),
+    "export const value = 1\n",
+  )
 }
 
 export default defineScript(async ({ ui }) => {
@@ -160,5 +176,5 @@ export default defineScript(async ({ ui }) => {
 
 You can see some example scripts here:
 
-* https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/two-turn-recording.ts
-* https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/multiple-tool-calls.ts
+- https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/two-turn-recording.ts
+- https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/multiple-tool-calls.ts
