@@ -29,6 +29,7 @@ const startCommand = Command.make(
   {
     name: startName,
     daemon: Flag.boolean("daemon").pipe(
+      Flag.withHidden,
       Flag.withDescription("Run as detached instance owner"),
     ),
     script: Flag.string("script").pipe(
@@ -90,6 +91,42 @@ const sendCommand = Command.make("send", { name }, (config) =>
   ]),
 )
 
+const screenshotCommand = Command.make("screenshot", { name }, (config) =>
+  execute(() =>
+    send({
+      kind: "send",
+      name: Option.getOrUndefined(config.name),
+      commands: [{ operation: "ui.screenshot" }],
+    }),
+  ),
+).pipe(Command.withDescription("Take a screenshot and print its path"))
+
+const startRecordingCommand = Command.make(
+  "record-start",
+  { name },
+  (config) =>
+    execute(() =>
+      send({
+        kind: "send",
+        name: Option.getOrUndefined(config.name),
+        commands: [{ operation: "ui.start-record" }],
+      }),
+    ),
+).pipe(Command.withDescription("Start recording the UI"))
+
+const endRecordingCommand = Command.make(
+  "record-end",
+  { name },
+  (config) =>
+    execute(() =>
+      send({
+        kind: "send",
+        name: Option.getOrUndefined(config.name),
+        commands: [{ operation: "ui.end-record" }],
+      }),
+    ),
+).pipe(Command.withDescription("Stop recording and print its path"))
+
 const apiCommand = Command.make("api", {}, () => execute(api)).pipe(
   Command.withDescription("Print the OpenCode drive UI protocol"),
 )
@@ -142,6 +179,9 @@ const root = Command.make("opencode-drive").pipe(
   Command.withSubcommands([
     startCommand,
     sendCommand,
+    screenshotCommand,
+    startRecordingCommand,
+    endRecordingCommand,
     listCommand,
     responsesCommand,
     logsCommand,

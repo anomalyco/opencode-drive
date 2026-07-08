@@ -81,13 +81,22 @@ describe("opencode-drive", () => {
       JSON.parse(await new Response(state.stdout).text()).focused.editor,
     ).toBe(true)
 
-    const screenshot = spawn(
-      ["send", "--name", name, "--command.ui.screenshot"],
-      root,
-    )
+    const screenshot = spawn(["screenshot", "--name", name], root)
     expect(await screenshot.exited).toBe(0)
     expect(await new Response(screenshot.stdout).text()).toBe(
       "/tmp/opencode-drive-fake/screenshot.png\n",
+    )
+
+    const startRecording = spawn(["record-start", "--name", name], root)
+    expect(await startRecording.exited).toBe(0)
+    expect(
+      JSON.parse(await new Response(startRecording.stdout).text()),
+    ).toEqual({ recording: true })
+
+    const endRecording = spawn(["record-end", "--name", name], root)
+    expect(await endRecording.exited).toBe(0)
+    expect(await new Response(endRecording.stdout).text()).toBe(
+      "/tmp/opencode-drive-fake/recording.gif\n",
     )
 
     const defaults = spawn(["responses"], root)

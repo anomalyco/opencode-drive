@@ -89,25 +89,25 @@ opencode-drive send --name demo --command.ui.state
 ## Inspect The UI
 
 - `ui.state` prints focus and interactive element metadata as JSON.
-- `ui.screenshot` prints the generated image path.
+- `screenshot` prints the generated image path.
 
 ```bash
-opencode-drive send --name demo --command.ui.screenshot
+opencode-drive screenshot --name demo
 ```
 
 ## Record The UI
 
+- `record-end` prints the recording path.
+
 ```bash
-opencode-drive send --name demo --command.ui.start-record
+opencode-drive record-start --name demo
 
 opencode-drive send --name demo \
   --command.ui.type '{"text":"Show me the current architecture"}' \
   --command.ui.enter
 
-opencode-drive send --name demo --command.ui.end-record
+opencode-drive record-end --name demo
 ```
-
-`ui.end-record` prints the recording path.
 
 ## Logs
 
