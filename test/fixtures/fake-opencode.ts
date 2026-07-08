@@ -1,5 +1,11 @@
 const screen = { value: "Fake OpenCode" }
-const endpoints = await resolveEndpoints()
+const drive = await resolveDrive()
+const endpoints = drive.endpoints
+if (drive.recording)
+  await Bun.write(
+    drive.recording.timeline,
+    `${JSON.stringify({ type: "header", version: 1, cols: 100, rows: 40, encoding: "base64" })}\n${JSON.stringify({ type: "output", at_ms: 0, data: Buffer.from("Fake OpenCode").toString("base64") })}\n`,
+  )
 if (process.env.OPENCODE_TEST_HOME) {
   await Bun.write(
     `${process.env.OPENCODE_TEST_HOME}/child.pid`,
@@ -89,11 +95,16 @@ await new Promise<void>((resolve) => {
 await Promise.all([ui.stop(true), backend.stop(true)])
 
 function frontend(method: string, params: unknown) {
-  if (method === "ui.screenshot")
-    return "/tmp/opencode-drive-fake/screenshot.png"
-  if (method === "ui.start-record") return { recording: true }
-  if (method === "ui.end-record")
-    return "/tmp/opencode-drive-fake/recording.gif"
+  if (method === "ui.screenshot") {
+    const name = isRecord(params) && typeof params.name === "string"
+      ? params.name
+      : `screenshot-${crypto.randomUUID()}`
+    return `${process.env.OPENCODE_DRIVE_MEDIA_DIR}/${name}.png`
+  }
+  if (method === "ui.recording.finish") {
+    if (!drive.recording) throw new Error("recording is not enabled")
+    return drive.recording.timeline
+  }
   if (
     method === "ui.type" &&
     isRecord(params) &&
@@ -116,14 +127,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-async function resolveEndpoints() {
+async function resolveDrive() {
   if (process.env.DRIVE_REGISTRY_DIR && process.env.OPENCODE_DRIVE !== "1") {
     const manifest = (await Bun.file(
       `${process.env.DRIVE_REGISTRY_DIR}/${process.env.OPENCODE_DRIVE}.json`,
     ).json()) as {
       readonly endpoints: { readonly ui: string; readonly backend: string }
+      readonly recording?: { readonly timeline: string }
     }
-    return manifest.endpoints
+    return manifest
   }
-  return { ui: "ws://127.0.0.1:40900", backend: "ws://127.0.0.1:40950" }
+  return {
+    endpoints: {
+      ui: "ws://127.0.0.1:40900",
+      backend: "ws://127.0.0.1:40950",
+    },
+    recording: { timeline: "/tmp/opencode-drive-fake/recording.jsonl" },
+  }
 }

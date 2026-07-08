@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "opencode-drive",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Drive real and simulated OpenCode instances",
   "license": "MIT",
   "type": "module",
@@ -12,26 +12,32 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client/index.ts",
-    "./experimental": "./src/experimental/index.ts"
+    "./experimental": "./src/experimental/index.ts",
+    "./recording": "./src/recording/index.ts"
   },
   "files": [
     "bin/opencode-drive",
     "src/cli",
     "src/client",
     "src/experimental",
+    "src/recording",
     "src/index.ts",
     "README.md"
   ],
   "scripts": {
     "drive": "bun run src/cli/index.ts",
     "lint": "oxlint src",
-    "test": "bun test test/cli/parse.test.ts test/cli/integration.test.ts",
+    "test": "bun test test",
     "typecheck": "tsgo --noEmit",
     "check": "bun run lint && bun run typecheck"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.93",
     "@effect/platform-node-shared": "4.0.0-beta.93",
+    "@fontsource/adwaita-mono": "5.2.1",
+    "@napi-rs/canvas": "1.0.2",
+    "@wterm/core": "0.3.0",
+    "@wterm/ghostty": "0.3.0",
     "effect": "4.0.0-beta.93"
   },
   "devDependencies": {

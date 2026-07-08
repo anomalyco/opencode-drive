@@ -4,20 +4,16 @@ const defaultPort = 40900
 
 type Methods = {
   readonly "ui.screenshot": {
-    readonly params: undefined
+    readonly params: Frontend.ScreenshotParams | undefined
     readonly result: Frontend.Screenshot
   }
   readonly "ui.state": {
     readonly params: undefined
     readonly result: Frontend.State
   }
-  readonly "ui.start-record": {
+  readonly "ui.recording.finish": {
     readonly params: undefined
-    readonly result: Frontend.StartRecord
-  }
-  readonly "ui.end-record": {
-    readonly params: undefined
-    readonly result: Frontend.EndRecord
+    readonly result: Frontend.RecordingFinish
   }
   readonly "ui.type": {
     readonly params: Frontend.TypeParams
@@ -69,6 +65,7 @@ export interface SimulationClientOptions {
   readonly portAttempts?: number
   /** Per-call timeout in milliseconds. Defaults to 30_000. */
   readonly timeout?: number
+  readonly onScreenshot?: (path: string) => void
 }
 
 export class SimulationError extends Error {
@@ -93,13 +90,20 @@ export class SimulationClient {
 
   private readonly socket: WebSocket
   private readonly timeout: number
+  private readonly onScreenshot?: (path: string) => void
   private nextId = 1
   private readonly pending = new Map<number, Waiter>()
 
-  private constructor(socket: WebSocket, url: string, timeout: number) {
+  private constructor(
+    socket: WebSocket,
+    url: string,
+    timeout: number,
+    onScreenshot?: (path: string) => void,
+  ) {
     this.socket = socket
     this.url = url
     this.timeout = timeout
+    this.onScreenshot = onScreenshot
     socket.addEventListener("message", (event) =>
       this.onMessage(String(event.data)),
     )
@@ -116,14 +120,24 @@ export class SimulationClient {
   ): Promise<SimulationClient> {
     const timeout = options?.timeout ?? 30_000
     if (options?.url !== undefined) {
-      return new SimulationClient(await open(options.url), options.url, timeout)
+      return new SimulationClient(
+        await open(options.url),
+        options.url,
+        timeout,
+        options.onScreenshot,
+      )
     }
     const first = options?.port ?? defaultPort
     const attempts = options?.portAttempts ?? 10
     for (let offset = 0; offset < attempts; offset++) {
       const url = `ws://127.0.0.1:${first + offset}`
       try {
-        return new SimulationClient(await open(url), url, timeout)
+        return new SimulationClient(
+          await open(url),
+          url,
+          timeout,
+          options?.onScreenshot,
+        )
       } catch {
         // occupied by something else or nothing listening; try the next port
       }
@@ -170,16 +184,17 @@ export class SimulationClient {
     return this.call("ui.state")
   }
 
-  screenshot(): Promise<Frontend.Screenshot> {
-    return this.call("ui.screenshot")
+  async screenshot(name?: string): Promise<Frontend.Screenshot> {
+    const path = await this.call(
+      "ui.screenshot",
+      name === undefined ? undefined : { name },
+    )
+    this.onScreenshot?.(path)
+    return path
   }
 
-  startRecord(): Promise<Frontend.StartRecord> {
-    return this.call("ui.start-record")
-  }
-
-  endRecord(): Promise<Frontend.EndRecord> {
-    return this.call("ui.end-record")
+  finishRecording(): Promise<Frontend.RecordingFinish> {
+    return this.call("ui.recording.finish")
   }
 
   /** Executes one user-level action and returns the post-action state. */

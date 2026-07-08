@@ -22,10 +22,9 @@ export const commandInfo = {
     value: false,
     description: "Return focus, elements, and available UI actions",
   },
-  "ui.start-record": { value: false, description: "Start recording the UI" },
-  "ui.end-record": {
+  "ui.recording.finish": {
     value: false,
-    description: "Stop recording and return the recording path",
+    description: "Finish recording and return the timeline path",
   },
 } as const
 
@@ -38,8 +37,7 @@ export function commandAcceptsValue(operation: string) {
   if (operation === "ui.click") return commandInfo[operation].value
   if (operation === "ui.screenshot") return commandInfo[operation].value
   if (operation === "ui.state") return commandInfo[operation].value
-  if (operation === "ui.start-record") return commandInfo[operation].value
-  if (operation === "ui.end-record") return commandInfo[operation].value
+  if (operation === "ui.recording.finish") return commandInfo[operation].value
   throw new Error(`unknown drive command "${operation}"`)
 }
 
@@ -142,10 +140,8 @@ async function execute(
       return ui.screenshot()
     case "ui.state":
       return ui.state()
-    case "ui.start-record":
-      return ui.startRecord()
-    case "ui.end-record":
-      return ui.endRecord()
+    case "ui.recording.finish":
+      return ui.finishRecording()
   }
   throw new Error(`unknown drive command "${command.operation}"`)
 }

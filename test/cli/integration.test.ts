@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import {
@@ -30,20 +30,6 @@ afterEach(async () => {
 })
 
 describe("opencode-drive", () => {
-  test("prints only the UI command protocol", async () => {
-    const root = await temporary()
-    const child = spawn(["api"], root)
-    const [status, stdout] = await Promise.all([
-      child.exited,
-      new Response(child.stdout).text(),
-    ])
-    expect(status).toBe(0)
-    expect(stdout).toBe(
-      await Bun.file(resolve("src/client/protocol.types.ts")).text(),
-    )
-    expect(stdout).not.toContain("llm.")
-  })
-
   test("starts, drives, lists logs, restarts, and stops a named detached instance", async () => {
     const root = await temporary()
     const name = "detached-test"
@@ -52,6 +38,7 @@ describe("opencode-drive", () => {
         "start",
         "--name",
         name,
+        "--record",
         "--",
         process.execPath,
         fixture("fake-opencode.ts"),
@@ -83,21 +70,13 @@ describe("opencode-drive", () => {
 
     const screenshot = spawn(["screenshot", "--name", name], root)
     expect(await screenshot.exited).toBe(0)
-    expect(await new Response(screenshot.stdout).text()).toBe(
-      "/tmp/opencode-drive-fake/screenshot.png\n",
-    )
-
-    const startRecording = spawn(["record-start", "--name", name], root)
-    expect(await startRecording.exited).toBe(0)
+    const screenshotPath = (await new Response(screenshot.stdout).text()).trim()
     expect(
-      JSON.parse(await new Response(startRecording.stdout).text()),
-    ).toEqual({ recording: true })
-
-    const endRecording = spawn(["record-end", "--name", name], root)
-    expect(await endRecording.exited).toBe(0)
-    expect(await new Response(endRecording.stdout).text()).toBe(
-      "/tmp/opencode-drive-fake/recording.gif\n",
-    )
+      screenshotPath.startsWith(
+        `${join(root, "output")}/screenshot-`,
+      ),
+    ).toBe(true)
+    expect(screenshotPath.endsWith(".png")).toBe(true)
 
     const defaults = spawn(["responses"], root)
     expect(await defaults.exited).toBe(0)
@@ -134,6 +113,9 @@ describe("opencode-drive", () => {
 
     const restarted = spawn(["restart"], root)
     expect(await restarted.exited).toBe(0)
+    const restartedRecording = (await new Response(restarted.stdout).text()).trim()
+    expect(restartedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
+    expect(await Bun.file(restartedRecording).exists()).toBe(true)
     await waitForLines(join(manifest.artifacts, "launches.txt"), 2)
     const persisted = spawn(["responses"], root)
     expect(await persisted.exited).toBe(0)
@@ -145,7 +127,24 @@ describe("opencode-drive", () => {
     ).toBe(0)
 
     const stopped = spawn(["stop"], root)
-    expect(await stopped.exited).toBe(0)
+    const [stoppedStatus, stoppedOutput, stoppedError] = await Promise.all([
+      stopped.exited,
+      new Response(stopped.stdout).text(),
+      new Response(stopped.stderr).text(),
+    ])
+    expect(stoppedStatus).toBe(0)
+    expect(stoppedOutput).toBe("")
+    const stoppedRecording = stoppedError.match(
+      /Video successfully created: (.+\.mp4)/,
+    )?.[1]
+    expect(stoppedRecording).toBeDefined()
+    expect(stoppedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
+    expect(await Bun.file(stoppedRecording!).exists()).toBe(true)
+    expect(stoppedError).toContain("Rendering video: 10%")
+    expect(stoppedError).toContain("Rendering video: 100%")
+    expect(stoppedError).toContain(
+      `Video successfully created: ${stoppedRecording}`,
+    )
     expect(
       await Bun.file(join(root, "registry", `${name}.json`)).exists(),
     ).toBe(false)
@@ -153,7 +152,53 @@ describe("opencode-drive", () => {
       instances.findIndex((item) => item.name === name),
       1,
     )
-  }, 30_000)
+  }, 60_000)
+
+  test("exports a completed timeline after the OpenCode child exits", async () => {
+    const root = await temporary()
+    const name = "exited-recording-test"
+    const started = spawn(
+      ["start", "--name", name, "--record", "--", process.execPath, fixture("fake-opencode.ts"), "500"],
+      root,
+    )
+    const [status, stderr] = await Promise.all([started.exited, new Response(started.stderr).text()])
+    expect(status).toBe(0)
+    const artifacts = stderr.match(/opencode-drive: artifacts (.+)/)?.[1]
+    expect(artifacts).toBeDefined()
+    roots.push(artifacts!)
+
+    const deadline = Date.now() + 10_000
+    while (await Bun.file(join(root, "registry", `${name}.json`)).exists()) {
+      if (Date.now() >= deadline) throw new Error("timed out waiting for exited instance cleanup")
+      await Bun.sleep(25)
+    }
+    const files = await readdir(join(root, "output"))
+    const video = files.find((file) => file.endsWith(".mp4"))
+    expect(video).toBeDefined()
+    expect((await Bun.file(join(root, "output", video!)).size)).toBeGreaterThan(500)
+  }, 15_000)
+
+  test("does not record unless start receives --record", async () => {
+    const root = await temporary()
+    const name = "no-recording-test"
+    expect(
+      await spawn(
+        ["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")],
+        root,
+      ).exited,
+    ).toBe(0)
+    instances.push({ root, name })
+    const manifest = await Bun.file(join(root, "registry", `${name}.json`)).json()
+    roots.push(manifest.artifacts)
+    const drive = await Bun.file(join(manifest.artifacts, "drive", `${name}.json`)).json()
+    expect(drive.recording).toBeUndefined()
+
+    const stopped = spawn(["stop", "--name", name], root)
+    expect(await stopped.exited).toBe(0)
+    expect(await new Response(stopped.stdout).text()).toBe("success\n")
+    expect(await readdir(join(root, "output"))).toEqual([])
+    instances.pop()
+  })
 
   test("rejects duplicate names", async () => {
     const root = await temporary()
@@ -330,8 +375,9 @@ describe("opencode-drive", () => {
       ["start", "--name", name, "--", process.execPath, "-e", "process.exit(7)"],
       root,
     )
-    const [status, stderr] = await Promise.all([
+    const [status, stdout, stderr] = await Promise.all([
       child.exited,
+      new Response(child.stdout).text(),
       new Response(child.stderr).text(),
     ])
     expect(status).toBe(1)
@@ -363,7 +409,7 @@ describe("opencode-drive", () => {
     ).toBe(false)
   })
 
-  test("runs scripts in the foreground and exits", async () => {
+  test("blocks and stops the instance after a script completes", async () => {
     const root = await temporary()
     const name = "script-test"
     const child = spawn(
@@ -380,8 +426,9 @@ describe("opencode-drive", () => {
       root,
     )
     const started = Date.now()
-    const [status, stderr] = await Promise.all([
+    const [status, stdout, stderr] = await Promise.all([
       child.exited,
+      new Response(child.stdout).text(),
       new Response(child.stderr).text(),
     ])
     expect(status).toBe(0)
@@ -391,9 +438,54 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(artifacts, "script-result.json")).exists()).toBe(
       true,
     )
+    const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
+    expect(running(pid)).toBe(false)
     expect(
-      running(Number(await Bun.file(join(artifacts, "child.pid")).text())),
+      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
     ).toBe(false)
+  })
+
+  test("stops a visible instance after a script completes", async () => {
+    const root = await temporary()
+    const name = "visible-script-test"
+    const child = spawn(
+      [
+        "start",
+        "--visible",
+        "--name",
+        name,
+        "--script",
+        fixture("script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    expect(await child.exited).toBe(0)
+    expect(
+      await Bun.file(join(root, "registry", `${name}.json`)).exists(),
+    ).toBe(false)
+  })
+
+  test("stops a hanging script after the OpenCode child exits", async () => {
+    const root = await temporary()
+    const name = "exited-script-test"
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        name,
+        "--script",
+        fixture("hanging-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+        "500",
+      ],
+      root,
+    )
+    expect(await child.exited).toBe(0)
     expect(
       await Bun.file(join(root, "registry", `${name}.json`)).exists(),
     ).toBe(false)
@@ -586,7 +678,11 @@ describe("opencode-drive", () => {
 function spawn(args: ReadonlyArray<string>, root: string) {
   return Bun.spawn([process.execPath, resolve("src/cli/index.ts"), ...args], {
     cwd: resolve("."),
-    env: { ...process.env, DRIVE_REGISTRY_DIR: join(root, "registry") },
+    env: {
+      ...process.env,
+      DRIVE_REGISTRY_DIR: join(root, "registry"),
+      OPENCODE_DRIVE_MEDIA_DIR: join(root, "output"),
+    },
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",

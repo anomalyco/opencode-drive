@@ -7,7 +7,16 @@ description: Use when an agent needs to debug and drive an OpenCode TUI instance
 
 Use `opencode-drive` to launch an isolated OpenCode instance and control its TUI through WebSocket commands.
 
-## Basic Flow
+There are two modes:
+
+- Live interaction: start a process, interact with it via the CLI, and take screenshots
+- Scripted: start a process and run a script to completion and exit
+
+If the user is wanting to lightly interact with the app with no custom backend behavior, use live interaction. This mode has some default backend interactions.
+
+If the user is wanting to try to more deeply debug the app and try to reproduce something, use scripted. The scripts allow you to write any arbitrary backend interactions.
+
+# Live interaction usage
 
 - Always give the instance a unique `--name`.
 - A normal headless `start` detaches automatically and returns after the instance is ready.
@@ -24,25 +33,6 @@ opencode-drive send --name demo \
   --command.ui.enter
 
 opencode-drive stop --name demo
-```
-
-## Configure Responses
-
-- `responses` changes its behavior while the instance is running.
-- `--types` is a comma-delimited set selected randomly for each new model response.
-- Supported types are `text`, `reasoning`, `diff`, and `tool`.
-- `--tools` limits generated tool calls to names offered by OpenCode.
-- Defaults are `text,reasoning,diff,tool` with `write,apply_patch`.
-- Running `responses` without flags prints the active configuration.
-
-```bash
-opencode-drive responses --name demo \
-  --types text,reasoning,diff,tool \
-  --tools write,apply_patch
-
-opencode-drive responses --name demo \
-  --types tool \
-  --tools read,glob,grep
 ```
 
 ## Send UI Commands
@@ -97,16 +87,35 @@ opencode-drive screenshot --name demo
 
 ## Record The UI
 
-- `record-end` prints the recording path.
+- Start with `--record` to capture a headless instance from its first rendered frame.
+- `stop` finishes the recording, exports an MP4, and prints its path.
 
 ```bash
-opencode-drive record-start --name demo
+opencode-drive start --name demo --record
 
 opencode-drive send --name demo \
   --command.ui.type '{"text":"Show me the current architecture"}' \
   --command.ui.enter
 
-opencode-drive record-end --name demo
+opencode-drive stop --name demo
+```
+
+## Configure LLM Responses
+
+- `responses` controls what the LLM responds with
+- Only use this if you are wanting to reproduce an exact type of response
+- Defaults are `text,reasoning,diff,tool` with `write,apply_patch`.
+- Supported types are `text`, `reasoning`, `diff`, and `tool`.
+- `--tools` limits generated tool calls to names offered by OpenCode.
+
+```bash
+opencode-drive responses --name demo \
+  --types text,reasoning,diff,tool \
+  --tools write,apply_patch
+
+opencode-drive responses --name demo \
+  --types tool \
+  --tools read,glob,grep
 ```
 
 ## Logs
@@ -119,8 +128,21 @@ opencode-drive logs --name demo
 
 ## Lifecycle
 
-- `stop` waits for owner cleanup before returning success.
+- `stop` waits for recording export and owner cleanup before returning.
 
 ```bash
 opencode-drive stop --name demo
 ```
+
+# Scripted usage
+
+Write a script and pass it with `--script`:
+
+```bash
+opencode-drive start --name auto-stop-reproduction --script ./reproduce-stale-exploring-empty.ts
+```
+
+You can see some example scripts here:
+
+* https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/two-turn-recording.ts
+* https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/multiple-tool-calls.ts

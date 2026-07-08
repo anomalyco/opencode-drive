@@ -3,7 +3,6 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/unstable/cli"
 import packageJson from "../../package.json" with { type: "json" }
-import { api } from "./api.js"
 import { extractCommands } from "./parse.js"
 import { list } from "./list.js"
 import { logs } from "./logs.js"
@@ -38,6 +37,9 @@ const startCommand = Command.make(
     ),
     visible: Flag.boolean("visible").pipe(
       Flag.withDescription("Show OpenCode in the terminal"),
+    ),
+    record: Flag.boolean("record").pipe(
+      Flag.withDescription("Record the complete headless session and export it on stop"),
     ),
     dev: Flag.string("dev").pipe(
       Flag.optional,
@@ -101,36 +103,6 @@ const screenshotCommand = Command.make("screenshot", { name }, (config) =>
   ),
 ).pipe(Command.withDescription("Take a screenshot and print its path"))
 
-const startRecordingCommand = Command.make(
-  "record-start",
-  { name },
-  (config) =>
-    execute(() =>
-      send({
-        kind: "send",
-        name: Option.getOrUndefined(config.name),
-        commands: [{ operation: "ui.start-record" }],
-      }),
-    ),
-).pipe(Command.withDescription("Start recording the UI"))
-
-const endRecordingCommand = Command.make(
-  "record-end",
-  { name },
-  (config) =>
-    execute(() =>
-      send({
-        kind: "send",
-        name: Option.getOrUndefined(config.name),
-        commands: [{ operation: "ui.end-record" }],
-      }),
-    ),
-).pipe(Command.withDescription("Stop recording and print its path"))
-
-const apiCommand = Command.make("api", {}, () => execute(api)).pipe(
-  Command.withDescription("Print the OpenCode drive UI protocol"),
-)
-
 const restartCommand = Command.make("restart", { name }, (config) =>
   execute(() => restart(Option.getOrUndefined(config.name))),
 ).pipe(
@@ -180,14 +152,11 @@ const root = Command.make("opencode-drive").pipe(
     startCommand,
     sendCommand,
     screenshotCommand,
-    startRecordingCommand,
-    endRecordingCommand,
     listCommand,
     responsesCommand,
     logsCommand,
     restartCommand,
     stopCommand,
-    apiCommand,
   ]),
 )
 
@@ -202,6 +171,7 @@ function toStartOptions(
     readonly name: string
     readonly daemon: boolean
     readonly visible: boolean
+    readonly record: boolean
     readonly dev: Option.Option<string>
     readonly state: Option.Option<string>
   },
@@ -216,6 +186,7 @@ function toStartOptions(
     daemon: config.daemon,
     script: Option.getOrUndefined(config.script),
     visible: config.visible,
+    record: config.record,
     dev: Option.getOrUndefined(config.dev),
     state: Option.getOrUndefined(config.state),
     command: app,

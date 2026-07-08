@@ -5,13 +5,11 @@ import { resolveInstance } from "./registry.js"
 export async function send(options: SendOptions) {
   if (options.commands.length === 0)
     throw new Error("send requires at least one --command.ui.* flag")
-  const result = await executeCommands(
-    (await resolveInstance(options.name)).endpoints.ui,
-    options.commands,
-  )
+  const instance = await resolveInstance(options.name)
+  const result = await executeCommands(instance.endpoints.ui, options.commands)
   if (
     options.commands.length === 1 &&
-    ["ui.screenshot", "ui.end-record"].includes(
+    ["ui.screenshot", "ui.recording.finish"].includes(
       options.commands[0]?.operation ?? "",
     )
   ) {
@@ -20,7 +18,7 @@ export async function send(options: SendOptions) {
   }
   if (
     options.commands.length === 1 &&
-    ["ui.state", "ui.start-record"].includes(
+    ["ui.state"].includes(
       options.commands[0]?.operation ?? "",
     )
   ) {

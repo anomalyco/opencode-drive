@@ -24,6 +24,7 @@ export async function runScript(
   artifacts: string,
   endpoints: { readonly ui: string; readonly backend: string },
   signal: AbortSignal,
+  onScreenshot?: (path: string) => void,
 ) {
   const module: { readonly default?: unknown } = await import(
     pathToFileURL(resolve(file)).href
@@ -31,7 +32,7 @@ export async function runScript(
   const script = module.default
   if (!isDriveScript(script))
     throw new Error("script must default-export a function")
-  const ui = await connectSimulation({ url: endpoints.ui })
+  const ui = await connectSimulation({ url: endpoints.ui, onScreenshot })
   const backend = await connectBackendSimulation({
     url: endpoints.backend,
   }).catch((error) => {

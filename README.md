@@ -22,7 +22,9 @@ If you installed the skill file, OpenCode will be able to see and interact with 
 
 ## Using with agents
 
-Install the skill file above and ask the agent to test various flows with the app. You also ask it to make a recording and it will generate a video file for you to watch anything it did.
+Install the skill file above and ask the agent to test various flows with the app. Start with `--record` when you want a video; `opencode-drive stop` then exports the complete session and prints its path.
+
+Screenshots and videos are written to `<system temp>/opencode-drive/output` with unique filenames. Set `OPENCODE_DRIVE_MEDIA_DIR` to use a different directory.
 
 ## UI development
 

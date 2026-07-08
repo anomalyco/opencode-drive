@@ -1,0 +1,50 @@
+export const TextStyle = {
+  bold: 1,
+  dim: 2,
+  italic: 4,
+  underline: 8,
+  blink: 16,
+  inverse: 32,
+  invisible: 64,
+  strikethrough: 128,
+} as const
+
+export interface CapturedSpan {
+  text: string
+  width: number
+  fg: number
+  bg: number
+  attributes: number
+}
+
+export interface CapturedLine {
+  spans: CapturedSpan[]
+}
+
+export interface CapturedFrame {
+  cols: number
+  rows: number
+  cursor: { row: number; col: number; visible: boolean }
+  lines: CapturedLine[]
+}
+
+export interface SampledFrame {
+  atMs: number
+  frame: CapturedFrame
+}
+
+export interface TimelineHeader {
+  type: "header"
+  version: 1
+  cols: number
+  rows: number
+  encoding: "base64"
+}
+
+export interface TimelineOutput {
+  type: "output"
+  at_ms: number
+  data: string
+}
+
+export type TimelineRecord = TimelineHeader | TimelineOutput

@@ -1,8 +1,6 @@
-import { copyFile } from "node:fs/promises"
-import { basename, join } from "node:path"
 import { defineScript } from "../src/index.js"
 
-export default defineScript(async ({ ui, backend, artifacts }) => {
+export default defineScript(async ({ ui, backend }) => {
   const completed = [deferred(), deferred()]
   let turn = 0
 
@@ -37,7 +35,6 @@ export default defineScript(async ({ ui, backend, artifacts }) => {
   })
 
   await waitForEditor(ui)
-  await ui.startRecord()
 
   await ui.typeText("What does OpenCode Drive do?")
   await ui.pressEnter()
@@ -50,10 +47,6 @@ export default defineScript(async ({ ui, backend, artifacts }) => {
   await waitForEditor(ui)
   await Bun.sleep(1_000)
 
-  const recording = await ui.endRecord()
-  const output = join(artifacts, basename(recording))
-  await copyFile(recording, output)
-  // console.log(`recording: ${output}`)
 })
 
 function deferred() {

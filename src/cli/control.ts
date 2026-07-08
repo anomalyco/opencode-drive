@@ -5,11 +5,16 @@ import type {
   ResponseUpdate,
 } from "./response-generator.js"
 
+export interface StopResult {
+  readonly recording?: string
+  readonly screenshots: ReadonlyArray<string>
+}
+
 export async function listenControl(
   path: string,
   handlers: {
-    readonly restart: () => Promise<void>
-    readonly stop: () => Promise<void>
+    readonly restart: () => Promise<string | undefined>
+    readonly stop: (onProgress: (percent: number) => void) => Promise<StopResult>
     readonly responses: (
       input: ResponseUpdate,
     ) => Promise<ResponseConfiguration>
@@ -27,7 +32,8 @@ export async function listenControl(
       }
       if (!buffer.includes("\n")) return
       socket.removeAllListeners("data")
-      void handle(buffer.slice(0, buffer.indexOf("\n"))).then(
+      const progress = (percent: number) => socket.write(`progress ${percent}\n`)
+      void handle(buffer.slice(0, buffer.indexOf("\n")), progress).then(
         (result) =>
           socket.end(
             `success${result === undefined ? "" : ` ${JSON.stringify(result)}`}\n`,
@@ -39,9 +45,9 @@ export async function listenControl(
       )
     })
   })
-  const handle = async (input: string) => {
+  const handle = async (input: string, onProgress: (percent: number) => void) => {
     if (input === "restart") return handlers.restart()
-    if (input === "stop") return handlers.stop()
+    if (input === "stop") return handlers.stop(onProgress)
     if (input === "responses") return handlers.responses({})
     if (input.startsWith("responses "))
       return handlers.responses(parseResponseUpdate(input.slice("responses ".length)))
@@ -54,9 +60,28 @@ export async function listenControl(
   }
 }
 
-export async function request(path: string, command: "restart" | "stop") {
+export async function request(
+  path: string,
+  command: "restart",
+) {
   const response = await send(path, command)
-  if (response !== "success") throw responseError(response)
+  if (response === "success") return undefined
+  if (!response.startsWith("success ")) throw responseError(response)
+  const value: unknown = JSON.parse(response.slice("success ".length))
+  if (typeof value !== "string")
+    throw new Error("instance returned an invalid recording path")
+  return value
+}
+
+export async function requestStop(
+  path: string,
+  onProgress?: (percent: number) => void,
+) {
+  const response = await send(path, "stop", onProgress)
+  if (!response.startsWith("success ")) throw responseError(response)
+  const value: unknown = JSON.parse(response.slice("success ".length))
+  if (!isStopResult(value)) throw new Error("instance returned an invalid stop result")
+  return value
 }
 
 export async function requestResponses(path: string, input: ResponseUpdate) {
@@ -73,22 +98,34 @@ export async function requestResponses(path: string, input: ResponseUpdate) {
   return value
 }
 
-function send(path: string, command: string) {
+function send(path: string, command: string, onProgress?: (percent: number) => void) {
   return new Promise<string>((resolve, reject) => {
     const socket = connect(path)
     let response = ""
+    let buffer = ""
     const timer = setTimeout(() => {
       socket.destroy()
       reject(new Error("instance control request timed out"))
-    }, 10_000)
+    }, 5 * 60_000)
     socket.setEncoding("utf8")
     socket.on("connect", () => socket.write(`${command}\n`))
     socket.on("data", (data) => {
-      response += data
+      buffer += data
+      while (buffer.includes("\n")) {
+        const index = buffer.indexOf("\n")
+        const line = buffer.slice(0, index)
+        buffer = buffer.slice(index + 1)
+        if (line.startsWith("progress ")) {
+          const percent = Number(line.slice("progress ".length))
+          if (Number.isInteger(percent)) onProgress?.(percent)
+          continue
+        }
+        response += `${line}\n`
+      }
     })
     socket.on("end", () => {
       clearTimeout(timer)
-      resolve(response.trim())
+      resolve(`${response}${buffer}`.trim())
     })
     socket.on("error", () => {
       clearTimeout(timer)
@@ -121,6 +158,13 @@ function isResponseConfiguration(
   if (typeof value !== "object" || value === null) return false
   if (!("types" in value) || !stringArrayValue(value.types)) return false
   return "tools" in value && stringArrayValue(value.tools)
+}
+
+function isStopResult(value: unknown): value is StopResult {
+  if (typeof value !== "object" || value === null) return false
+  if (!("screenshots" in value) || !stringArrayValue(value.screenshots))
+    return false
+  return !("recording" in value) || typeof value.recording === "string"
 }
 
 function stringArrayValue(value: unknown) {

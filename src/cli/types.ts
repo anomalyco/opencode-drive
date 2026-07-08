@@ -9,6 +9,7 @@ export interface StartOptions {
   readonly daemon: boolean
   readonly script?: string
   readonly visible: boolean
+  readonly record: boolean
   readonly dev?: string
   readonly state?: string
   readonly command: ReadonlyArray<string>

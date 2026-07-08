@@ -1,6 +1,7 @@
 import { mkdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { ensureMediaDirectory } from "./media.js"
 
 export interface LaunchOptions {
   readonly name: string
@@ -9,6 +10,7 @@ export interface LaunchOptions {
   readonly state?: string
   readonly scripted?: boolean
   readonly visible?: boolean
+  readonly record?: boolean
   readonly env?: Readonly<Record<string, string>>
 }
 
@@ -22,6 +24,7 @@ export async function launchInstance(options: LaunchOptions) {
     backend: `ws://127.0.0.1:${await freePort()}`,
   }
   const drive = join(artifacts, "drive")
+  const media = await ensureMediaDirectory()
   await Promise.all([
     mkdir(logs, { recursive: true }),
     mkdir(drive, { recursive: true }),
@@ -30,10 +33,20 @@ export async function launchInstance(options: LaunchOptions) {
     mkdir(join(artifacts, "home", ".local", "share"), { recursive: true }),
     mkdir(join(artifacts, "home", ".local", "state"), { recursive: true }),
   ])
-  await Bun.write(
-    join(drive, `${options.name}.json`),
-    `${JSON.stringify({ endpoints }, undefined, 2)}\n`,
-  )
+  let recording = options.record ? recordingPaths(media) : undefined
+  const writeDriveManifest = () =>
+    Bun.write(
+      join(drive, `${options.name}.json`),
+      `${JSON.stringify(
+        {
+          endpoints,
+          ...(recording ? { recording: { timeline: recording.timeline } } : {}),
+        },
+        undefined,
+        2,
+      )}\n`,
+    )
+  await writeDriveManifest()
   const state = options.state
     ? resolve(options.state)
     : join(artifacts, "state")
@@ -124,6 +137,9 @@ export async function launchInstance(options: LaunchOptions) {
     artifacts,
     logs,
     endpoints,
+    get recording() {
+      return recording
+    },
     get child() {
       return child
     },
@@ -143,6 +159,8 @@ export async function launchInstance(options: LaunchOptions) {
       if (restarting) return restarting
       restarting = (async () => {
         await terminate(child)
+        recording = options.record ? recordingPaths(media) : undefined
+        await writeDriveManifest()
         child = spawn()
         await Promise.all([
           waitForWebSocket(endpoints.ui, child.exited, 60_000),
@@ -174,6 +192,14 @@ export async function launchInstance(options: LaunchOptions) {
       })()
       return stopping
     },
+  }
+}
+
+function recordingPaths(directory: string) {
+  const id = crypto.randomUUID()
+  return {
+    timeline: join(directory, `recording-${id}.jsonl`),
+    video: join(directory, `recording-${id}.mp4`),
   }
 }
 

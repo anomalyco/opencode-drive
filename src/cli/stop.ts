@@ -1,10 +1,12 @@
-import { request } from "./control.js"
+import { requestStop } from "./control.js"
 import { manifestPath, resolveInstance } from "./registry.js"
 
 export async function stop(name?: string) {
   const manifest = await resolveInstance(name)
-  await request(manifest.control, "stop")
-  const deadline = Date.now() + 10_000
+  const result = await requestStop(manifest.control, (percent) => {
+    console.error(`Rendering video: ${percent}%`)
+  })
+  const deadline = Date.now() + 5 * 60_000
   while (Date.now() < deadline) {
     const current: unknown = await Bun.file(manifestPath(manifest.name))
       .json()
@@ -15,7 +17,12 @@ export async function stop(name?: string) {
       !("pid" in current) ||
       current.pid !== manifest.pid
     ) {
-      console.log("success")
+      for (const screenshot of result.screenshots) console.log(screenshot)
+      if (result.recording) {
+        console.error(`Video successfully created: ${result.recording}`)
+      } else if (result.screenshots.length === 0) {
+        console.log("success")
+      }
       return
     }
     await Bun.sleep(25)
