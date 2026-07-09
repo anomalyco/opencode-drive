@@ -147,9 +147,11 @@ opencode-drive logs --name demo
 ## Lifecycle
 
 - `stop` waits for recording export and owner cleanup before returning.
+- `prune` removes artifact directories for sessions that are no longer active.
 
 ```bash
 opencode-drive stop --name demo
+opencode-drive prune
 ```
 
 # Scripted usage

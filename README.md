@@ -48,6 +48,12 @@ opencode-drive start --name demo --visible --dev ~/projects/opencode
 
 `start` reuses the prepared artifacts for that name. If `init` was not run, `start` initializes them automatically.
 
+Remove artifact directories left by sessions that are no longer active:
+
+```sh
+opencode-drive prune
+```
+
 While developing, you can run `opencode-drive restart` to restart only the UI (the server will persist as a separate process). Do this with agents, and they will always restart and get the UI where you want it to be automatically.
 
 View the [skills file](https://github.com/jlongster/opencode-drive/blob/main/skills/opencode-drive/SKILL.md) for more details about the CLI.

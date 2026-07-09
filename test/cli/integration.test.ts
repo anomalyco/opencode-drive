@@ -330,6 +330,42 @@ describe("opencode-drive", () => {
     )
   })
 
+  test("prunes artifact directories not referenced by active sessions", async () => {
+    const root = await temporary()
+    const artifactsRoot = join(root, "opencode-drive")
+    const active = join(artifactsRoot, "run-active")
+    const initialized = join(artifactsRoot, "run-initialized")
+    const stale = join(artifactsRoot, "run-stale")
+    const unrelated = join(artifactsRoot, "other")
+    await Promise.all(
+      [active, initialized, stale, unrelated].map((directory) =>
+        Bun.write(join(directory, "marker.txt"), "artifact\n"),
+      ),
+    )
+    await withRegistry(root, async () => {
+      await register({ ...testManifest("active", process.pid), artifacts: active })
+      await Bun.write(
+        manifestPath("initialized"),
+        `${JSON.stringify({
+          version: 1,
+          name: "initialized",
+          createdAt: new Date().toISOString(),
+          cwd: root,
+          artifacts: initialized,
+          status: "initialized",
+        })}\n`,
+      )
+    })
+
+    const child = spawn(["prune"], root)
+    expect(await child.exited).toBe(0)
+    expect(await new Response(child.stdout).text()).toBe("1\n")
+    expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(true)
+    expect(await Bun.file(join(initialized, "marker.txt")).exists()).toBe(true)
+    expect(await Bun.file(join(stale, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(unrelated, "marker.txt")).exists()).toBe(true)
+  })
+
   test("reports optional-name discovery errors", async () => {
     const root = await temporary()
     const missing = spawn(["logs"], root)
@@ -674,6 +710,7 @@ function spawn(args: ReadonlyArray<string>, root: string) {
       ...process.env,
       DRIVE_REGISTRY_DIR: join(root, "registry"),
       OPENCODE_DRIVE_MEDIA_DIR: join(root, "output"),
+      TMPDIR: root,
     },
     stdin: "ignore",
     stdout: "pipe",

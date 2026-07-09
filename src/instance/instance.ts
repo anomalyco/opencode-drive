@@ -16,9 +16,13 @@ export interface LaunchOptions {
   readonly setup?: DriveScriptSetup
 }
 
+export function artifactDirectory() {
+  return resolve(join(tmpdir(), "opencode-drive"))
+}
+
 export async function initializeInstance() {
   const artifacts = resolve(
-    join(tmpdir(), "opencode-drive", `run-${crypto.randomUUID().slice(0, 6)}`),
+    join(artifactDirectory(), `run-${crypto.randomUUID().slice(0, 6)}`),
   )
   const logs = join(artifacts, "logs")
   const drive = join(artifacts, "drive")

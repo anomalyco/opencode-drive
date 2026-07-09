@@ -7,6 +7,7 @@ import { extractCommands } from "./parse.js"
 import { init } from "./init.js"
 import { list } from "./list.js"
 import { logs } from "./logs.js"
+import { prune } from "./prune.js"
 import { restart } from "./restart.js"
 import { responses } from "./responses.js"
 import { send } from "./send.js"
@@ -119,6 +120,10 @@ const listCommand = Command.make("list", {}, () => execute(list)).pipe(
   Command.withDescription("List active OpenCode instances"),
 )
 
+const pruneCommand = Command.make("prune", {}, () => execute(prune)).pipe(
+  Command.withDescription("Delete artifacts for inactive OpenCode instances"),
+)
+
 const responsesCommand = Command.make(
   "responses",
   {
@@ -150,6 +155,7 @@ const root = Command.make("opencode-drive").pipe(
     sendCommand,
     screenshotCommand,
     listCommand,
+    pruneCommand,
     responsesCommand,
     logsCommand,
     restartCommand,
