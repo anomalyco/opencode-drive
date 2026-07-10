@@ -141,8 +141,11 @@ export async function start(options: StartOptions) {
           await markStarting(options.name, process.pid)
           const output = await finishCurrentRecording()
           const previous = current
-          previous?.abort.abort(new Error("script restarted"))
-          await previous?.promise.catch(() => undefined)
+          const restartReason = new Error("script restarted")
+          previous?.abort.abort(restartReason)
+          await previous?.promise.catch((error) => {
+            if (error !== restartReason) throw error
+          })
           driveReady = false
           await instance.restart()
           recording = undefined
@@ -247,21 +250,35 @@ export async function start(options: StartOptions) {
     process.off("SIGINT", interrupt)
     process.off("SIGTERM", interrupt)
     current?.abort.abort(new Error("opencode-drive stopped"))
+    let cleanupFailure: unknown
     const recordingPath = await finishCurrentRecording().catch((error) => {
       logError(`failed to export recording: ${error}`)
       return undefined
     })
-    await closeControl?.()
-    await instance.stop()
-    await unregister(options.name, process.pid)
-    await scriptTooling?.links.remove()
+    await closeControl?.().catch((error) => {
+      cleanupFailure ??= error
+      logError(`failed to close control socket: ${error}`)
+    })
+    await instance.stop().catch((error) => {
+      cleanupFailure ??= error
+      logError(`failed to stop OpenCode: ${error}`)
+    })
+    await unregister(options.name, process.pid).catch((error) => {
+      cleanupFailure ??= error
+      logError(`failed to unregister ${options.name}: ${error}`)
+    })
+    await scriptTooling?.links.remove().catch((error) => {
+      cleanupFailure ??= error
+      logError(`failed to remove script tooling: ${error}`)
+    })
     if (options.script && !options.visible) report(completed ? "completed" : undefined)
     if (options.script && recordingPath) logSuccess(`recording ${recordingPath}`)
     if (options.script)
       for (const output of recordings)
         logSuccess(`recording ${output}`)
-    if (options.script && isTimeoutError(failure))
+    if (options.script && failure !== undefined)
       setTimeout(() => process.exit(1), 0)
+    if (failure === undefined && cleanupFailure !== undefined) process.exitCode = 1
   }
 }
 
@@ -406,6 +423,7 @@ function run(
     if (!markedReady) readiness.reject(error)
     throw error
   })
+  void promise.catch(() => undefined)
   return {
     abort,
     ready: readiness.promise,
@@ -415,9 +433,4 @@ function run(
 
 function report(status?: string) {
   if (status) logSuccess(status)
-}
-
-function isTimeoutError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
-  return /\btimeout\b|\btimed out\b/i.test(message)
 }

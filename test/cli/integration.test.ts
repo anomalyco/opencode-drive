@@ -669,6 +669,35 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   }, 10_000)
 
+  test("stops the whole run when a script crashes", async () => {
+    const root = await temporary()
+    const name = "crashing-script-test"
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        name,
+        "--script",
+        fixture("crashing-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const [status, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+    ])
+    expect(status).toBe(1)
+    const artifacts = artifactPath(stderr)
+    roots.push(artifacts)
+    expect(stderr).toContain("script crashed")
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
+    const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
+    expect(running(pid)).toBe(false)
+  })
+
   test("checks a typed script and removes temporary dependency links", async () => {
     const root = await temporary()
     const directory = join(root, "scripts")
