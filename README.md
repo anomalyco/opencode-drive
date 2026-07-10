@@ -54,6 +54,13 @@ Remove artifact directories left by sessions that are no longer active:
 opencode-drive prune
 ```
 
+Prune one artifact directory by basename, or force removal of all `run-*` artifact directories:
+
+```sh
+opencode-drive prune --name run-abc123
+opencode-drive prune --force
+```
+
 While developing, you can run `opencode-drive restart` to restart only the UI (the server will persist as a separate process). Do this with agents, and they will always restart and get the UI where you want it to be automatically.
 
 View the [skills file](https://github.com/jlongster/opencode-drive/blob/main/skills/opencode-drive/SKILL.md) for more details about the CLI.

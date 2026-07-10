@@ -1,41 +1,20 @@
 ---
 name: opencode-drive
-description: Use when an agent needs to debug and drive an OpenCode TUI instance
+description: Use when an agent needs drive OpenCode via a script or interact with an isolated instance
 ---
 
 # OpenCode Drive
 
-Use `opencode-drive` to launch an isolated OpenCode instance and control its TUI through WebSocket commands.
+Use `opencode-drive` to launch an isolated OpenCode instance and control it via commands or a script.
 
-There are two modes:
+There are two modes. Always default to using a script unless specifically directed to be interactive (connect
+to an existing running instance, or start a new one, and make a few changes to the UI and read it, and iterate
+on changes).
 
-- Live interaction: start a process, interact with it via the CLI, and take screenshots
-- Scripted: start a process and run a script to completion and exit
+Scripts allow you to run a full walkthrough in one run. When the script is done opencode-drive exits,
+stops all processes, and cleans up all artifacts.
 
-If the user is wanting to lightly interact with the app with no custom backend behavior, use live interaction. This mode has some default backend interactions.
-
-If the user is wanting to try to more deeply debug the app and try to reproduce something, use scripted. The scripts allow you to write any arbitrary backend interactions.
-
-# Live interaction usage
-
-- Always give headless instances a unique `--name`. Visible instances may omit it.
-- A normal headless `start` detaches automatically and returns after the instance is ready.
-- Do not add `&`; the long-running owner already runs in the background.
-- Configure simulated model responses after startup when needed.
-- Send ordered UI commands with `send`.
-- Always stop the instance when finished.
-
-```bash
-opencode-drive start --name demo
-
-opencode-drive send --name demo \
-  --command.ui.type '{"text":"Explain this project"}' \
-  --command.ui.enter
-
-opencode-drive stop --name demo
-```
-
-## Prepare The Environment
+# Prepare The Environment
 
 Use `init` when files must be added to the isolated home or project before OpenCode starts. It prints the artifact directory without launching OpenCode. A later `start` with the same name reuses it.
 
@@ -47,113 +26,6 @@ opencode-drive start --name demo --dev ~/projects/opencode
 ```
 
 The simulated project is under `$artifacts/files`. Running `start` without a prior `init` initializes the artifacts automatically.
-
-## Send UI Commands
-
-- Every `send` opens a connection to the named instance, runs its commands in order, and exits.
-- Combine typing and Enter in one command when submitting a prompt.
-- JSON-valued commands require one JSON argument.
-- Multiple command flags execute from left to right.
-
-Commands:
-
-- `--command.ui.type <json>` types into the focused editor. Arguments: `text` string.
-- `--command.ui.press <json>` presses a key. Arguments: `key` string; optional `modifiers` object with boolean `ctrl`, `shift`, `meta`, `super`, or `hyper`.
-- `--command.ui.enter` presses Enter. Arguments: none.
-- `--command.ui.arrow <json>` presses an arrow key. Arguments: `direction` is `up`, `down`, `left`, or `right`.
-- `--command.ui.focus <json>` focuses an element. Arguments: `target` is the numeric element `num` returned by `ui.state`.
-- `--command.ui.click <json>` clicks an element. Arguments: numeric `target`, `x`, and `y`; use the element `num` returned by `ui.state` as `target`.
-- `--command.ui.state` prints focus and interactive element metadata as JSON. Arguments: none.
-- `--command.ui.matches <json>` prints whether literal, case-sensitive text appears on screen. Arguments: `text` string.
-
-```bash
-opencode-drive send --name demo \
-  --command.ui.type '{"text":"Find the relevant code and explain it"}' \
-  --command.ui.enter
-
-opencode-drive send --name demo \
-  --command.ui.press '{"key":"p","modifiers":{"ctrl":true}}'
-
-opencode-drive send --name demo \
-  --command.ui.arrow '{"direction":"down"}'
-
-opencode-drive send --name demo \
-  --command.ui.focus '{"target":12}'
-
-opencode-drive send --name demo \
-  --command.ui.click '{"target":12,"x":4,"y":1}'
-
-opencode-drive send --name demo \
-  --command.ui.matches '{"text":"OpenCode"}'
-```
-
-To read the UI state and see information about interactable elements, use the `ui.state` command:
-
-```bash
-opencode-drive send --name demo --command.ui.state
-```
-
-## Inspect The UI
-
-- `ui.state` prints focus and interactive element metadata as JSON.
-- `ui.matches` checks for literal, case-sensitive screen text.
-- `screenshot` prints the generated image path.
-
-```bash
-opencode-drive screenshot --name demo
-```
-
-## Record The UI
-
-- Start with `--record` to capture a headless instance from its first rendered frame.
-- `stop` finishes the recording, exports an MP4, and prints its path.
-
-```bash
-opencode-drive start --name demo --record
-
-opencode-drive send --name demo \
-  --command.ui.type '{"text":"Show me the current architecture"}' \
-  --command.ui.enter
-
-opencode-drive stop --name demo
-```
-
-## Configure LLM Responses
-
-- `responses` controls what the LLM responds with
-- Only use this if you are wanting to reproduce an exact type of response
-- Defaults are `text,reasoning,diff,tool` with `write,apply_patch`.
-- Supported types are `text`, `reasoning`, `diff`, and `tool`.
-- `--tools` limits generated tool calls to names offered by OpenCode.
-
-```bash
-opencode-drive responses --name demo \
-  --types text,reasoning,diff,tool \
-  --tools write,apply_patch
-
-opencode-drive responses --name demo \
-  --types tool \
-  --tools read,glob,grep
-```
-
-## Artifacts
-
-- `dir` prints the artifact directory for the instance. Startup logs include the
-  OpenCode `opencode*.log` path and the current `opencode-drive.log` path.
-
-```bash
-opencode-drive dir --name demo
-```
-
-## Lifecycle
-
-- `stop` waits for recording export and owner cleanup before returning.
-- `prune` removes artifact directories for sessions that are no longer active.
-
-```bash
-opencode-drive stop --name demo
-opencode-drive prune
-```
 
 # Scripted usage
 
@@ -244,3 +116,139 @@ You can see some example scripts here:
 
 - https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/simple.ts
 - https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/examples/serve.ts
+
+## Prune
+
+- `prune` removes artifact directories. These are always cleaned up after running a script
+  successfully, but leftover on failed runs. Always call this if a script fails.
+
+```bash
+opencode-drive prune --name demo
+
+// --force cleans up all artifcat directories
+opencode-dirve prune --force
+```
+
+# Live interaction usage
+
+- Always give headless instances a unique `--name`. Visible instances may omit it.
+- A normal headless `start` detaches automatically and returns after the instance is ready.
+- Do not add `&`; the long-running owner already runs in the background.
+- Configure simulated model responses after startup when needed.
+- Send ordered UI commands with `send`.
+- Always stop the instance when finished.
+
+```bash
+opencode-drive start --name demo
+
+opencode-drive send --name demo \
+  --command.ui.type '{"text":"Explain this project"}' \
+  --command.ui.enter
+
+opencode-drive stop --name demo
+```
+
+## Send UI Commands
+
+- Every `send` opens a connection to the named instance, runs its commands in order, and exits.
+- Combine typing and Enter in one command when submitting a prompt.
+- JSON-valued commands require one JSON argument.
+- Multiple command flags execute from left to right.
+
+Commands:
+
+- `--command.ui.type <json>` types into the focused editor. Arguments: `text` string.
+- `--command.ui.press <json>` presses a key. Arguments: `key` string; optional `modifiers` object with boolean `ctrl`, `shift`, `meta`, `super`, or `hyper`.
+- `--command.ui.enter` presses Enter. Arguments: none.
+- `--command.ui.arrow <json>` presses an arrow key. Arguments: `direction` is `up`, `down`, `left`, or `right`.
+- `--command.ui.focus <json>` focuses an element. Arguments: `target` is the numeric element `num` returned by `ui.state`.
+- `--command.ui.click <json>` clicks an element. Arguments: numeric `target`, `x`, and `y`; use the element `num` returned by `ui.state` as `target`.
+- `--command.ui.state` prints focus and interactive element metadata as JSON. Arguments: none.
+- `--command.ui.matches <json>` prints whether literal, case-sensitive text appears on screen. Arguments: `text` string.
+
+```bash
+opencode-drive send --name demo \
+  --command.ui.type '{"text":"Find the relevant code and explain it"}' \
+  --command.ui.enter
+
+opencode-drive send --name demo \
+  --command.ui.press '{"key":"p","modifiers":{"ctrl":true}}'
+
+opencode-drive send --name demo \
+  --command.ui.arrow '{"direction":"down"}'
+
+opencode-drive send --name demo \
+  --command.ui.focus '{"target":12}'
+
+opencode-drive send --name demo \
+  --command.ui.click '{"target":12,"x":4,"y":1}'
+
+opencode-drive send --name demo \
+  --command.ui.matches '{"text":"OpenCode"}'
+```
+
+To read the UI state and see information about interactable elements, use the `ui.state` command:
+
+```bash
+opencode-drive send --name demo --command.ui.state
+```
+
+## Configure LLM Responses
+
+- `responses` controls what the LLM responds with
+- Only use this if you are wanting to reproduce an exact type of response
+- Defaults are `text,reasoning,diff,tool` with `write,apply_patch`.
+- Supported types are `text`, `reasoning`, `diff`, and `tool`.
+- `--tools` limits generated tool calls to names offered by OpenCode.
+
+```bash
+opencode-drive responses --name demo \
+  --types text,reasoning,diff,tool \
+  --tools write,apply_patch
+
+opencode-drive responses --name demo \
+  --types tool \
+  --tools read,glob,grep
+```
+
+## Inspect The UI
+
+- `ui.state` prints focus and interactive element metadata as JSON.
+- `ui.matches` checks for literal, case-sensitive screen text.
+- `screenshot` prints the generated image path.
+
+```bash
+opencode-drive screenshot --name demo
+```
+
+## Lifecycle
+
+- `stop` waits for recording export and owner cleanup before returning.
+
+```bash
+opencode-drive stop --name demo
+```
+
+# Record The UI
+
+- Start with `--record` to capture a headless instance from its first rendered frame.
+- `stop` finishes the recording, exports an MP4, and prints its path.
+
+```bash
+opencode-drive start --name demo --record
+
+opencode-drive send --name demo \
+  --command.ui.type '{"text":"Show me the current architecture"}' \
+  --command.ui.enter
+
+opencode-drive stop --name demo
+```
+
+# Artifacts dir
+
+- `dir` prints the artifact directory for the instance.
+
+```bash
+opencode-drive dir --name demo
+```
+

@@ -227,6 +227,7 @@ describe("opencode-drive", () => {
     expect(stoppedError).toContain("Rendering video: 100%")
     expect(stoppedError).toContain(`Video successfully created: ${stoppedRecording}`)
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
+    expect(await Bun.file(manifest.artifacts).exists()).toBe(false)
     instances.splice(
       instances.findIndex((item) => item.name === name),
       1,
@@ -288,6 +289,7 @@ describe("opencode-drive", () => {
     expect(await stopped.exited).toBe(0)
     expect(await new Response(stopped.stdout).text()).toBe("success\n")
     expect(await readdir(join(root, "output"))).toEqual([])
+    expect(await Bun.file(manifest.artifacts).exists()).toBe(false)
     instances.pop()
   })
 
@@ -470,6 +472,84 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(unrelated, "marker.txt")).exists()).toBe(true)
   })
 
+  test("prunes one named inactive artifact directory", async () => {
+    const root = await temporary()
+    const artifactsRoot = join(root, "opencode-drive")
+    const active = join(artifactsRoot, "run-active")
+    const staleA = join(artifactsRoot, "run-stale-a")
+    const staleB = join(artifactsRoot, "run-stale-b")
+    await Promise.all(
+      [active, staleA, staleB].map((directory) =>
+        Bun.write(join(directory, "marker.txt"), "artifact\n"),
+      ),
+    )
+    await withRegistry(root, async () => {
+      await register({ ...testManifest("active", process.pid), artifacts: active })
+    })
+
+    const child = spawn(["prune", "--name", "run-stale-a"], root)
+    expect(await child.exited).toBe(0)
+    expect(await new Response(child.stdout).text()).toBe("1\n")
+    expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(true)
+    expect(await Bun.file(join(staleA, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(staleB, "marker.txt")).exists()).toBe(true)
+  })
+
+  test("force prunes matching active artifact directories", async () => {
+    const root = await temporary()
+    const artifactsRoot = join(root, "opencode-drive")
+    const active = join(artifactsRoot, "run-active")
+    const stale = join(artifactsRoot, "run-stale")
+    await Promise.all(
+      [active, stale].map((directory) => Bun.write(join(directory, "marker.txt"), "artifact\n")),
+    )
+    await withRegistry(root, async () => {
+      await register({ ...testManifest("active", process.pid), artifacts: active })
+    })
+
+    const child = spawn(["prune", "--name", "run-active", "--force"], root)
+    expect(await child.exited).toBe(0)
+    expect(await new Response(child.stdout).text()).toBe("1\n")
+    expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(stale, "marker.txt")).exists()).toBe(true)
+  })
+
+  test("force prunes all artifact directories", async () => {
+    const root = await temporary()
+    const artifactsRoot = join(root, "opencode-drive")
+    const active = join(artifactsRoot, "run-active")
+    const initialized = join(artifactsRoot, "run-initialized")
+    const stale = join(artifactsRoot, "run-stale")
+    const unrelated = join(artifactsRoot, "other")
+    await Promise.all(
+      [active, initialized, stale, unrelated].map((directory) =>
+        Bun.write(join(directory, "marker.txt"), "artifact\n"),
+      ),
+    )
+    await withRegistry(root, async () => {
+      await register({ ...testManifest("active", process.pid), artifacts: active })
+      await Bun.write(
+        manifestPath("initialized"),
+        `${JSON.stringify({
+          version: 1,
+          name: "initialized",
+          createdAt: new Date().toISOString(),
+          cwd: root,
+          artifacts: initialized,
+          status: "initialized",
+        })}\n`,
+      )
+    })
+
+    const child = spawn(["prune", "--force"], root)
+    expect(await child.exited).toBe(0)
+    expect(await new Response(child.stdout).text()).toBe("3\n")
+    expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(initialized, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(stale, "marker.txt")).exists()).toBe(false)
+    expect(await Bun.file(join(unrelated, "marker.txt")).exists()).toBe(true)
+  })
+
   test("reports optional-name discovery errors", async () => {
     const root = await temporary()
     const missing = spawn(["dir"], root)
@@ -644,6 +724,33 @@ describe("opencode-drive", () => {
     ])
     const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
     expect(running(pid)).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
+  })
+
+  test("cleans artifacts after a successful scripted run", async () => {
+    const root = await temporary()
+    const name = "script-cleanup-test"
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        name,
+        "--script",
+        fixture("script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+      { keepArtifacts: false },
+    )
+    const [status, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+    ])
+    expect(status).toBe(0)
+    const artifacts = artifactPath(stderr)
+    expect(await Bun.file(artifacts).exists()).toBe(false)
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
@@ -1162,15 +1269,22 @@ describe("opencode-drive", () => {
   })
 })
 
-function spawn(args: ReadonlyArray<string>, root: string) {
+function spawn(
+  args: ReadonlyArray<string>,
+  root: string,
+  options: { readonly keepArtifacts?: boolean } = {},
+) {
+  const env = {
+    ...process.env,
+    DRIVE_REGISTRY_DIR: join(root, "registry"),
+    OPENCODE_DRIVE_MEDIA_DIR: join(root, "output"),
+    OPENCODE_DRIVE_KEEP_ARTIFACTS: "1",
+    TMPDIR: root,
+  }
+  if (options.keepArtifacts === false) delete env.OPENCODE_DRIVE_KEEP_ARTIFACTS
   return Bun.spawn([process.execPath, resolve("src/cli/index.ts"), ...args], {
     cwd: resolve("."),
-    env: {
-      ...process.env,
-      DRIVE_REGISTRY_DIR: join(root, "registry"),
-      OPENCODE_DRIVE_MEDIA_DIR: join(root, "output"),
-      TMPDIR: root,
-    },
+    env,
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",

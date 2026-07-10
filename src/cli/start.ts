@@ -279,10 +279,31 @@ export async function start(options: StartOptions) {
     if (options.script)
       for (const output of recordings)
         logSuccess(`recording ${output}`)
+    if (shouldCleanArtifacts(options.script, completed, failure, cleanupFailure))
+      await rm(instance.artifacts, { recursive: true, force: true }).catch((error) => {
+        cleanupFailure ??= error
+        logError(`failed to clean artifacts ${instance.artifacts}: ${error}`)
+      })
     if (options.script && failure !== undefined)
       setTimeout(() => process.exit(1), 0)
     if (failure === undefined && cleanupFailure !== undefined) process.exitCode = 1
   }
+}
+
+function shouldCleanArtifacts(
+  script: string | undefined,
+  completed: boolean,
+  failure: unknown,
+  cleanupFailure: unknown,
+) {
+  return (
+    script !== undefined &&
+    completed &&
+    failure === undefined &&
+    cleanupFailure === undefined &&
+    (process.exitCode === undefined || process.exitCode === 0) &&
+    process.env.OPENCODE_DRIVE_KEEP_ARTIFACTS !== "1"
+  )
 }
 
 async function finishRecording(

@@ -1,3 +1,6 @@
+import { rm } from "node:fs/promises"
+import { basename, dirname, resolve } from "node:path"
+import { artifactDirectory } from "../instance/instance.js"
 import { requestStop } from "../instance/control.js"
 import { manifestPath, resolveInstance } from "../instance/registry.js"
 import { configureLogFile, logSuccess } from "../log.js"
@@ -25,9 +28,16 @@ export async function stop(name?: string) {
       } else if (result.screenshots.length === 0) {
         console.log("success")
       }
+      await pruneArtifacts(manifest.artifacts)
       return
     }
     await Bun.sleep(25)
   }
   throw new Error(`timed out stopping drive instance "${manifest.name}"`)
+}
+
+async function pruneArtifacts(artifacts: string) {
+  const directory = resolve(artifacts)
+  if (dirname(directory) !== artifactDirectory() || !/^run-[^/\\]+$/.test(basename(directory))) return
+  await rm(directory, { recursive: true, force: true })
 }

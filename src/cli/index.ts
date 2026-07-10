@@ -29,6 +29,10 @@ const name = Flag.string("name").pipe(
   Flag.optional,
   Flag.withDescription("Instance name (defaults to the visible instance)"),
 )
+const pruneName = Flag.string("name").pipe(
+  Flag.optional,
+  Flag.withDescription("Artifact directory name"),
+)
 
 const initCommand = Command.make("init", { name: initName }, (config) =>
   execute(() => init(config.name)),
@@ -136,8 +140,20 @@ const listCommand = Command.make("list", {}, () => execute(list)).pipe(
   Command.withDescription("List active OpenCode instances"),
 )
 
-const pruneCommand = Command.make("prune", {}, () => execute(prune)).pipe(
-  Command.withDescription("Delete artifacts for inactive OpenCode instances"),
+const pruneCommand = Command.make(
+  "prune",
+  {
+    name: pruneName,
+    force: Flag.boolean("force").pipe(
+      Flag.withDescription("Delete all matching artifact directories, including active ones"),
+    ),
+  },
+  (config) =>
+    execute(() =>
+      prune({ name: Option.getOrUndefined(config.name), force: config.force }),
+    ),
+).pipe(
+  Command.withDescription("Delete artifact directories for inactive OpenCode instances"),
 )
 
 const responsesCommand = Command.make(
