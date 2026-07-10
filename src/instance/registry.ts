@@ -22,6 +22,8 @@ export interface InitializedManifest {
   readonly cwd: string
   readonly artifacts: string
   readonly status: "initialized"
+  readonly temporary?: boolean
+  readonly pid?: number
 }
 
 export type Manifest = InstanceManifest | InitializedManifest
@@ -45,13 +47,30 @@ export function controlPath(name: string) {
   return join(registryDirectory(), `${validateName(name)}.sock`)
 }
 
-export async function initializeManifest(name: string, cwd: string, create: () => Promise<string>) {
+export async function initializeManifest(
+  name: string,
+  cwd: string,
+  create: () => Promise<string>,
+  options: { readonly temporary?: boolean } = {},
+) {
   let initialized: InitializedManifest | undefined
   await withLock(name, false, async () => {
-    const existing = await read(manifestPath(name))
+    let existing = await read(manifestPath(name))
     if (existing?.status === "initialized") {
-      initialized = existing
-      return
+      if (!keepInitialized(existing)) {
+        await Promise.all([
+          rm(manifestPath(name), { force: true }),
+          rm(controlPath(name), { force: true }),
+        ])
+        existing = undefined
+      } else {
+        initialized =
+          options.temporary && existing.temporary
+            ? { ...existing, pid: process.pid }
+            : existing
+        if (initialized !== existing) await write(initialized)
+        return
+      }
     }
     if (existing && alive(existing.pid))
       throw new Error(`drive instance "${name}" is already running`)
@@ -62,6 +81,7 @@ export async function initializeManifest(name: string, cwd: string, create: () =
       cwd,
       artifacts: await create(),
       status: "initialized",
+      ...(options.temporary ? { temporary: true, pid: process.pid } : {}),
     }
     await Promise.all([
       rm(manifestPath(name), { force: true }),
@@ -74,6 +94,11 @@ export async function initializeManifest(name: string, cwd: string, create: () =
 }
 
 export async function register(manifest: InstanceManifest) {
+  if (manifest.visible) {
+    const visible = (await listInstances()).find((instance) => instance.visible)
+    if (visible)
+      throw new Error(`visible drive instance "${visible.name}" is already running`)
+  }
   await withLock(manifest.name, false, async () => {
     const existing = await read(manifestPath(manifest.name))
     if (existing && existing.status !== "initialized" && alive(existing.pid))
@@ -107,19 +132,26 @@ export async function resolveInstance(name?: string, options: { readonly ready?:
   const instances = await listInstances()
   const manifest = name
     ? instances.find((item) => item.name === name)
-    : instances.length === 1
-      ? instances[0]
-      : undefined
+    : instances.find((item) => item.visible)
   if (!manifest) {
-    if (!name && instances.length > 1)
+    if (!name && instances.length > 0)
       throw new Error(
-        `multiple drive instances are running; pass --name (${instances.map((item) => item.name).join(", ")})`,
+        `no visible drive instance is running; pass --name (${instances.map((item) => item.name).join(", ")})`,
       )
     throw new Error(
       name ? `drive instance "${name}" was not found` : "no drive instances are running",
     )
   }
   if (options.ready !== false && manifest.status !== "ready")
+    throw new Error(`drive instance "${manifest.name}" is still starting`)
+  return manifest
+}
+
+export async function resolveVisibleInstance(
+  options: { readonly ready?: boolean } = {},
+) {
+  const manifest = (await listInstances()).find((instance) => instance.visible)
+  if (manifest && options.ready !== false && manifest.status !== "ready")
     throw new Error(`drive instance "${manifest.name}" is still starting`)
   return manifest
 }
@@ -144,7 +176,8 @@ export async function listManifests() {
         }
         const manifest = await read(join(registryDirectory(), file))
         if (manifest?.name === name) {
-          if (manifest.status === "initialized" || alive(manifest.pid)) return manifest
+          if (manifest.status === "initialized" && keepInitialized(manifest)) return manifest
+          if (manifest.status !== "initialized" && alive(manifest.pid)) return manifest
         }
         await prune(name, manifest?.status === "initialized" ? undefined : manifest?.pid)
         return undefined
@@ -179,13 +212,29 @@ export async function unregister(name: string, pid: number) {
 async function prune(name: string, pid?: number) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
-    if (manifest?.status === "initialized") return
+    if (manifest?.status === "initialized") {
+      if (keepInitialized(manifest)) return
+      await Promise.all([
+        rm(manifestPath(name), { force: true }),
+        rm(controlPath(name), { force: true }),
+      ])
+      return
+    }
     if (manifest && (manifest.pid !== pid || alive(manifest.pid))) return
     await Promise.all([
       rm(manifestPath(name), { force: true }),
       rm(controlPath(name), { force: true }),
     ])
   })
+}
+
+function keepInitialized(manifest: InitializedManifest) {
+  if (!manifest.temporary) return !legacyVisibleInitialized(manifest.name)
+  return manifest.pid !== undefined && alive(manifest.pid)
+}
+
+function legacyVisibleInitialized(name: string) {
+  return /^visible-\d+$/.test(name)
 }
 
 async function write(manifest: Manifest) {
@@ -248,32 +297,15 @@ async function staleLock(file: string) {
 
 function isManifest(value: unknown): value is Manifest {
   if (typeof value !== "object" || value === null) return false
-  if (!("version" in value) || value.version !== 1) return false
-  if (!("name" in value) || typeof value.name !== "string") return false
-  if ("status" in value && value.status === "initialized")
-    return (
-      "createdAt" in value &&
-      typeof value.createdAt === "string" &&
-      "cwd" in value &&
-      typeof value.cwd === "string" &&
-      "artifacts" in value &&
-      typeof value.artifacts === "string"
-    )
-  if (!("pid" in value) || typeof value.pid !== "number") return false
-  if (!("startedAt" in value) || typeof value.startedAt !== "string") return false
-  if (!("cwd" in value) || typeof value.cwd !== "string") return false
-  if (!("artifacts" in value) || typeof value.artifacts !== "string") return false
-  if (!("visible" in value) || typeof value.visible !== "boolean") return false
-  if (!("status" in value) || (value.status !== "starting" && value.status !== "ready"))
-    return false
-  if (!("control" in value) || typeof value.control !== "string") return false
-  if (!("endpoints" in value) || typeof value.endpoints !== "object" || value.endpoints === null)
-    return false
+  const manifest = value as Partial<Manifest>
+  if (typeof manifest.name !== "string") return false
+  if (manifest.status === "initialized") return typeof manifest.artifacts === "string"
+  const instance = value as Partial<InstanceManifest>
+  const endpoints = instance.endpoints
   return (
-    "ui" in value.endpoints &&
-    typeof value.endpoints.ui === "string" &&
-    "backend" in value.endpoints &&
-    typeof value.endpoints.backend === "string"
+    typeof instance.pid === "number" &&
+    typeof endpoints?.ui === "string" &&
+    typeof endpoints.backend === "string"
   )
 }
 

@@ -189,6 +189,8 @@ export default defineScript({
 })
 ```
 
+Note that the simulated model is a GPT model type, and opencode uses the `patch` tool for working with files Do not use a `edit` or `write` tool to edit files.
+
 Use `launch: "manual"` when the script needs to launch the server and every TUI
 itself (this is extremely rare, do not use this unless explicitly asked). In this
 mode `ui` is typed as `null`; call `server.launch()` exactly

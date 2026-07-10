@@ -8,9 +8,11 @@ import {
   manifestPath,
   register,
   unregister,
+  type InstanceManifest,
 } from "../../src/instance/registry.js"
 import { createResponseSettings, generateResponse } from "../../src/cli/response-generator.js"
 import { splitText } from "../../src/cli/mock-backend.js"
+import { resolveSendEndpoint } from "../../src/cli/send.js"
 
 const roots: string[] = []
 const instances: Array<{ root: string; name: string }> = []
@@ -117,15 +119,27 @@ describe("opencode-drive", () => {
     expect(manifest.endpoints.ui).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
     expect(manifest.endpoints.backend).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
 
-    const state = spawn(["send", "--command.ui.state"], root)
+    const state = spawn(["send", "--name", name, "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
     expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
 
-    const matches = spawn(["send", "--command.ui.matches", '{"text":"Fake OpenCode"}'], root)
+    const matches = spawn([
+      "send",
+      "--name",
+      name,
+      "--command.ui.matches",
+      '{"text":"Fake OpenCode"}',
+    ], root)
     expect(await matches.exited).toBe(0)
     expect(await new Response(matches.stdout).text()).toBe("true\n")
 
-    const literal = spawn(["send", "--command.ui.matches", '{"text":"Fake.*OpenCode"}'], root)
+    const literal = spawn([
+      "send",
+      "--name",
+      name,
+      "--command.ui.matches",
+      '{"text":"Fake.*OpenCode"}',
+    ], root)
     expect(await literal.exited).toBe(0)
     expect(await new Response(literal.stdout).text()).toBe("false\n")
 
@@ -135,14 +149,22 @@ describe("opencode-drive", () => {
     expect(screenshotPath.startsWith(`${join(root, "output")}/screenshot-`)).toBe(true)
     expect(screenshotPath.endsWith(".png")).toBe(true)
 
-    const defaults = spawn(["responses"], root)
+    const defaults = spawn(["responses", "--name", name], root)
     expect(await defaults.exited).toBe(0)
     expect(await new Response(defaults.stdout).text()).toBe(
       "Types: text,reasoning,diff,tool\nTools: write,apply_patch\n",
     )
 
     const configured = spawn(
-      ["responses", "--types", "reasoning,tool,reasoning", "--tools", "read,grep,read"],
+      [
+        "responses",
+        "--name",
+        name,
+        "--types",
+        "reasoning,tool,reasoning",
+        "--tools",
+        "read,grep,read",
+      ],
       root,
     )
     expect(await configured.exited).toBe(0)
@@ -150,30 +172,30 @@ describe("opencode-drive", () => {
       "Types: reasoning,tool\nTools: read,grep\n",
     )
 
-    const invalid = spawn(["responses", "--types", "unknown"], root)
+    const invalid = spawn(["responses", "--name", name, "--types", "unknown"], root)
     expect(await invalid.exited).toBe(1)
     expect(await new Response(invalid.stderr).text()).toContain("unknown response types: unknown")
 
-    const listed = spawn(["logs"], root)
+    const listed = spawn(["logs", "--name", name], root)
     expect(await listed.exited).toBe(0)
     expect(await new Response(listed.stdout).text()).toBe(
       `${join(manifest.artifacts, "logs", "opencode", "log", "opencode*.log")}\n`,
     )
 
-    const restarted = spawn(["restart"], root)
+    const restarted = spawn(["restart", "--name", name], root)
     expect(await restarted.exited).toBe(0)
     const restartedRecording = (await new Response(restarted.stdout).text()).trim()
     expect(restartedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
     expect(await Bun.file(restartedRecording).exists()).toBe(true)
     await waitForLines(join(manifest.artifacts, "launches.txt"), 2)
-    const persisted = spawn(["responses"], root)
+    const persisted = spawn(["responses", "--name", name], root)
     expect(await persisted.exited).toBe(0)
     expect(await new Response(persisted.stdout).text()).toBe(
       "Types: reasoning,tool\nTools: read,grep\n",
     )
     expect(await spawn(["send", "--name", name, "--command.ui.state"], root).exited).toBe(0)
 
-    const stopped = spawn(["stop"], root)
+    const stopped = spawn(["stop", "--name", name], root)
     const [stoppedStatus, stoppedOutput, stoppedError] = await Promise.all([
       stopped.exited,
       new Response(stopped.stdout).text(),
@@ -291,6 +313,24 @@ describe("opencode-drive", () => {
     })
   })
 
+  test("registers only one visible instance", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      await register({ ...testManifest("first-visible", process.pid), visible: true })
+      expect(
+        register({ ...testManifest("second-visible", process.pid), visible: true }),
+      ).rejects.toThrow('visible drive instance "first-visible" is already running')
+    })
+  })
+
+  test("falls back to the default UI endpoint when no visible instance is registered", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      await register(testManifest("headless", process.pid))
+      expect(await resolveSendEndpoint()).toBe("ws://127.0.0.1:40900")
+    })
+  })
+
   test("does not let a stale owner remove its replacement", async () => {
     const root = await temporary()
     await withRegistry(root, async () => {
@@ -330,15 +370,51 @@ describe("opencode-drive", () => {
     )
   })
 
+  test("prunes dead transient initialized manifests", async () => {
+    const root = await temporary()
+    await withRegistry(root, async () => {
+      const stalePid = 2_000_000_000
+      await Bun.write(
+        manifestPath("temporary-initialized"),
+        `${JSON.stringify({
+          version: 1,
+          name: "temporary-initialized",
+          createdAt: new Date().toISOString(),
+          cwd: root,
+          artifacts: join(root, "opencode-drive", "run-temporary"),
+          status: "initialized",
+          temporary: true,
+          pid: stalePid,
+        })}\n`,
+      )
+      await Bun.write(
+        manifestPath("visible-12345"),
+        `${JSON.stringify({
+          version: 1,
+          name: "visible-12345",
+          createdAt: new Date().toISOString(),
+          cwd: root,
+          artifacts: join(root, "opencode-drive", "run-visible"),
+          status: "initialized",
+        })}\n`,
+      )
+
+      expect(await listInstances()).toEqual([])
+      expect(await Bun.file(manifestPath("temporary-initialized")).exists()).toBe(false)
+      expect(await Bun.file(manifestPath("visible-12345")).exists()).toBe(false)
+    })
+  })
+
   test("prunes artifact directories not referenced by active sessions", async () => {
     const root = await temporary()
     const artifactsRoot = join(root, "opencode-drive")
     const active = join(artifactsRoot, "run-active")
     const initialized = join(artifactsRoot, "run-initialized")
+    const visible = join(artifactsRoot, "run-visible")
     const stale = join(artifactsRoot, "run-stale")
     const unrelated = join(artifactsRoot, "other")
     await Promise.all(
-      [active, initialized, stale, unrelated].map((directory) =>
+      [active, initialized, visible, stale, unrelated].map((directory) =>
         Bun.write(join(directory, "marker.txt"), "artifact\n"),
       ),
     )
@@ -355,13 +431,25 @@ describe("opencode-drive", () => {
           status: "initialized",
         })}\n`,
       )
+      await Bun.write(
+        manifestPath("visible-12345"),
+        `${JSON.stringify({
+          version: 1,
+          name: "visible-12345",
+          createdAt: new Date().toISOString(),
+          cwd: root,
+          artifacts: visible,
+          status: "initialized",
+        })}\n`,
+      )
     })
 
     const child = spawn(["prune"], root)
     expect(await child.exited).toBe(0)
-    expect(await new Response(child.stdout).text()).toBe("1\n")
+    expect(await new Response(child.stdout).text()).toBe("2\n")
     expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(true)
     expect(await Bun.file(join(initialized, "marker.txt")).exists()).toBe(true)
+    expect(await Bun.file(join(visible, "marker.txt")).exists()).toBe(false)
     expect(await Bun.file(join(stale, "marker.txt")).exists()).toBe(false)
     expect(await Bun.file(join(unrelated, "marker.txt")).exists()).toBe(true)
   })
@@ -391,13 +479,15 @@ describe("opencode-drive", () => {
     expect(await spawn(["send", "--name", "first", "--command.ui.state"], root).exited).toBe(0)
     expect(await spawn(["send", "--name", "second", "--command.ui.state"], root).exited).toBe(0)
 
-    const ambiguous = spawn(["logs"], root)
+    const unnamed = spawn(["logs"], root)
     const [status, stderr] = await Promise.all([
-      ambiguous.exited,
-      new Response(ambiguous.stderr).text(),
+      unnamed.exited,
+      new Response(unnamed.stderr).text(),
     ])
     expect(status).toBe(1)
-    expect(stderr).toContain("multiple drive instances are running; pass --name (first, second)")
+    expect(stderr).toContain(
+      "no visible drive instance is running; pass --name (first, second)",
+    )
     const listed = spawn(["list"], root)
     expect(await listed.exited).toBe(0)
     expect(await new Response(listed.stdout).text()).toBe(
@@ -424,8 +514,21 @@ describe("opencode-drive", () => {
     )
   })
 
-  test("keeps unnamed visible instances in the foreground", async () => {
+  test("makes the visible instance the nameless target", async () => {
     const root = await temporary()
+    const background = "background"
+    const backgroundStart = spawn(
+      ["start", "--name", background, "--", process.execPath, fixture("fake-opencode.ts")],
+      root,
+    )
+    const [backgroundStatus, backgroundError] = await Promise.all([
+      backgroundStart.exited,
+      new Response(backgroundStart.stderr).text(),
+    ])
+    expect(backgroundStatus).toBe(0)
+    roots.push(artifactPath(backgroundError))
+    instances.push({ root, name: background })
+
     const running = spawn(
       [
         "start",
@@ -433,11 +536,25 @@ describe("opencode-drive", () => {
         "--",
         process.execPath,
         fixture("fake-opencode.ts"),
-        "500",
+        "30000",
       ],
       root,
     )
+    const name = `visible-${running.pid}`
+    const manifest = await waitForManifest(root, name)
+    roots.push(manifest.artifacts)
+    instances.push({ root, name: manifest.name })
+    expect(manifest.visible).toBe(true)
+
+    const state = spawn(["send", "--command.ui.state"], root)
+    expect(await state.exited).toBe(0)
+    expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
+
+    expect(await spawn(["stop"], root).exited).toBe(0)
+    instances.pop()
     expect(await running.exited).toBe(0)
+    expect(await spawn(["stop", "--name", background], root).exited).toBe(0)
+    instances.pop()
     const listed = spawn(["list"], root)
     expect(await listed.exited).toBe(0)
     expect(await new Response(listed.stdout).text()).toBe("\n")
@@ -1012,7 +1129,7 @@ async function waitForManifest(root: string, name: string) {
       .json()
       .catch(() => undefined)
     if (manifest?.status === "ready")
-      return manifest as { readonly artifacts: string }
+      return manifest as InstanceManifest
     await Bun.sleep(25)
   }
   throw new Error(`timed out waiting for ${file}`)

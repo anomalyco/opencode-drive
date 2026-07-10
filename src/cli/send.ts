@@ -1,12 +1,12 @@
 import { executeCommands } from "./commands.js"
 import type { SendOptions } from "./types.js"
-import { resolveInstance } from "../instance/registry.js"
+import { defaultPort } from "../client/index.js"
+import { resolveInstance, resolveVisibleInstance } from "../instance/registry.js"
 
 export async function send(options: SendOptions) {
   if (options.commands.length === 0)
     throw new Error("send requires at least one --command.ui.* flag")
-  const instance = await resolveInstance(options.name)
-  const result = await executeCommands(instance.endpoints.ui, options.commands)
+  const result = await executeCommands(await resolveSendEndpoint(options.name), options.commands)
   if (
     options.commands.length === 1 &&
     ["ui.screenshot", "ui.matches", "ui.recording.finish"].includes(
@@ -26,4 +26,11 @@ export async function send(options: SendOptions) {
     return
   }
   console.log("success")
+}
+
+export async function resolveSendEndpoint(name?: string) {
+  if (name) return (await resolveInstance(name)).endpoints.ui
+  return (
+    (await resolveVisibleInstance())?.endpoints.ui ?? `ws://127.0.0.1:${defaultPort}`
+  )
 }

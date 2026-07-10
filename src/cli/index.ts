@@ -26,7 +26,7 @@ const startName = Flag.string("name").pipe(
 )
 const name = Flag.string("name").pipe(
   Flag.optional,
-  Flag.withDescription("Instance name (inferred when exactly one is running)"),
+  Flag.withDescription("Instance name (defaults to the visible instance)"),
 )
 
 const initCommand = Command.make("init", { name: initName }, (config) =>

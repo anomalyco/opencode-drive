@@ -22,7 +22,9 @@ import {
 import type { StartOptions } from "./types.js"
 
 export async function start(options: StartOptions) {
-  const initialized = await initializeManifest(options.name, process.cwd(), initializeInstance)
+  const initialized = await initializeManifest(options.name, process.cwd(), initializeInstance, {
+    temporary: true,
+  })
   if (!options.visible && !options.script && !options.daemon) return startDetached(options)
   const scriptTooling = options.script
     ? await prepareScriptTooling(initialized.artifacts, options.script)
