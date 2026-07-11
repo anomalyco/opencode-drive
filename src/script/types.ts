@@ -238,6 +238,13 @@ export interface ScriptSetupContext {
   readonly config: JsonObject
 }
 
+export interface ScriptProject {
+  /** Creates an isolated Git repository and commits its initial files before OpenCode starts. */
+  readonly git: {
+    readonly files: Readonly<Record<string, string | Uint8Array>>
+  }
+}
+
 export interface ScriptClients {
   /** Launches a headless TUI connected to this script's shared service. */
   launch(name: string, options?: ScriptClientOptions): Promise<ScriptUi>
@@ -281,6 +288,8 @@ export type ManualScriptRun = (
 ) => void | Promise<void>
 
 export interface AutomaticScriptDefinition {
+  /** Declares the isolated project OpenCode runs against. */
+  readonly project?: ScriptProject
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
   /** Initial terminal viewport for the default client. */
@@ -292,6 +301,8 @@ export interface AutomaticScriptDefinition {
 export interface ManualScriptDefinition {
   /** The server and every client are launched explicitly by the script. */
   readonly launch: "manual"
+  /** Declares the isolated project OpenCode runs against. */
+  readonly project?: ScriptProject
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
   /** Initial terminal viewport for clients that do not specify one. */

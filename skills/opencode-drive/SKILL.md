@@ -48,7 +48,8 @@ It will output information about the run, including paths to log files which you
 to inspect what happened. If you need to dig into failures that aren't clear, read those log
 files. If the script is unsuccessful, automatically fix the script and run it again.
 
-Scripts use one typed definition object. `setup` runs before OpenCode starts,
+Scripts use one typed definition object. `project.git.files` creates an isolated
+Git repository with a committed baseline. `setup` runs before OpenCode starts,
 and `fs.writeFile` always writes inside the simulated project.
 
 You can read the full typed API here: https://raw.githubusercontent.com/jlongster/opencode-drive/refs/heads/main/src/script/types.ts
@@ -57,9 +58,15 @@ You can read the full typed API here: https://raw.githubusercontent.com/jlongste
 import { defineScript } from "opencode-drive"
 
 export default defineScript({
-  async setup({ fs, config }) {
+  project: {
+    git: {
+      files: {
+        "src/example.ts": "export const value = 1\n",
+      },
+    },
+  },
+  setup({ config }) {
     config.autoupdate = false
-    await fs.writeFile("src/example.ts", "export const value = 1\n")
   },
 
   async run({ ui, llm }) {
@@ -68,6 +75,16 @@ export default defineScript({
     await ui.waitFor("The file exports `value`.")
   },
 })
+```
+
+Files written during `setup` are included in the same baseline commit. Enable
+OpenCode snapshots in `setup` when a flow needs to exercise `/undo` file
+restoration:
+
+```ts
+setup({ config }) {
+  config.snapshots = true
+}
 ```
 
 `setup` receives the current OpenCode config object, which starts from the
@@ -251,4 +268,3 @@ opencode-drive stop --name demo
 ```bash
 opencode-drive dir --name demo
 ```
-

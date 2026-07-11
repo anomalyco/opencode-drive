@@ -3,7 +3,17 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { ensureMediaDirectory } from "./media.js"
 import { createScriptFileSystem } from "../script/filesystem.js"
-import type { JsonObject, ScriptSetup, UiViewport } from "../script/types.js"
+import {
+  commitScriptProject,
+  initializeScriptProject,
+  stripGitEnvironment,
+} from "../script/project.js"
+import type {
+  JsonObject,
+  ScriptProject,
+  ScriptSetup,
+  UiViewport,
+} from "../script/types.js"
 
 export interface LaunchOptions {
   readonly artifacts: string
@@ -15,6 +25,7 @@ export interface LaunchOptions {
   readonly record?: boolean
   readonly viewport?: UiViewport
   readonly env?: Readonly<Record<string, string>>
+  readonly project?: ScriptProject
   readonly setup?: ScriptSetup
   readonly log?: (message: string) => void
 }
@@ -84,16 +95,21 @@ export async function launchInstance(options: LaunchOptions) {
         2,
       )}\n`,
     )
+  if (options.project) await initializeScriptProject(files, options.project)
   if (options.setup) {
     const configFile = Bun.file(configPath)
     const config: JsonObject = await (await configFile.exists()
       ? configFile
       : Bun.file(new URL("./default-config.jsonc", import.meta.url))
     ).json()
-    await options.setup({ fs: createScriptFileSystem(files), config })
+    await options.setup({
+      fs: createScriptFileSystem(files, { git: options.project !== undefined }),
+      config,
+    })
     await Bun.write(configPath, `${JSON.stringify(config, undefined, 2)}\n`)
   }
-  const environment = cleanEnv({
+  if (options.project) await commitScriptProject(files)
+  const environment = cleanEnv(stripGitEnvironment({
     ...process.env,
     ...options.env,
     OPENCODE_SIMULATE: "1",
@@ -109,7 +125,7 @@ export async function launchInstance(options: LaunchOptions) {
     XDG_CONFIG_HOME: join(artifacts, "home", ".config"),
     XDG_DATA_HOME: logs,
     XDG_STATE_HOME: join(artifacts, "home", ".local", "state"),
-  })
+  }))
   const command = options.dev
     ? await prepareDev(artifacts, options.dev)
     : options.command?.length

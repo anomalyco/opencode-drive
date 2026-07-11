@@ -743,10 +743,28 @@ function isTimeoutError(error: unknown) {
 function isScriptDefinition(value: unknown): value is ScriptDefinition {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false
-  const script = value as { readonly run?: unknown; readonly setup?: unknown }
+  const script = value as {
+    readonly project?: unknown
+    readonly run?: unknown
+    readonly setup?: unknown
+  }
   return (
     typeof script.run === "function" &&
+    (script.project === undefined || isScriptProject(script.project)) &&
     (script.setup === undefined || typeof script.setup === "function") &&
     (!("launch" in script) || script.launch === "manual")
+  )
+}
+
+function isScriptProject(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return false
+  const git = "git" in value ? value.git : undefined
+  if (typeof git !== "object" || git === null || Array.isArray(git)) return false
+  const files = "files" in git ? git.files : undefined
+  if (typeof files !== "object" || files === null || Array.isArray(files))
+    return false
+  return Object.values(files).every(
+    (contents) => typeof contents === "string" || contents instanceof Uint8Array,
   )
 }

@@ -715,6 +715,10 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(artifacts, "seeded-at-launch.txt")).text()).toBe(
       "export const seeded = true\n",
     )
+    expect(await Bun.$`git status --porcelain`.cwd(join(artifacts, "files")).text()).toBe("")
+    expect(
+      (await Bun.$`git log -1 --format=%s`.cwd(join(artifacts, "files")).text()).trim(),
+    ).toBe("Initial commit")
     expect(await realpath(await Bun.file(join(artifacts, "child-cwd.txt")).text())).toBe(
       await realpath(join(artifacts, "files")),
     )

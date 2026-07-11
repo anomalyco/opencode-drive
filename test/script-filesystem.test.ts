@@ -38,6 +38,14 @@ describe("script filesystem", () => {
       "must not contain symbolic links",
     )
   })
+
+  test("reserves Git metadata for declared Git projects", async () => {
+    const root = await temporary()
+    const fs = createScriptFileSystem(root, { git: true })
+    await expect(fs.writeFile(".git/config", "no")).rejects.toThrow(
+      "must not modify Git metadata",
+    )
+  })
 })
 
 async function temporary() {

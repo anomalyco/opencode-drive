@@ -73,9 +73,15 @@ Scripted runs use one fully typed definition:
 import { defineScript } from "opencode-drive"
 
 export default defineScript({
-  async setup({ fs, config }) {
+  project: {
+    git: {
+      files: {
+        "src/example.ts": "export const value = 1\n",
+      },
+    },
+  },
+  setup({ config }) {
     config.autoupdate = false
-    await fs.writeFile("src/example.ts", "export const value = 1\n")
   },
   async run({ ui, llm }) {
     await ui.submit("Read src/example.ts")
@@ -84,6 +90,11 @@ export default defineScript({
   },
 })
 ```
+
+`project.git.files` creates an isolated Git repository and commits its initial
+files before OpenCode starts. Files written in `setup` are included in the same
+baseline commit. The project remains in the run artifacts when a script fails
+so it can be inspected before pruning.
 
 Type-check every new or edited script before running it:
 
