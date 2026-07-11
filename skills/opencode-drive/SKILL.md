@@ -120,13 +120,14 @@ You can see some example scripts here:
 ## Prune
 
 - `prune` removes artifact directories. These are always cleaned up after running a script
-  successfully, but leftover on failed runs. Always call this if a script fails.
+  successfully, but leftover on failed runs. Always call this if a script fails. Pass the
+  artifact directory name printed by `start` (for example `run-9dbc73`), not the instance name.
 
 ```bash
-opencode-drive prune --name demo
+opencode-drive prune --name run-9dbc73
 
-// --force cleans up all artifcat directories
-opencode-dirve prune --force
+# --force cleans up all artifact directories
+opencode-drive prune --force
 ```
 
 # Live interaction usage
@@ -251,4 +252,3 @@ opencode-drive stop --name demo
 ```bash
 opencode-drive dir --name demo
 ```
-
