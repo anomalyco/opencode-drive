@@ -17,6 +17,7 @@
     "./script": "./src/script/index.ts"
   },
   "files": [
+    "assets/fonts",
     "bin/opencode-drive",
     "src/cli",
     "src/client",
@@ -38,7 +39,7 @@
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.93",
     "@effect/platform-node-shared": "4.0.0-beta.93",
-    "@fontsource/commit-mono": "5.2.5",
+    "@fontsource/noto-sans-symbols-2": "5.2.8",
     "@napi-rs/canvas": "1.0.2",
     "@wterm/core": "0.3.0",
     "@wterm/ghostty": "0.3.0",

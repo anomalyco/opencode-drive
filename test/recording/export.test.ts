@@ -104,10 +104,43 @@ test("renders block elements edge-to-edge", async () => {
   expect(pixel(29, 19)).toEqual([255, 255, 255, 255])
 })
 
-test("accepts valid capture font overrides", async () => {
-  const font = import.meta.resolve(
-    "@fontsource/commit-mono/files/commit-mono-latin-400-normal.woff2",
+test("renders distinct fallback glyphs centered in their cells", async () => {
+  const symbols = [..."⬥◆⬩⬪·⠋"]
+  const image = await loadImage(
+    renderFrame({
+      cols: symbols.length,
+      rows: 1,
+      cursor: { row: 0, col: 0, visible: false },
+      lines: [
+        { spans: [{ text: symbols.join(""), width: symbols.length, fg: 0xffffff, bg: 0x080808, attributes: 0 }] },
+      ],
+    }),
   )
+  const canvas = createCanvas(symbols.length * 10, 20)
+  const context = canvas.getContext("2d")
+  context.drawImage(image, 0, 0)
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+  const masks = symbols.map((_, cell) => {
+    const mask = new Uint8Array(10 * 20)
+    const columns: number[] = []
+    for (let row = 0; row < 20; row++) {
+      for (let column = 0; column < 10; column++) {
+        const source = (row * canvas.width + cell * 10 + column) * 4
+        const ink = pixels[source] !== 8 || pixels[source + 1] !== 8 || pixels[source + 2] !== 8
+        mask[row * 10 + column] = ink ? 1 : 0
+        if (ink) columns.push(column)
+      }
+    }
+    const center = (Math.min(...columns) + Math.max(...columns)) / 2
+    expect(Math.abs(center - 4.5)).toBeLessThanOrEqual(0.5)
+    return Bun.hash(mask)
+  })
+
+  expect(new Set(masks).size).toBe(symbols.length)
+})
+
+test("accepts valid capture font overrides", async () => {
+  const font = new URL("../../assets/fonts/commit-mono/CommitMono-400-Regular.otf", import.meta.url)
   const child = renderImport({ OPENCODE_DRIVE_FONT: fileURLToPath(font) })
   expect(await child.exited).toBe(0)
 })

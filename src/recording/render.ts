@@ -6,6 +6,7 @@ const CellWidth = 10
 const CellHeight = 20
 const FontSize = 16
 const FontFamily = "OpenCode Mono"
+const SymbolFontFamily = "OpenCode Symbols"
 
 const fontOverride = process.env["OPENCODE_DRIVE_FONT"]
 const fontFiles = fontOverride
@@ -14,19 +15,25 @@ const fontFiles = fontOverride
       .map((file) => file.trim())
       .filter(Boolean)
   : [
-      "commit-mono-latin-400-normal.woff2",
-      "commit-mono-latin-700-normal.woff2",
-      "commit-mono-latin-400-italic.woff2",
-      "commit-mono-latin-700-italic.woff2",
-    ].map((file) =>
-      fileURLToPath(import.meta.resolve(`@fontsource/commit-mono/files/${file}`)),
-    )
+      "CommitMono-400-Regular.otf",
+      "CommitMono-700-Regular.otf",
+      "CommitMono-400-Italic.otf",
+      "CommitMono-700-Italic.otf",
+    ].map((file) => fileURLToPath(new URL(`../../assets/fonts/commit-mono/${file}`, import.meta.url)))
 
 if (fontFiles.length === 0)
   throw new Error("OPENCODE_DRIVE_FONT must contain at least one font file")
 for (const file of fontFiles) {
   if (!GlobalFonts.registerFromPath(file, FontFamily))
     throw new Error(`Failed to register capture font: ${file}`)
+}
+for (const file of [
+  "noto-sans-symbols-2-symbols-400-normal.woff2",
+  "noto-sans-symbols-2-braille-400-normal.woff2",
+]) {
+  const path = fileURLToPath(import.meta.resolve(`@fontsource/noto-sans-symbols-2/files/${file}`))
+  if (!GlobalFonts.registerFromPath(path, SymbolFontFamily))
+    throw new Error(`Failed to register capture symbol font: ${path}`)
 }
 
 function color(rgb: number, alpha = 1) {
@@ -75,6 +82,7 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
   context.fillStyle = "#080808"
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.textBaseline = "alphabetic"
+  context.textAlign = "center"
 
   frame.lines.forEach((line, row) => {
     let column = 0
@@ -91,13 +99,18 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
         if (!hidden) {
           const italic = span.attributes & TextStyle.italic ? "italic " : ""
           const weight = span.attributes & TextStyle.bold ? "700 " : "400 "
-          const font = `${italic}${weight}${FontSize}px "${FontFamily}"`
+          const font = `${italic}${weight}${FontSize}px "${FontFamily}", "${SymbolFontFamily}"`
           context.font = font
           context.fillStyle = color(foreground, span.attributes & TextStyle.dim ? 0.55 : 1)
           const x = column * CellWidth
           const y = row * CellHeight
           if (!drawBlockElement(context, char, x, y))
-            context.fillText(char, x, y + baselineOffset(context, font))
+            context.fillText(
+              char,
+              x + (cells * CellWidth) / 2,
+              y + baselineOffset(context, font),
+              cells * CellWidth,
+            )
           if (span.attributes & TextStyle.underline) {
             context.fillRect(column * CellWidth, row * CellHeight + 17, cells * CellWidth, 1)
           }

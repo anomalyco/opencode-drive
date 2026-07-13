@@ -27,7 +27,7 @@ Install the skill file above and ask the agent to test various flows with the ap
 
 Screenshots and videos are written to `<system temp>/opencode-drive/output` with unique filenames. Set `OPENCODE_DRIVE_MEDIA_DIR` to use a different directory.
 
-Captured frames use Commit Mono at 16px in a fixed 10x20 cell grid. Set `OPENCODE_DRIVE_FONT` to a comma-separated list of font files (for example regular, bold, italic, and bold-italic faces) to use a different capture font without changing the cell geometry.
+Captured frames use the official full Commit Mono v1.143 faces at 16px with a bundled Noto Sans Symbols 2 fallback in a fixed 10x20 cell grid. Set `OPENCODE_DRIVE_FONT` to a comma-separated list of font files (for example regular, bold, italic, and bold-italic faces) to use a different primary capture font without changing the symbol fallback or cell geometry.
 
 ## UI development
 
