@@ -31,7 +31,7 @@ const name = Flag.string("name").pipe(
 )
 const pruneName = Flag.string("name").pipe(
   Flag.optional,
-  Flag.withDescription("Artifact directory name"),
+  Flag.withDescription("Instance name"),
 )
 
 const initCommand = Command.make("init", { name: initName }, (config) =>

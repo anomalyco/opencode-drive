@@ -309,7 +309,7 @@ function isManifest(value: unknown): value is Manifest {
   )
 }
 
-function validateName(name: string) {
+export function validateName(name: string) {
   if (!validName(name))
     throw new Error(
       "instance names must contain 1-64 letters, numbers, dots, underscores, or dashes",

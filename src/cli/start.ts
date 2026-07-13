@@ -23,9 +23,12 @@ import {
 import type { StartOptions } from "./types.js"
 
 export async function start(options: StartOptions) {
-  const initialized = await initializeManifest(options.name, process.cwd(), initializeInstance, {
-    temporary: true,
-  })
+  const initialized = await initializeManifest(
+    options.name,
+    process.cwd(),
+    () => initializeInstance(options.name),
+    { temporary: true },
+  )
   configureLogFile(initialized.artifacts)
   logSuccess(`starting ${options.name}`)
   logSuccess(`using artifacts ${initialized.artifacts}`)

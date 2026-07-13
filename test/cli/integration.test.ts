@@ -63,6 +63,7 @@ describe("opencode-drive", () => {
         },
       },
     })
+    expect(await Bun.file(join(artifacts, "drive", "name")).text()).toBe(`${name}\n`)
     expect(await Bun.file(join(root, "registry", `${name}.json`)).json()).toMatchObject({
       name,
       artifacts,
@@ -483,11 +484,16 @@ describe("opencode-drive", () => {
         Bun.write(join(directory, "marker.txt"), "artifact\n"),
       ),
     )
+    await Promise.all([
+      Bun.write(join(active, "drive", "name"), "active\n"),
+      Bun.write(join(staleA, "drive", "name"), "stale-a\n"),
+      Bun.write(join(staleB, "drive", "name"), "stale-b\n"),
+    ])
     await withRegistry(root, async () => {
       await register({ ...testManifest("active", process.pid), artifacts: active })
     })
 
-    const child = spawn(["prune", "--name", "run-stale-a"], root)
+    const child = spawn(["prune", "--name", "stale-a"], root)
     expect(await child.exited).toBe(0)
     expect(await new Response(child.stdout).text()).toBe("1\n")
     expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(true)
@@ -503,11 +509,15 @@ describe("opencode-drive", () => {
     await Promise.all(
       [active, stale].map((directory) => Bun.write(join(directory, "marker.txt"), "artifact\n")),
     )
+    await Promise.all([
+      Bun.write(join(active, "drive", "name"), "active\n"),
+      Bun.write(join(stale, "drive", "name"), "stale\n"),
+    ])
     await withRegistry(root, async () => {
       await register({ ...testManifest("active", process.pid), artifacts: active })
     })
 
-    const child = spawn(["prune", "--name", "run-active", "--force"], root)
+    const child = spawn(["prune", "--name", "active", "--force"], root)
     expect(await child.exited).toBe(0)
     expect(await new Response(child.stdout).text()).toBe("1\n")
     expect(await Bun.file(join(active, "marker.txt")).exists()).toBe(false)
@@ -810,6 +820,10 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
     const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
     expect(running(pid)).toBe(false)
+    const pruned = spawn(["prune", "--name", name], root)
+    expect(await pruned.exited).toBe(0)
+    expect(await new Response(pruned.stdout).text()).toBe("1\n")
+    expect(await Bun.file(artifacts).exists()).toBe(false)
   })
 
   test("checks a typed script and removes temporary dependency links", async () => {

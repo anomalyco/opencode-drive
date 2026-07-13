@@ -23,7 +23,7 @@ export function artifactDirectory() {
   return resolve(join(tmpdir(), "opencode-drive"))
 }
 
-export async function initializeInstance() {
+export async function initializeInstance(name?: string) {
   const artifacts = resolve(
     join(artifactDirectory(), `run-${crypto.randomUUID().slice(0, 6)}`),
   )
@@ -50,6 +50,7 @@ export async function initializeInstance() {
       join(files, "src", "garden.js"),
       "export function greet(name) {\n  return `Hello, ${name}.`\n}\n",
     ),
+    ...(name ? [Bun.write(join(drive, "name"), `${name}\n`)] : []),
   ])
   return artifacts
 }
