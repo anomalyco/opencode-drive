@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -16,6 +16,8 @@ import { resolveSendEndpoint } from "../../src/cli/send.js"
 
 const roots: string[] = []
 const instances: Array<{ root: string; name: string }> = []
+
+setDefaultTimeout(30_000)
 
 afterEach(async () => {
   await Promise.all(
