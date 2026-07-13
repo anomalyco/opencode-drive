@@ -76,6 +76,34 @@ test("centers capture glyphs vertically in their cells", async () => {
   expect((inkRows[0]! + inkRows.at(-1)!) / 2).toBe(10.5)
 })
 
+test("renders block elements edge-to-edge", async () => {
+  const image = await loadImage(
+    renderFrame({
+      cols: 3,
+      rows: 1,
+      cursor: { row: 0, col: 0, visible: false },
+      lines: [
+        { spans: [{ text: "█▀▄", width: 3, fg: 0xffffff, bg: 0x080808, attributes: 0 }] },
+      ],
+    }),
+  )
+  const canvas = createCanvas(30, 20)
+  const context = canvas.getContext("2d")
+  context.drawImage(image, 0, 0)
+  const pixels = context.getImageData(0, 0, 30, 20).data
+  const pixel = (column: number, row: number) =>
+    Array.from(pixels.subarray((row * 30 + column) * 4, (row * 30 + column) * 4 + 4))
+
+  expect(pixel(0, 0)).toEqual([255, 255, 255, 255])
+  expect(pixel(9, 19)).toEqual([255, 255, 255, 255])
+  expect(pixel(10, 0)).toEqual([255, 255, 255, 255])
+  expect(pixel(19, 9)).toEqual([255, 255, 255, 255])
+  expect(pixel(10, 10)).toEqual([8, 8, 8, 255])
+  expect(pixel(20, 9)).toEqual([8, 8, 8, 255])
+  expect(pixel(20, 10)).toEqual([255, 255, 255, 255])
+  expect(pixel(29, 19)).toEqual([255, 255, 255, 255])
+})
+
 test("accepts valid capture font overrides", async () => {
   const font = import.meta.resolve(
     "@fontsource/commit-mono/files/commit-mono-latin-400-normal.woff2",

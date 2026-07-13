@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import { GlobalFonts, createCanvas } from "@napi-rs/canvas"
+import { GlobalFonts, createCanvas, type SKRSContext2D } from "@napi-rs/canvas"
 import { TextStyle, type CapturedFrame } from "./types.js"
 
 const CellWidth = 10
@@ -54,6 +54,14 @@ function baselineOffset(context: Measurable, font: string) {
   return offset
 }
 
+function drawBlockElement(context: SKRSContext2D, char: string, x: number, y: number) {
+  if (char === "█") context.fillRect(x, y, CellWidth, CellHeight)
+  else if (char === "▀") context.fillRect(x, y, CellWidth, CellHeight / 2)
+  else if (char === "▄") context.fillRect(x, y + CellHeight / 2, CellWidth, CellHeight / 2)
+  else return false
+  return true
+}
+
 export interface RenderFrameOptions {
   readonly cols?: number
   readonly rows?: number
@@ -86,7 +94,10 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
           const font = `${italic}${weight}${FontSize}px "${FontFamily}"`
           context.font = font
           context.fillStyle = color(foreground, span.attributes & TextStyle.dim ? 0.55 : 1)
-          context.fillText(char, column * CellWidth, row * CellHeight + baselineOffset(context, font))
+          const x = column * CellWidth
+          const y = row * CellHeight
+          if (!drawBlockElement(context, char, x, y))
+            context.fillText(char, x, y + baselineOffset(context, font))
           if (span.attributes & TextStyle.underline) {
             context.fillRect(column * CellWidth, row * CellHeight + 17, cells * CellWidth, 1)
           }
