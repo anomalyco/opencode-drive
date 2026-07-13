@@ -42,6 +42,30 @@ The domain relationships are:
 - A client owns one UI control connection and an optional recording.
 - The server owns the factory used to make connected clients.
 
+## Capabilities support multiple entry points
+
+`OpenCodeDriver.make(...)` is the convenience constructor for an ephemeral run whose project, server, clients, and connections are owned by one Effect scope. It is not the only entry point into the underlying capabilities.
+
+```text
+Library Effect / Drive script
+  -> OpenCodeDriver.make
+  -> ui + llm + clients
+  -> owns the complete lifecycle
+
+CLI send / screenshot
+  -> resolve an existing UI endpoint
+  -> ui
+  -> owns only its connection
+
+Future MCP adapter
+  -> selected capability modules
+  -> owns only the resources it acquires
+```
+
+UI and LLM control remain small interfaces even when returned together by the driver. A future protocol capability such as tool-result control can become another interface on the aggregate when its behavior is understood; it does not require a separate package or a larger driver constructor.
+
+Connecting to an already-running OpenCode instance is an explicit compatibility requirement. `opencode-drive send` and `opencode-drive screenshot` must continue to target a named or visible Drive instance and fall back to `ws://127.0.0.1:40900` when no such instance is registered. Migrating the connection implementation to Effect RPC must not require the CLI to create a project or process owner, and closing the CLI connection must never terminate the externally owned OpenCode process.
+
 ## The project is only the workspace
 
 The current artifact directory contains several concepts that should not be conflated:
@@ -210,7 +234,7 @@ The same seam supports a real WebSocket adapter, direct connection to an already
 
 ## Scope mirrors ownership
 
-The driver scope owns the project, server, backend connection, LLM workers, primary client, and additional client scopes.
+The driver owns child scopes for the project, server internals, LLM workers, primary client, and additional clients.
 
 ```text
                                                                                           ╭─┬────────────┬─╮
@@ -228,7 +252,7 @@ The driver scope owns the project, server, backend connection, LLM workers, prim
                            ╰──────────────────╯            ╰───────────────╯            ╰────────────────────╯            ╰──────────────────╯            ╰───────────────╯
 ```
 
-Reverse-order finalization produces the required shutdown order:
+The acquisition order does not naturally produce the required shutdown order: server internals are acquired before the primary client, while LLM workers must stop before client recordings and processes. An explicit shutdown coordinator closes private child scopes in this order:
 
 1. Interrupt and join response workers.
 2. Finish client recordings.
@@ -239,6 +263,8 @@ Reverse-order finalization produces the required shutdown order:
 7. Apply artifact-retention policy.
 
 Every process, connection, listener, and temporary directory has one scope owner.
+
+Ambient reverse finalization remains the safety net for partial acquisition and interruption. Normal shutdown uses the same idempotent releases through the coordinator rather than relying on finalizer registration order.
 
 ## Effect primitives replace manual lifecycle coordination
 
@@ -279,6 +305,47 @@ Dynamic resources remain scoped values:
 - `OpenCodeDriver`
 
 This avoids creating a service tag for every object while retaining replaceable infrastructure seams.
+
+## Source layout follows domain seams
+
+New modules are grouped by the domain knowledge they own rather than by Effect primitive:
+
+```text
+src/
+|-- llm/
+|   `-- index.ts              # Pure output schemas and constructors
+|-- driver/
+|   |-- index.ts              # OpenCodeDriver.make
+|   |-- project.ts            # OpenCodeProject.make
+|   |-- server.ts             # OpenCodeServer.make
+|   |-- client.ts             # OpenCodeClient.make
+|   |-- ui.ts                 # UI capability
+|   `-- llm-controller.ts     # Live LLM capability
+|-- simulation/
+|   |-- protocol.ts           # Canonical OpenCode schemas
+|   |-- rpc.ts                # Drive-local RpcGroups
+|   |-- connector.ts          # SimulationConnector interface
+|   `-- opencode-protocol.ts  # Existing JSON-RPC adapter
+|-- client/                   # Existing public compatibility facade
+|-- cli/
+|-- instance/
+|-- recording/
+`-- script/
+```
+
+The existing `src/client` module remains in place while the generated clients are introduced. Once the simulation implementation moves, its public exports become a compatibility facade over `src/simulation`; callers do not need to migrate in lockstep. The private detached-instance control plane remains under `src/instance` because it is not part of the OpenCode simulation protocol.
+
+The dependency direction is one-way:
+
+```text
+llm        -> Effect Schema
+simulation -> Effect RPC + shared pure schemas
+driver     -> llm + simulation
+client     -> simulation
+script/cli -> driver and/or client
+```
+
+`src/client` is a leaf compatibility facade. `src/driver` and `src/simulation` must never import through it or through the root package barrel.
 
 ## Effect RPC owns Drive's contracts and generated clients
 
@@ -422,6 +489,8 @@ The exact public spelling of that bracket is intentionally left out of the settl
 9. Add `OpenCodeClient.make` and the primary UI path.
 10. Compose `OpenCodeDriver.make` and its typed settlement bracket.
 11. Add `server.clients.make(...)` for additional clients.
-12. Add the default-exported Effect runner used by `opencode-drive run`.
+12. Preserve every existing CLI command and the `start --script` runner through the migration.
+
+After the library migration is complete, a default-exported Effect runner such as `opencode-drive run` can be added as a separate additive product slice. It must not replace `start --script`, direct `send`, or the other existing entry points.
 
 The first implementation slice is the pure `Llm` module. The first runtime slice is one primary client driven through `OpenCodeDriver.make(...)` with complete scoped cleanup.
