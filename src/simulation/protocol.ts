@@ -142,6 +142,14 @@ export namespace Frontend {
   })
   export interface PressParams extends Schema.Schema.Type<typeof PressParams> {}
 
+  export const pressParams = (
+    key: string,
+    modifiers?: KeyModifiers,
+  ): PressParams => ({
+    key: key === "escape" ? "\u001b" : key,
+    ...(modifiers === undefined ? {} : { modifiers }),
+  })
+
   export const ArrowParams = Schema.Struct({
     direction: Schema.Literals(["up", "down", "left", "right"]),
   })

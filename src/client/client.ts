@@ -230,10 +230,7 @@ export class SimulationClient {
     key: string,
     modifiers?: Frontend.KeyModifiers,
   ): Promise<Frontend.State> {
-    return this.call("ui.press", {
-      key: key === "escape" ? "\u001b" : key,
-      ...(modifiers === undefined ? {} : { modifiers }),
-    })
+    return this.call("ui.press", Frontend.pressParams(key, modifiers))
   }
 
   pressEnter(): Promise<Frontend.State> {
