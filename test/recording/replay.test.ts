@@ -95,6 +95,20 @@ describe("replayRecording", () => {
     expect(frames.every((frame) => lineText(frame.frame) === "ready")).toBe(true)
   })
 
+  test("trims blank startup time and rebases the first visible frame", async () => {
+    const frames = await replayRecording(
+      await recording([
+        [500, "   "],
+        [1_000, "\rready"],
+        [1_500, ""],
+      ]),
+      { fps: 10 },
+    )
+
+    expect(frames.map((frame) => frame.atMs)).toEqual([0, 100, 200, 300, 400, 500])
+    expect(frames.every((frame) => lineText(frame.frame) === "ready")).toBe(true)
+  })
+
   test("resizes the terminal during replay", async () => {
     const frames = await replayRecording(
       await timeline(

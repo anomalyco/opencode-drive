@@ -109,6 +109,8 @@ export async function exportRecording(
         join(directory, "frame-%08d.png"),
         "-c:v",
         "libx264",
+        "-crf",
+        "0",
         "-pix_fmt",
         "yuv420p",
         "-movflags",

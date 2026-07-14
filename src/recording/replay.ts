@@ -57,5 +57,13 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   if (frames.length === 0 || frames.at(-1)!.atMs !== finalAt) {
     frames.push({ atMs: finalAt, frame: terminal.snapshot() })
   }
-  return frames
+  const firstVisible = frames.findIndex((sample) =>
+    sample.frame.lines.some((line) => line.spans.some((span) => span.text.trim().length > 0)),
+  )
+  if (firstVisible < 0) {
+    const final = frames.at(-1)
+    return final ? [{ ...final, atMs: 0 }] : []
+  }
+  const start = frames[firstVisible]!.atMs
+  return frames.slice(firstVisible).map((sample) => ({ ...sample, atMs: sample.atMs - start }))
 }
