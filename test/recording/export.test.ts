@@ -204,19 +204,19 @@ test("renders distinct fallback glyphs centered in their cells", async () => {
   expect(new Set(masks).size).toBe(symbols.length)
 })
 
-test("renders OpenCode spinner frames as separate braille dots", async () => {
-  const frames = [..."⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"]
+test("renders the Kit loader block and dots at fixed cell sizes", async () => {
+  const glyphs = [..."■⬝"]
   const image = await loadImage(
     renderFrame({
-      cols: frames.length,
+      cols: glyphs.length,
       rows: 1,
       cursor: { row: 0, col: 0, visible: false },
       lines: [
         {
           spans: [
             {
-              text: frames.join(""),
-              width: frames.length,
+              text: glyphs.join(""),
+              width: glyphs.length,
               fg: 0xffffff,
               bg: 0x080808,
               attributes: 0,
@@ -226,28 +226,23 @@ test("renders OpenCode spinner frames as separate braille dots", async () => {
       ],
     }),
   )
-  const canvas = createCanvas(frames.length * 10, 20)
+  const canvas = createCanvas(glyphs.length * 10, 20)
   const context = canvas.getContext("2d")
   context.drawImage(image, 0, 0)
   const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
-  const masks = frames.map((_, cell) => {
-    const mask = new Uint8Array(10 * 20)
-    let maxRun = 0
+  const inkCounts = glyphs.map((_, cell) => {
+    let count = 0
     for (let row = 0; row < 20; row++) {
-      let run = 0
       for (let column = 0; column < 10; column++) {
         const source = (row * canvas.width + cell * 10 + column) * 4
         const ink = pixels[source] !== 8 || pixels[source + 1] !== 8 || pixels[source + 2] !== 8
-        mask[row * 10 + column] = ink ? 1 : 0
-        run = ink ? run + 1 : 0
-        maxRun = Math.max(maxRun, run)
+        if (ink) count++
       }
     }
-    expect(maxRun).toBeLessThanOrEqual(2)
-    return Bun.hash(mask)
+    return count
   })
 
-  expect(new Set(masks).size).toBe(frames.length)
+  expect(inkCounts).toEqual([64, 4])
 })
 
 test("accepts valid capture font overrides", async () => {

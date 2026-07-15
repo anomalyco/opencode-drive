@@ -65,28 +65,9 @@ function drawBlockElement(context: SKRSContext2D, char: string, x: number, y: nu
   if (char === "█") context.fillRect(x, y, CellWidth, CellHeight)
   else if (char === "▀") context.fillRect(x, y, CellWidth, CellHeight / 2)
   else if (char === "▄") context.fillRect(x, y + CellHeight / 2, CellWidth, CellHeight / 2)
+  else if (char === "■") context.fillRect(x + 1, y + 6, 8, 8)
+  else if (char === "⬝") context.fillRect(x + 4, y + 9, 2, 2)
   else return false
-  return true
-}
-
-function drawBrailleElement(context: SKRSContext2D, char: string, x: number, y: number) {
-  const pattern = char.codePointAt(0)! - 0x2800
-  if (pattern < 0 || pattern > 0xff) return false
-  const dots = [
-    [0, 0],
-    [0, 1],
-    [0, 2],
-    [1, 0],
-    [1, 1],
-    [1, 2],
-    [0, 3],
-    [1, 3],
-  ] as const
-  for (let bit = 0; bit < dots.length; bit++) {
-    if ((pattern & (1 << bit)) === 0) continue
-    const [column, row] = dots[bit]!
-    context.fillRect(x + 2 + column * 4, y + 1 + row * 5, 2, 3)
-  }
   return true
 }
 
@@ -140,10 +121,7 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
       for (const char of span.text) {
         const cells = Math.min(Math.max(1, Bun.stringWidth(char)), remaining)
         const x = column * CellWidth
-        if (
-          !drawBlockElement(context, char, x, y) &&
-          !drawBrailleElement(context, char, x, y)
-        )
+        if (!drawBlockElement(context, char, x, y))
           context.fillText(
             char,
             x + (cells * CellWidth) / 2,
