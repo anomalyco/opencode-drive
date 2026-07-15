@@ -27,6 +27,7 @@ export interface Options {
 
 export interface Prepared {
   readonly driver: Driver | undefined
+  readonly primary: OpenCodeClient.Client | undefined
   readonly llm: Llm
   readonly clients: OpenCodeClient.Clients
   readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
@@ -109,6 +110,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
         }
     return {
       driver,
+      primary,
       llm,
       clients: server.clients,
       server,

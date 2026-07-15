@@ -809,6 +809,26 @@ describe("opencode-drive", () => {
     expect((await Bun.file(join(artifacts, "launches.txt")).text()).trim().split("\n")).toHaveLength(2)
   }, 60_000)
 
+  test("kills the automatic script's primary client", async () => {
+    const root = await temporary()
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        "kill-primary-test",
+        "--script",
+        fixture("kill-primary-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const stderr = new Response(child.stderr).text()
+    expect(await child.exited).toBe(0)
+    roots.push(artifactPath(await stderr))
+  }, 60_000)
+
   test("kills and relaunches the scripted server and clients", async () => {
     const root = await temporary()
     const child = spawn(

@@ -62,7 +62,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     onRecording?.(path)
   }
   const run = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => {
-    const promise = Effect.runPromise(effect)
+    const promise = Effect.runPromise(effect, { signal: scriptSignal })
     void promise.catch((cause) => {
       if (isTimeoutError(cause)) {
         if (!localAbort.signal.aborted) localAbort.abort(cause)
@@ -132,7 +132,10 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
           recording: options?.record,
           viewport: options?.viewport ?? script.viewport,
         }),
-      ).then(adaptUi),
+      ).then((client) => {
+        onReady?.()
+        return adaptUi(client)
+      }),
   }
   const context = {
     fs: createScriptFileSystem(join(instance.artifacts, "files"), {
@@ -147,22 +150,13 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     artifacts: instance.artifacts,
     signal: scriptSignal,
   }
-  const primary = prepared.driver?.ui
-  const primaryClient = prepared.driver === undefined
-    ? undefined
-    : ({
-        ui: primary!,
-        close: () => Effect.void,
-        ...(prepared.driver.recording === undefined
-          ? {}
-          : { recording: prepared.driver.recording }),
-      } satisfies OpenCodeClient.Client)
+  const primaryClient = prepared.primary
   const execution = Promise.resolve(
     "launch" in script
       ? script.run({ ...context, ui: null })
       : script.run({ ...context, ui: adaptUi(primaryClient!) }),
   )
-  onReady?.()
+  if (primaryClient !== undefined) onReady?.()
   yield* Effect.tryPromise({
     try: async () => {
       try {
