@@ -253,6 +253,44 @@ Declared `config` and `tui` values are deeply merged over fixture
 `.opencode/opencode.jsonc` and `.opencode/tui.jsonc` files. Arrays replace
 instead of merging, and mutations made in `setup` take final precedence.
 
+Declare deterministic replacements for supported built-in tools with `tools`.
+Drive owns the OpenCode schema and plugin adapter; the script only handles typed
+input and emits progress or a terminal result:
+
+```ts
+import { Effect } from "effect"
+import { defineScript, Tool } from "opencode-drive"
+
+export default defineScript({
+  tools(tools) {
+    tools.handle("shell", ({ input, index, progress }) =>
+      Effect.gen(function* () {
+        yield* progress(`Running call ${index}: ${input.command}...\n`)
+        if (index === 0)
+          return yield* new Tool.Failure({ message: "Controlled failure" })
+        return { output: "Controlled output\n", exit: 0 }
+      }),
+    )
+  },
+  async run({ ui, llm }) {
+    llm.queue(
+      llm.toolCall({
+        index: 0,
+        id: "call_shell",
+        name: "shell",
+        input: { command: "deploy production" },
+      }),
+      llm.finish("tool-calls"),
+    )
+    await ui.submit("Deploy production")
+  },
+})
+```
+
+Only registered tools are replaced. Unhandled tools continue to use OpenCode's
+real implementations. Each `progress` value replaces the visible tool output;
+send accumulated output when earlier lines should remain visible.
+
 Type-check every new or edited script before running it:
 
 ```sh

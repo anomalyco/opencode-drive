@@ -21,12 +21,15 @@ import * as PreparedDriver from "./prepared.js"
 import * as OpenCodeServer from "./server.js"
 import type * as OpenCodeUi from "./ui.js"
 import type { RunReport } from "./report.js"
+import * as ToolController from "../tool/controller.js"
+import type * as Tool from "../tool/index.js"
 
 export interface Options {
   readonly project?: ScriptProject
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
+  readonly tools?: Tool.Setup
   readonly client?: OpenCodeClient.Options
   readonly opencode?: OpenCodeServer.Target
   readonly keepArtifacts?: boolean
@@ -76,11 +79,12 @@ export interface RunResult<A> {
 
 const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
   function* (options: Options = {}) {
+    const toolController = yield* ToolController.make(options.tools)
     const project = yield* OpenCodeProject.make({
       project: options.project,
       config: options.config,
       tui: options.tui,
-      setup: options.setup,
+      setup: ToolController.composeSetup(toolController, options.tools, options.setup),
       keepArtifacts: options.keepArtifacts,
     })
     const instance = yield* OpenCodeInstance.make({

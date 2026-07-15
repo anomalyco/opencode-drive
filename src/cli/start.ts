@@ -83,6 +83,7 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
     config: script?.config,
     tui: script?.tui,
     setup: script?.setup,
+    tools: script?.tools,
     log: logSuccess,
   })
   yield* Effect.acquireRelease(

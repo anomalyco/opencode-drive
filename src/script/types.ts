@@ -1,4 +1,5 @@
 import type * as Llm from "../llm/index.js"
+import type * as Tool from "../tool/index.js"
 
 export type JsonValue =
   | null
@@ -273,6 +274,8 @@ export interface AutomaticScriptDefinition {
   readonly tui?: OpenCodeTuiConfig
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
+  /** Declares built-in tool replacements before OpenCode starts. */
+  readonly tools?: Tool.Setup
   /** Initial terminal viewport for the default client. */
   readonly viewport?: UiViewport
   /** Runs after the UI and LLM connections are ready, and again after restart. */
@@ -290,6 +293,8 @@ export interface ManualScriptDefinition {
   readonly tui?: OpenCodeTuiConfig
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
+  /** Declares built-in tool replacements before OpenCode starts. */
+  readonly tools?: Tool.Setup
   /** Initial terminal viewport for clients that do not specify one. */
   readonly viewport?: UiViewport
   /** Runs after the shared service and LLM connection are ready. */

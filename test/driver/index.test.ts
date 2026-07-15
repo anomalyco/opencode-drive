@@ -157,6 +157,33 @@ it.live("supports explicit terminal settlement with make", () =>
   }),
 )
 
+it.live("injects declared tool handlers for library drivers", () =>
+  Effect.gen(function* () {
+    const artifacts = yield* OpenCodeDriver.use(
+      {
+        keepArtifacts: true,
+        opencode: { command: fakeOpenCode },
+        tools(tools) {
+          tools.handle("shell", () => Effect.succeed({ output: "controlled\n" }))
+        },
+      },
+      (driver) => Effect.succeed(driver.artifacts),
+    )
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => rm(artifacts, { recursive: true, force: true })),
+    )
+    const config = yield* Effect.promise(() =>
+      readFile(`${artifacts}/files/.opencode/opencode.jsonc`, "utf8").then(JSON.parse),
+    )
+    expect(config.plugins).toEqual([
+      expect.objectContaining({
+        package: expect.stringMatching(/\/src\/tool\/plugin\.js$/),
+        options: expect.objectContaining({ tools: ["shell"] }),
+      }),
+    ])
+  }),
+)
+
 it.live("returns structured evidence from the safe lifecycle boundary", () =>
   Effect.gen(function* () {
     const result = yield* OpenCodeDriver.useReport(

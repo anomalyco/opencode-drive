@@ -282,6 +282,7 @@ function isScriptDefinition(value: unknown): value is ScriptDefinition {
     (value.config === undefined || isJsonObject(value.config)) &&
     (value.tui === undefined || isJsonObject(value.tui)) &&
     (value.setup === undefined || typeof value.setup === "function") &&
+    (value.tools === undefined || typeof value.tools === "function") &&
     (!("launch" in value) || value.launch === "manual")
   )
 }

@@ -15,6 +15,8 @@ import * as Process from "./process.js"
 import { isProcessAlive, isValidName } from "./registry.js"
 import type { RecordingPaths } from "../recording/finalize.js"
 import { stripGitEnvironment } from "../script/project.js"
+import * as ToolController from "../tool/controller.js"
+import type * as Tool from "../tool/index.js"
 import type {
   OpenCodeConfig,
   OpenCodeTuiConfig,
@@ -45,6 +47,7 @@ export interface Options {
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
+  readonly tools?: Tool.Setup
   readonly log?: (message: string) => void
 }
 
@@ -114,11 +117,13 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     ui: `ws://127.0.0.1:${yield* freePort}`,
     backend: `ws://127.0.0.1:${yield* freePort}`,
   }
+  const toolController = yield* ToolController.make(options.tools)
+  const setup = ToolController.composeSetup(toolController, options.tools, options.setup)
   if (
     options.project !== undefined ||
     options.config !== undefined ||
     options.tui !== undefined ||
-    options.setup !== undefined
+    setup !== undefined
   )
     yield* Effect.tryPromise({
       try: () =>
@@ -127,7 +132,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           project: options.project,
           config: options.config,
           tui: options.tui,
-          setup: options.setup,
+          setup,
         }),
       catch: (cause) => instanceError("prepare project", cause),
     })

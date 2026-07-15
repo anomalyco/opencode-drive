@@ -41,6 +41,7 @@
     "src/recording",
     "src/script",
     "src/simulation",
+    "src/tool",
     "src/index.ts",
     "LICENSE",
     "README.md"

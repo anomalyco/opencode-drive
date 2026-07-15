@@ -123,7 +123,35 @@ yield* secondary.ui.screenshot("secondary")
 
 `driver.settle()` returns the report with its recording paths. Use `OpenCodeDriver.useReport(options, run)` when a safe lifecycle program also needs the report alongside its result.
 
-Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. OpenCode client and full tool lifecycle simulation APIs remain follow-ups.
+Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. OpenCode client simulation and additional built-in tool adapters remain follow-ups.
+
+### Simulated Shell Execution
+
+Use `tools` to replace shell execution without changing the model-visible tool
+schema. The handler receives typed input, a zero-based call index, an abort
+signal, and an Effect progress function. Unregistered tools remain real.
+
+```ts
+import { Effect } from "effect"
+import { Tool } from "opencode-drive"
+
+const tools = (registry: Tool.Registry) => {
+  registry.handle("shell", ({ input, index, progress }) =>
+    Effect.gen(function* () {
+      yield* progress(`Running ${input.command}\n`)
+      if (index === 0)
+        return yield* new Tool.Failure({ message: "Controlled failure" })
+      return { output: "Controlled success\n", exit: 0 }
+    }),
+  )
+}
+
+export default OpenCodeDriver.use({ tools }, (driver) => program(driver))
+```
+
+The same `tools` callback is accepted by `defineScript`.
+Each progress value replaces the visible tool output, so send accumulated text
+when earlier lines should remain visible.
 
 ## Promise Compatibility Scripts
 
