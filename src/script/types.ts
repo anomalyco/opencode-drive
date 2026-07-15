@@ -10,6 +10,12 @@ export type JsonValue =
 
 export type JsonObject = { [key: string]: JsonValue }
 
+/** OpenCode's semantic project configuration, written to opencode.jsonc. */
+export interface OpenCodeConfig extends JsonObject {}
+
+/** OpenCode's semantic TUI configuration, written to tui.jsonc. */
+export interface OpenCodeTuiConfig extends JsonObject {}
+
 export interface ScriptFileSystem {
   /** Writes inside the simulated project and creates parent directories. */
   writeFile(path: string, contents: string | Uint8Array): Promise<void>
@@ -200,7 +206,9 @@ export interface ScriptLlm {
 export interface ScriptSetupContext {
   readonly fs: ScriptFileSystem
   /** The current OpenCode config object. Mutate it to customize the run. */
-  readonly config: JsonObject
+  readonly config: OpenCodeConfig
+  /** The current OpenCode TUI config object. Mutate it to customize the run. */
+  readonly tui: OpenCodeTuiConfig
 }
 
 export interface ScriptProject {
@@ -255,6 +263,10 @@ export type ManualScriptRun = (
 export interface AutomaticScriptDefinition {
   /** Declares the isolated project OpenCode runs against. */
   readonly project?: ScriptProject
+  /** OpenCode configuration merged over project fixture configuration. */
+  readonly config?: OpenCodeConfig
+  /** OpenCode TUI configuration merged over project fixture configuration. */
+  readonly tui?: OpenCodeTuiConfig
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
   /** Initial terminal viewport for the default client. */
@@ -268,6 +280,10 @@ export interface ManualScriptDefinition {
   readonly launch: "manual"
   /** Declares the isolated project OpenCode runs against. */
   readonly project?: ScriptProject
+  /** OpenCode configuration merged over project fixture configuration. */
+  readonly config?: OpenCodeConfig
+  /** OpenCode TUI configuration merged over project fixture configuration. */
+  readonly tui?: OpenCodeTuiConfig
   /** Runs once before OpenCode starts. */
   readonly setup?: ScriptSetup
   /** Initial terminal viewport for clients that do not specify one. */

@@ -20,7 +20,22 @@ it.live("runs and settles a complete scoped driver", () =>
             "src/seeded.ts": "export const seeded = true\n",
           },
         },
-        config: { autoupdate: false },
+        config: {
+          autoupdate: false,
+          nested: { declared: true, winner: "declared" },
+          items: ["declared"],
+        },
+        tui: { theme: { declared: true } },
+        setup({ config, tui }) {
+          config.nested = {
+            ...config.nested as Record<string, boolean | string>,
+            winner: "setup",
+          }
+          tui.theme = {
+            ...tui.theme as Record<string, boolean>,
+            setup: true,
+          }
+        },
         client: {
           recording: true,
           viewport: { cols: 96, rows: 32 },
@@ -70,7 +85,19 @@ it.live("runs and settles a complete scoped driver", () =>
           "utf8",
         ).then(JSON.parse),
       ),
-    ).toMatchObject({ autoupdate: false })
+    ).toMatchObject({
+      autoupdate: false,
+      nested: { declared: true, winner: "setup" },
+      items: ["declared"],
+    })
+    expect(
+      yield* Effect.promise(() =>
+        readFile(
+          `${result.artifacts}/files/.opencode/tui.jsonc`,
+          "utf8",
+        ).then(JSON.parse),
+      ),
+    ).toEqual({ theme: { declared: true, setup: true } })
     expect(
       yield* Effect.promise(() =>
         readFile(`${result.artifacts}/backend-events.jsonl`, "utf8"),

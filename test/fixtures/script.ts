@@ -2,14 +2,22 @@ import { join } from "node:path"
 import { defineScript } from "../../src/index.js"
 
 export default defineScript({
+  config: {
+    test: { declared: true },
+  },
+  tui: {
+    test: { declared: true },
+  },
   project: {
     git: true,
     files: {
       "src/seeded.ts": "export const seeded = true\n",
     },
   },
-  async setup({ fs, config }) {
+  async setup({ fs, config, tui }) {
     config.autoupdate = false
+    config.test = { ...config.test as Record<string, boolean>, setup: true }
+    tui.test = { ...tui.test as Record<string, boolean>, setup: true }
     await fs.writeFile("setup-seeded.txt", "included in baseline\n")
   },
 

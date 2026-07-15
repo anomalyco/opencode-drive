@@ -85,14 +85,21 @@ Scripted runs use one fully typed definition:
 import { defineScript } from "opencode-drive"
 
 export default defineScript({
+  config: {
+    autoupdate: false,
+  },
+  tui: {
+    theme: "system",
+  },
   project: {
     git: true,
     files: {
       "src/example.ts": "export const value = 1\n",
     },
   },
-  setup({ config }) {
-    config.autoupdate = false
+  setup({ config, tui }) {
+    config.username = "Drive"
+    tui.scroll_speed = 1
   },
   async run({ ui, llm }) {
     await ui.submit("Read src/example.ts")
@@ -106,6 +113,9 @@ export default defineScript({
 `project.git: true`, Drive creates a fresh repository and commits the complete
 pre-launch state, including files written in `setup`. A prepared repository is
 never replaced; omit `project.git` when an `init` step supplies Git history.
+Declared `config` and `tui` values are deeply merged over fixture
+`.opencode/opencode.jsonc` and `.opencode/tui.jsonc` files. Arrays replace
+instead of merging, and mutations made in `setup` take final precedence.
 
 Type-check every new or edited script before running it:
 

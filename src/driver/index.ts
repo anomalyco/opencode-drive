@@ -4,7 +4,8 @@ import * as Exit from "effect/Exit"
 import { NodeServices } from "@effect/platform-node"
 import * as SimulationConnector from "../simulation/connector.js"
 import type {
-  JsonObject,
+  OpenCodeConfig,
+  OpenCodeTuiConfig,
   ScriptProject,
   ScriptSetup,
 } from "../script/types.js"
@@ -20,7 +21,8 @@ import type * as OpenCodeUi from "./ui.js"
 
 export interface Options {
   readonly project?: ScriptProject
-  readonly config?: JsonObject
+  readonly config?: OpenCodeConfig
+  readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
   readonly client?: OpenCodeClient.Options
   readonly opencode?: OpenCodeServer.Target
@@ -68,6 +70,7 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
     const project = yield* OpenCodeProject.make({
       project: options.project,
       config: options.config,
+      tui: options.tui,
       setup: options.setup,
       keepArtifacts: options.keepArtifacts,
     })

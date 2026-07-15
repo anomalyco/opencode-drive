@@ -8,7 +8,8 @@ import {
   initializeScriptProject,
 } from "../script/project.js"
 import type {
-  JsonObject,
+  OpenCodeConfig,
+  OpenCodeTuiConfig,
   ScriptProject,
   ScriptSetup,
 } from "../script/types.js"
@@ -54,24 +55,68 @@ export async function initializeInstance(name?: string) {
 export async function prepareInstanceProject(options: {
   readonly artifacts: string
   readonly project?: ScriptProject
+  readonly config?: OpenCodeConfig
+  readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
 }) {
   const files = join(resolve(options.artifacts), "files")
   const configPath = join(files, ".opencode", "opencode.jsonc")
+  const tuiPath = join(files, ".opencode", "tui.jsonc")
   if (options.project) await initializeScriptProject(files, options.project)
-  if (options.setup) {
-    const protectGit =
-      Boolean(options.project?.git) || (await hasGitMetadata(files))
-    const configFile = Bun.file(configPath)
-    const config: JsonObject = await (await configFile.exists()
-      ? configFile
-      : Bun.file(new URL("./default-config.jsonc", import.meta.url))
-    ).json()
-    await options.setup({
-      fs: createScriptFileSystem(files, { git: protectGit }),
-      config,
-    })
-    await Bun.write(configPath, `${JSON.stringify(config, undefined, 2)}\n`)
-  }
+  const [config, tui] = await Promise.all([
+    readConfig(configPath, "opencode.jsonc"),
+    readConfig(tuiPath, "tui.jsonc", {}),
+  ])
+  deepMerge(config, options.config)
+  deepMerge(tui, options.tui)
+  const protectGit =
+    Boolean(options.project?.git) || (await hasGitMetadata(files))
+  await options.setup?.({
+    fs: createScriptFileSystem(files, { git: protectGit }),
+    config,
+    tui,
+  })
+  await Promise.all([
+    Bun.write(configPath, `${JSON.stringify(config, undefined, 2)}\n`),
+    Bun.write(tuiPath, `${JSON.stringify(tui, undefined, 2)}\n`),
+  ])
   if (options.project?.git) await commitScriptProject(files)
+}
+
+async function readConfig(
+  path: string,
+  name: string,
+  fallback?: OpenCodeConfig,
+): Promise<OpenCodeConfig> {
+  const file = Bun.file(path)
+  let value: unknown
+  try {
+    value = await file.exists()
+      ? Bun.JSONC.parse(await file.text())
+      : fallback ?? Bun.JSONC.parse(
+          await Bun.file(new URL("./default-config.jsonc", import.meta.url)).text(),
+        )
+  } catch (cause) {
+    throw new Error(`invalid .opencode/${name}`, { cause })
+  }
+  if (!isJsonObject(value))
+    throw new Error(`invalid .opencode/${name}: expected a JSON object`)
+  return value
+}
+
+function deepMerge(target: OpenCodeConfig, source: OpenCodeConfig | undefined) {
+  if (source === undefined) return target
+  for (const [key, value] of Object.entries(source)) {
+    const existing = target[key]
+    if (isJsonObject(existing) && isJsonObject(value)) {
+      deepMerge(existing, value)
+    } else {
+      target[key] = value
+    }
+  }
+  return target
+}
+
+function isJsonObject(value: unknown): value is OpenCodeConfig {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }

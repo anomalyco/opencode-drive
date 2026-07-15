@@ -5,7 +5,8 @@ import {
   prepareInstanceProject,
 } from "../instance/instance.js"
 import type {
-  JsonObject,
+  OpenCodeConfig,
+  OpenCodeTuiConfig,
   ScriptProject,
   ScriptSetup,
 } from "../script/types.js"
@@ -13,7 +14,8 @@ import { error } from "./error.js"
 
 export interface Options {
   readonly project?: ScriptProject
-  readonly config?: JsonObject
+  readonly config?: OpenCodeConfig
+  readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
   /** Retain the isolated artifact directory after the scope closes. */
   readonly keepArtifacts?: boolean
@@ -39,20 +41,14 @@ export const make = Effect.fn("OpenCodeProject.make")(function* (
             catch: () => undefined,
           }).pipe(Effect.ignore),
   )
-  const setup: ScriptSetup | undefined =
-    options.config === undefined && options.setup === undefined
-      ? undefined
-      : async (context) => {
-          if (options.config !== undefined)
-            Object.assign(context.config, options.config)
-          await options.setup?.(context)
-        }
   yield* Effect.tryPromise({
     try: () =>
       prepareInstanceProject({
         artifacts,
         project: options.project,
-        setup,
+        config: options.config,
+        tui: options.tui,
+        setup: options.setup,
       }),
     catch: (cause) => error("project.prepare", cause),
   })

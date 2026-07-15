@@ -709,9 +709,17 @@ function isScriptDefinition(value: unknown): value is ScriptDefinition {
   return (
     typeof script.run === "function" &&
     (script.project === undefined || isScriptProject(script.project)) &&
+    (script.config === undefined || isJsonObject(script.config)) &&
+    (script.tui === undefined || isJsonObject(script.tui)) &&
     (script.setup === undefined || typeof script.setup === "function") &&
     (!("launch" in script) || script.launch === "manual")
   )
+}
+
+function isJsonObject(value: unknown) {
+  if (!isRecord(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
 }
 
 function isScriptProject(value: unknown) {

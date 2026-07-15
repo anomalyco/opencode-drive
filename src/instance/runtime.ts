@@ -15,7 +15,13 @@ import * as Process from "./process.js"
 import { isProcessAlive, isValidName } from "./registry.js"
 import type { RecordingPaths } from "../recording/finalize.js"
 import { stripGitEnvironment } from "../script/project.js"
-import type { ScriptProject, ScriptSetup, UiViewport } from "../script/types.js"
+import type {
+  OpenCodeConfig,
+  OpenCodeTuiConfig,
+  ScriptProject,
+  ScriptSetup,
+  UiViewport,
+} from "../script/types.js"
 
 export class OpenCodeInstanceError extends Schema.TaggedErrorClass<OpenCodeInstanceError>()(
   "OpenCodeInstanceError",
@@ -36,6 +42,8 @@ export interface Options {
   readonly viewport?: UiViewport
   readonly env?: Readonly<Record<string, string>>
   readonly project?: ScriptProject
+  readonly config?: OpenCodeConfig
+  readonly tui?: OpenCodeTuiConfig
   readonly setup?: ScriptSetup
   readonly log?: (message: string) => void
 }
@@ -106,12 +114,20 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     ui: `ws://127.0.0.1:${yield* freePort}`,
     backend: `ws://127.0.0.1:${yield* freePort}`,
   }
-  if (options.project !== undefined || options.setup !== undefined)
+  if (
+    options.scripted ||
+    options.project !== undefined ||
+    options.config !== undefined ||
+    options.tui !== undefined ||
+    options.setup !== undefined
+  )
     yield* Effect.tryPromise({
       try: () =>
         prepareInstanceProject({
           artifacts,
           project: options.project,
+          config: options.config,
+          tui: options.tui,
           setup: options.setup,
         }),
       catch: (cause) => instanceError("prepare project", cause),
