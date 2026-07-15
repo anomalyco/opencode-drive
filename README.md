@@ -68,6 +68,25 @@ export default OpenCodeDriver.use(
 )
 ```
 
+Use `OpenCodeDriver.useReport` when the program also needs structured evidence.
+It returns the program value plus a schema-validated report containing branded
+artifact/media paths, concrete logs, recordings, retention, timing, and the
+negotiated or legacy compatibility of every simulation endpoint:
+
+```ts
+const result = yield* OpenCodeDriver.useReport(options, program)
+yield* Effect.log(result.report)
+```
+
+Drive prefers `simulation.handshake` and explicitly records legacy fallback.
+Require negotiation when protocol skew must fail before the program runs:
+
+```ts
+OpenCodeDriver.use({
+  opencode: { compatibility: "required" },
+}, program)
+```
+
 Additional clients share the same server and LLM controller:
 
 ```ts

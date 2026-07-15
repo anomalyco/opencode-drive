@@ -34,6 +34,13 @@ execution path.
 
 `OpenCodeDriver.use(options, run)` is the safe top-level interface. It acquires the same driver returned by `make`, runs the program, validates queued LLM work, finishes recordings, closes clients, exports videos, and then releases the server and project scope.
 
+`OpenCodeDriver.useReport(options, run)` has the same lifecycle semantics and
+returns both the user value and a versioned `RunReport`. The report contains
+validated path references, timing, retention, concrete evidence, and endpoint
+compatibility. Set `opencode.compatibility` to `"required"`, `"preferred"`, or
+`"disabled"`; the default is `"preferred"`, which negotiates when supported and
+reports an explicit legacy profile otherwise.
+
 ```ts
 import { NodeRuntime } from "@effect/platform-node"
 import { Effect } from "effect"
