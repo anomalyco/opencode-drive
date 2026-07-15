@@ -5,6 +5,8 @@ import * as FiberSet from "effect/FiberSet"
 import * as Option from "effect/Option"
 import * as Queue from "effect/Queue"
 import * as Ref from "effect/Ref"
+import * as Scope from "effect/Scope"
+import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 import * as Stream from "effect/Stream"
@@ -57,6 +59,10 @@ export interface Options {
 }
 
 export interface Controller {
+  /** Attaches one backend generation while preserving response state. */
+  readonly attach: (
+    backend: BackendConnection,
+  ) => Effect.Effect<Attachment, LlmControllerError>
   readonly queue: (
     ...output: ReadonlyArray<Llm.Output>
   ) => Effect.Effect<void, LlmModeError | LlmControllerError>
@@ -79,9 +85,18 @@ export interface Controller {
   readonly failure: Effect.Effect<never, LlmControllerError>
 }
 
+export interface Attachment {
+  readonly detach: () => Effect.Effect<void>
+}
+
 interface QueuedResponse {
   readonly output: ReadonlyArray<Llm.Output>
   readonly completed?: Deferred.Deferred<void, LlmControllerError>
+}
+
+interface AttachedRequest {
+  readonly request: Backend.OpenedExchange
+  readonly backend: BackendConnection
 }
 
 type ResponseMode =
@@ -93,7 +108,7 @@ interface State {
   readonly mode: ResponseMode
   readonly titleHandler: TitleHandler
   readonly titleConfigured: boolean
-  readonly requests: ReadonlyArray<Backend.OpenedExchange>
+  readonly requests: ReadonlyArray<AttachedRequest>
   readonly responses: ReadonlyArray<QueuedResponse>
   readonly activeNormal: ReadonlyArray<
     Deferred.Deferred<void, LlmControllerError>
@@ -110,7 +125,7 @@ interface State {
 }
 
 type NormalJob = {
-  readonly request: Backend.OpenedExchange
+  readonly request: AttachedRequest
   readonly index: number
   readonly completion: Deferred.Deferred<void, LlmControllerError>
   readonly sendCompletion?: Deferred.Deferred<void, LlmControllerError>
@@ -125,9 +140,15 @@ const NonNegativeMilliseconds = Schema.Finite.check(
 const decodeOutput = Schema.decodeUnknownEffect(Llm.Output)
 
 export const make = Effect.fn("LlmController.make")(function* (
-  backend: BackendConnection,
-  options?: Options,
+  backendOrOptions?: BackendConnection | Options,
+  explicitOptions?: Options,
 ) {
+  const initialBackend = isBackendConnection(backendOrOptions)
+    ? backendOrOptions
+    : undefined
+  const options = isBackendConnection(backendOrOptions)
+    ? explicitOptions
+    : backendOrOptions
   const requestTimeout = NonNegativeMilliseconds.make(
     options?.requestTimeout ?? 30_000,
   )
@@ -153,7 +174,11 @@ export const make = Effect.fn("LlmController.make")(function* (
   const changes = yield* Queue.sliding<void>(1)
   const failureSignal = yield* Deferred.make<never, LlmControllerError>()
   const tasks = yield* FiberSet.make<void, never>()
-  const workers = yield* FiberSet.make<void, never>()
+  const parentScope = yield* Scope.Scope
+  const attached = yield* Ref.make<
+    { readonly backend: BackendConnection; readonly scope: Scope.Scope }
+    | undefined
+  >(undefined)
 
   yield* Effect.addFinalizer(() => Queue.shutdown(changes))
 
@@ -203,6 +228,7 @@ export const make = Effect.fn("LlmController.make")(function* (
     )
 
   const streamDelta = Effect.fn("LlmController.streamDelta")(function* (
+    backend: BackendConnection,
     id: string,
     type: "textDelta" | "reasoningDelta",
     text: string,
@@ -224,9 +250,10 @@ export const make = Effect.fn("LlmController.make")(function* (
   })
 
   const respond = Effect.fn("LlmController.respond")(function* (
-    request: Backend.OpenedExchange,
+    attachedRequest: AttachedRequest,
     output: Response,
   ) {
+    const { request, backend } = attachedRequest
     let terminal = false
     yield* output.pipe(
       Stream.mapEffect((value) => decodeOutput(value)),
@@ -259,6 +286,7 @@ export const make = Effect.fn("LlmController.make")(function* (
             ).pipe(Effect.asVoid)
           case "text":
             return streamDelta(
+              backend,
               request.id,
               "textDelta",
               item.text,
@@ -266,6 +294,7 @@ export const make = Effect.fn("LlmController.make")(function* (
             )
           case "reasoning":
             return streamDelta(
+              backend,
               request.id,
               "reasoningDelta",
               item.text,
@@ -360,14 +389,17 @@ export const make = Effect.fn("LlmController.make")(function* (
     const output =
       job.source === "serve"
         ? Effect.suspend(() =>
-            respond(job.request, job.handler(job.request, job.index)),
+            respond(
+              job.request,
+              job.handler(job.request.request, job.index),
+            ),
           )
         : respond(job.request, job.output)
     return Effect.matchCauseEffect(output, {
       onFailure: (cause) =>
         completeNormal(
           job,
-          causeError("respond", cause, job.request.id),
+          causeError("respond", cause, job.request.request.id),
         ),
       onSuccess: () => completeNormal(job),
     })
@@ -443,7 +475,7 @@ export const make = Effect.fn("LlmController.make")(function* (
   })
 
   const startTitleLocked = Effect.fn("LlmController.startTitleLocked")(
-    function* (request: Backend.OpenedExchange, current: State) {
+    function* (request: AttachedRequest, current: State) {
       const completion = yield* Deferred.make<void, LlmControllerError>()
       const previous = [...current.activeNormal]
       const handler = current.titleHandler
@@ -455,7 +487,7 @@ export const make = Effect.fn("LlmController.make")(function* (
       })
       const task = Effect.gen(function* () {
         yield* Effect.forEach(previous, Deferred.await, { discard: true })
-        const text = yield* Effect.suspend(() => handler(request, index))
+        const text = yield* Effect.suspend(() => handler(request.request, index))
         yield* respond(request, Stream.make(Llm.text(text)))
       })
       yield* FiberSet.run(
@@ -464,7 +496,7 @@ export const make = Effect.fn("LlmController.make")(function* (
           onFailure: (cause) =>
             completeTitle(
               completion,
-              causeError("title", cause, request.id),
+              causeError("title", cause, request.request.id),
             ),
           onSuccess: () => completeTitle(completion),
         }),
@@ -473,12 +505,12 @@ export const make = Effect.fn("LlmController.make")(function* (
     },
   )
 
-  const routeRequest = (request: Backend.OpenedExchange) =>
+  const routeRequest = (request: AttachedRequest) =>
     lock.withPermit(
       Effect.gen(function* () {
         const current = yield* Ref.get(state)
         if (current.failure !== undefined || current.settled) return
-        if (isTitleRequest(request.body)) {
+        if (isTitleRequest(request.request.body)) {
           yield* startTitleLocked(request, current)
           return
         }
@@ -496,22 +528,34 @@ export const make = Effect.fn("LlmController.make")(function* (
       recordFailureLocked(causeError("route requests", cause)),
     ).pipe(Effect.asVoid)
 
-  yield* FiberSet.run(
-    workers,
-    backend.requests.pipe(
-      Stream.runForEach(routeRequest),
+  const attach = Effect.fn("LlmController.attach")(function* (
+    backend: BackendConnection,
+  ) {
+    const scope = yield* lock.withPermit(
+      Effect.gen(function* () {
+        if ((yield* Ref.get(attached)) !== undefined)
+          return yield* Effect.fail(
+            controllerError("attach", "LLM backend is already attached"),
+          )
+        const scope = yield* Scope.fork(parentScope)
+        yield* Ref.set(attached, { backend, scope })
+        return scope
+      }),
+    )
+    yield* backend.requests.pipe(
+      Stream.runForEach((request) => routeRequest({ request, backend })),
       Effect.matchCauseEffect({
         onFailure: recordRouterFailure,
         onSuccess: () => Effect.void,
       }),
-    ),
-  )
-  yield* FiberSet.run(
-    workers,
-    backend.closed.pipe(
+      Effect.forkIn(scope),
+    )
+    yield* backend.closed.pipe(
       Effect.andThen(
         lock.withPermit(
           Effect.gen(function* () {
+            const active = yield* Ref.get(attached)
+            if (active?.backend !== backend) return
             const current = yield* Ref.get(state)
             if (current.settled) return
             yield* recordFailureLocked(
@@ -520,8 +564,21 @@ export const make = Effect.fn("LlmController.make")(function* (
           }),
         ),
       ),
-    ),
-  )
+      Effect.forkIn(scope),
+    )
+    const detach = Effect.fn("LlmController.detach")(function* () {
+      const shouldClose = yield* lock.withPermit(
+        Effect.gen(function* () {
+          const active = yield* Ref.get(attached)
+          if (active?.backend !== backend) return false
+          yield* Ref.set(attached, undefined)
+          return true
+        }),
+      )
+      if (shouldClose) yield* Scope.close(scope, Exit.void)
+    })
+    return { detach } satisfies Attachment
+  })
 
   const enqueue = Effect.fn("LlmController.enqueue")(function* (
     operation: "queue" | "send",
@@ -664,7 +721,11 @@ export const make = Effect.fn("LlmController.make")(function* (
       const current = yield* Ref.get(state)
       if (current.failure !== undefined)
         return { _tag: "Fail" as const, error: current.failure }
-      if (current.requests.length > 0 && current.responses.length === 0)
+      if (
+        current.mode._tag === "Queue" &&
+        current.requests.length > 0 &&
+        current.responses.length === 0
+      )
         return {
           _tag: "Fail" as const,
           error: new LlmSettlementError({
@@ -750,6 +811,11 @@ export const make = Effect.fn("LlmController.make")(function* (
   })
 
   const shutdown = Effect.fn("LlmController.shutdown")(function* () {
+    const active = yield* Ref.get(attached)
+    if (active !== undefined) {
+      yield* Ref.set(attached, undefined)
+      yield* Scope.close(active.scope, Exit.void)
+    }
     yield* lock.withPermit(
       Effect.gen(function* () {
         const current = yield* Ref.get(state)
@@ -768,11 +834,13 @@ export const make = Effect.fn("LlmController.make")(function* (
         yield* notify
       }),
     )
-    yield* FiberSet.clear(workers)
     yield* FiberSet.clear(tasks)
   })
 
+  if (initialBackend !== undefined) yield* attach(initialBackend)
+
   return {
+    attach,
     queue,
     send,
     serve,
@@ -785,5 +853,11 @@ export const make = Effect.fn("LlmController.make")(function* (
 
 export const response = (...output: ReadonlyArray<Llm.Output>): Response =>
   Stream.fromIterable(output)
+
+function isBackendConnection(
+  value: BackendConnection | Options | undefined,
+): value is BackendConnection {
+  return value !== undefined && "rpc" in value
+}
 
 export * as LlmController from "./llm-controller.js"

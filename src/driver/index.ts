@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { NodeServices } from "@effect/platform-node"
+import * as OpenCodeInstance from "../instance/runtime.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import type {
   OpenCodeConfig,
@@ -10,12 +11,13 @@ import type {
   ScriptSetup,
 } from "../script/types.js"
 import * as OpenCodeClient from "./client.js"
-import type { OpenCodeDriverError } from "./error.js"
+import { error, type OpenCodeDriverError } from "./error.js"
 import type {
   LlmControllerError,
   LlmSettlementError,
 } from "./llm-controller.js"
 import * as OpenCodeProject from "./project.js"
+import * as PreparedDriver from "./prepared.js"
 import * as OpenCodeServer from "./server.js"
 import type * as OpenCodeUi from "./ui.js"
 
@@ -74,67 +76,24 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
       setup: options.setup,
       keepArtifacts: options.keepArtifacts,
     })
-    const server = yield* OpenCodeServer.make({
-      project,
-      target: options.opencode,
-    })
-    const primary = yield* server.clients.make(options.client)
-    const complete = (
-      clients: Effect.Effect<
-        ReadonlyArray<string>,
-        OpenCodeDriverError | OpenCodeUi.OperationError
-      >,
-    ) =>
-      Effect.gen(function* () {
-        const llm = yield* Effect.exit(server.llm.settle())
-        const shutdown = yield* Effect.exit(server.llm.shutdown())
-        const clientExit = yield* Effect.exit(clients)
-        let failure: Cause.Cause<
-          | LlmControllerError
-          | LlmSettlementError
-          | OpenCodeDriverError
-          | OpenCodeUi.OperationError
-        > | undefined
-        if (Exit.isFailure(llm)) failure = llm.cause
-        if (Exit.isFailure(shutdown))
-          failure = failure === undefined
-            ? shutdown.cause
-            : Cause.combine(failure, shutdown.cause)
-        if (Exit.isFailure(clientExit))
-          failure = failure === undefined
-            ? clientExit.cause
-            : Cause.combine(failure, clientExit.cause)
-        if (failure !== undefined)
-          return yield* Effect.failCause(failure)
-        return {
-          recordings: Exit.isSuccess(clientExit) ? clientExit.value : [],
-        } satisfies Settlement
-      })
-    const finish = yield* Effect.cached(
-      complete(server.clients.finish().pipe(Effect.as([]))),
-    )
-    const settle = yield* Effect.cached(
-      complete(server.clients.settle()),
-    )
-    yield* Effect.addFinalizer(() => server.llm.shutdown())
-    const driver: Driver = {
-      ui: primary.ui,
-      llm: {
-        queue: server.llm.queue,
-        send: server.llm.send,
-        serve: server.llm.serve,
-        title: server.llm.title,
-        settle: server.llm.settle,
-      },
-      clients: server.clients,
+    const instance = yield* OpenCodeInstance.make({
       artifacts: project.artifacts,
-      finish: () => finish.pipe(Effect.asVoid),
-      settle: () => settle,
-      ...(primary.recording === undefined
-        ? {}
-        : { recording: primary.recording }),
-    }
-    return { driver, failure: server.llm.failure }
+      name: `library-${crypto.randomUUID().slice(0, 12)}`,
+      scripted: true,
+      command: options.opencode?.command,
+      dev: options.opencode?.dev,
+      env: options.opencode?.env,
+      visible: options.opencode?.visible,
+    }).pipe(Effect.mapError((cause) => error("server.prepare", cause)))
+    const prepared = yield* PreparedDriver.makeWithServices(instance, {
+      visible: options.opencode?.visible,
+      client: options.client,
+    })
+    if (prepared.driver === undefined)
+      return yield* Effect.die(
+        new Error("automatic driver did not launch a client"),
+      )
+    return { driver: prepared.driver, failure: prepared.failure }
   },
 )
 

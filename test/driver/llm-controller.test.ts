@@ -13,6 +13,54 @@ const request = {
 }
 
 describe("LlmController", () => {
+  it.live("preserves response state across backend generations", () => {
+    const peer = (id: string) =>
+      startTransportPeer(({ request: frame, socket }) => {
+        if (frame.method === "llm.attach")
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              method: "llm.request",
+              params: { ...request, id },
+            }),
+          )
+        sendResult(
+          socket,
+          frame,
+          frame.method === "llm.attach" ? { attached: true } : { ok: true },
+        )
+      })
+    const first = peer("generation-1")
+    const second = peer("generation-2")
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(() => Promise.all([first.stop(), second.stop()])),
+      )
+      const llm = yield* LlmController.make()
+      const firstBackend = yield* SimulationConnector.backend(first.url)
+      const firstAttachment = yield* llm.attach(firstBackend)
+      yield* llm.send(Llm.text("first", { delay: 0 }))
+      yield* firstAttachment.detach()
+
+      const secondBackend = yield* SimulationConnector.backend(second.url)
+      yield* llm.attach(secondBackend)
+      yield* llm.send(Llm.text("second", { delay: 0 }))
+      yield* llm.settle()
+
+      expect(
+        first.received.some(({ request: frame }) =>
+          JSON.stringify(frame).includes("first"),
+        ),
+      ).toBe(true)
+      expect(
+        second.received.some(({ request: frame }) =>
+          JSON.stringify(frame).includes("second"),
+        ),
+      ).toBe(true)
+    })
+  })
+
   it.live("queues and streams one future response", () => {
     const peer = startTransportPeer(({ request: frame, socket }) => {
       if (frame.method === "llm.attach")

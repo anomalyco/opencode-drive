@@ -459,29 +459,17 @@ function run(
     }
     if (driveScript) {
       logSuccess("running script")
-      await runScript(
-        driveScript,
-        instance.artifacts,
-        async () => {
-          const launched = await runEffect(instance.launchServer)
-          return { endpoint: launched.endpoint }
-        },
-        () => runEffect(instance.killServer),
-        async (name, clientOptions) => {
-          const launched = await runEffect(
-            instance.launchClient(name, clientOptions),
-          )
-          return {
-            endpoint: launched.endpoint,
-            exited: runEffect(launched.process.exitCode),
-            close: () => runEffect(launched.close),
-            recording: launched.recording,
-          }
-        },
-        abort.signal,
-        onScreenshot,
-        onRecording,
-        ready,
+      await runEffect(
+        Effect.scoped(
+          runScript(
+            driveScript,
+            instance,
+            abort.signal,
+            onScreenshot,
+            onRecording,
+            ready,
+          ),
+        ),
       )
       ready()
       logSuccess("script completed")

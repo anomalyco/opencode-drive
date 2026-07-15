@@ -4,11 +4,13 @@ import * as Exit from "effect/Exit"
 import * as Ref from "effect/Ref"
 import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
+import * as Deferred from "effect/Deferred"
 import type * as OpenCodeInstance from "../instance/runtime.js"
 import type * as SimulationConnector from "../simulation/connector.js"
 import { finalizeRecording } from "../recording/finalize.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import * as OpenCodeUi from "./ui.js"
+import * as SharedEffect from "./shared.js"
 
 export interface Options {
   readonly recording?: boolean
@@ -31,6 +33,7 @@ export interface Recording {
 }
 
 interface ManagedClient extends Client {
+  readonly _exitCode: Effect.Effect<number, OpenCodeDriverError>
   readonly _recording?: {
     readonly finishTimeline: Effect.Effect<
       string,
@@ -81,7 +84,7 @@ export const make = Effect.fn("OpenCodeClient.make")(function* (
   const recording = launched.recording
   let managedRecording: ManagedClient["_recording"]
   if (recording !== undefined) {
-    const finishTimeline = yield* Effect.cached(
+    const finishTimeline = yield* SharedEffect.make(
       Effect.gen(function* () {
         const timeline = yield* ui.finishRecording()
         if (timeline !== recording.timeline)
@@ -94,7 +97,7 @@ export const make = Effect.fn("OpenCodeClient.make")(function* (
         return timeline
       }),
     )
-    const exportFinishedRecording = yield* Effect.cached(
+    const exportFinishedRecording = yield* SharedEffect.make(
       Effect.flatMap(finishTimeline, (timeline) =>
         Effect.tryPromise({
           try: (signal) => finalizeRecording(timeline, recording, { signal }),
@@ -119,6 +122,9 @@ export const make = Effect.fn("OpenCodeClient.make")(function* (
   return {
     ui,
     close: () => Effect.void,
+    _exitCode: launched.process.exitCode.pipe(
+      Effect.mapError((cause) => error("client.exit", cause)),
+    ),
     ...(recording === undefined || managedRecording === undefined
       ? {}
       : {
@@ -141,9 +147,25 @@ export interface Clients {
     | OpenCodeUi.OperationError
     | OpenCodeUi.UiWaitOptionsError
   >
+  /** Launches a named client. The name is released when that client closes. */
+  readonly launch: (
+    name: string,
+    options?: Options,
+  ) => Effect.Effect<
+    Client,
+    | OpenCodeDriverError
+    | OpenCodeUi.OperationError
+    | OpenCodeUi.UiWaitOptionsError
+  >
+}
+
+export interface UnexpectedExit {
+  readonly name: string
+  readonly status: number
 }
 
 export interface Control extends Clients {
+  readonly unexpectedExit: Effect.Effect<UnexpectedExit>
   readonly finish: () => Effect.Effect<
     void,
     OpenCodeDriverError | OpenCodeUi.OperationError
@@ -176,8 +198,13 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
     }>
   >([])
   const nextIdentity = yield* Ref.make(0)
+  const active = yield* Ref.make<ReadonlyMap<string, Scope.Scope>>(
+    new Map(),
+  )
+  const unexpectedExit = yield* Deferred.make<UnexpectedExit>()
 
-  const makeClient = Effect.fn("OpenCodeClients.makeClient")(function* (
+  const launch = Effect.fn("OpenCodeClients.launch")(function* (
+    identity: string,
     options: Options = {},
   ) {
     return yield* lock.withPermit(
@@ -186,11 +213,14 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
           return yield* Effect.fail(
             error("client.make", "OpenCode clients are closed"),
           )
-        const identity = `client-${yield* Ref.getAndUpdate(
-          nextIdentity,
-          (value) => value + 1,
-        )}`
+        if ((yield* Ref.get(active)).has(identity))
+          return yield* Effect.fail(
+            error("client.launch", `client "${identity}" is already connected`),
+          )
         const scope = yield* Scope.fork(clientsScope)
+        yield* Ref.update(active, (current) =>
+          new Map(current).set(identity, scope),
+        )
         const client = yield* make(
           instance,
           visible,
@@ -199,7 +229,13 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
           connector,
         ).pipe(
           Scope.provide(scope),
-          Effect.onError(() => Scope.close(scope, Exit.void)),
+          Effect.onError(() =>
+            Ref.update(active, (current) => {
+              const next = new Map(current)
+              next.delete(identity)
+              return next
+            }).pipe(Effect.andThen(Scope.close(scope, Exit.void))),
+          ),
         )
         const recording = client._recording
         if (recording !== undefined) {
@@ -208,19 +244,55 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
             recording,
           ])
         }
+        const close = lock.withPermit(
+          Effect.gen(function* () {
+            const current = yield* Ref.get(active)
+            if (current.get(identity) !== scope) return
+            const next = new Map(current)
+            next.delete(identity)
+            yield* Ref.set(active, next)
+            yield* Scope.close(scope, Exit.void)
+          }),
+        )
+        yield* client._exitCode.pipe(
+          Effect.flatMap((status) =>
+            lock.withPermit(
+              Effect.gen(function* () {
+                const current = yield* Ref.get(active)
+                if (current.get(identity) !== scope) return
+                const next = new Map(current)
+                next.delete(identity)
+                yield* Ref.set(active, next)
+                yield* Deferred.succeed(unexpectedExit, {
+                  name: identity,
+                  status,
+                })
+              }),
+            ),
+          ),
+          Effect.catchCause(() => Effect.void),
+          Effect.forkIn(clientsScope),
+        )
         const publicClient: Client = {
           ui: client.ui,
           ...(client.recording === undefined
             ? {}
             : { recording: client.recording }),
-          close: () => Scope.close(scope, Exit.void),
+          close: () => close,
         }
         return publicClient
       }),
     )
   })
 
-  const finishTimelines = yield* Effect.cached(
+  const makeClient = Effect.fn("OpenCodeClients.makeClient")((
+    options: Options = {},
+  ) =>
+    Ref.getAndUpdate(nextIdentity, (value) => value + 1).pipe(
+      Effect.flatMap((identity) => launch(`client-${identity}`, options)),
+    ))
+
+  const finishTimelines = yield* SharedEffect.make(
     Effect.gen(function* () {
       const active = yield* lock.withPermit(
         Effect.gen(function* () {
@@ -283,7 +355,13 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
     )
   })
 
-  return { make: makeClient, finish, settle } satisfies Control
+  return {
+    make: makeClient,
+    launch,
+    unexpectedExit: Deferred.await(unexpectedExit),
+    finish,
+    settle,
+  } satisfies Control
 })
 
 export * as OpenCodeClient from "./client.js"

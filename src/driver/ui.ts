@@ -25,6 +25,9 @@ export interface ElementQuery {
 export type Position = Pick<Frontend.ClickParams, "x" | "y">
 
 export type Predicate = (state: Frontend.State) => boolean
+export type EffectPredicate = (
+  state: Frontend.State,
+) => Effect.Effect<boolean, Error>
 
 export class UiTimeoutError extends Schema.TaggedErrorClass<UiTimeoutError>()(
   "UiTimeoutError",
@@ -103,6 +106,11 @@ export interface Ui {
     target: string | Predicate,
     options?: WaitOptions,
   ) => Effect.Effect<Frontend.State, OperationError | WaitError>
+  /** Internal adapter seam for Promise predicates without duplicating polling. */
+  readonly waitForEffect: (
+    target: string | EffectPredicate,
+    options?: WaitOptions,
+  ) => Effect.Effect<Frontend.State, OperationError | WaitError | Error>
   readonly getElement: (
     target: number | string | ElementQuery,
     options?: WaitOptions,
@@ -243,6 +251,22 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
       ),
   )
 
+  const waitForEffect = Effect.fn("Ui.waitForEffect")(
+    (target: string | EffectPredicate, options?: WaitOptions) =>
+      typeof target === "string"
+        ? waitFor(target, options)
+        : poll(
+            "waitFor",
+            Effect.flatMap(state(), (value) =>
+              Effect.map(target(value), (matches) =>
+                matches ? value : undefined,
+              ),
+            ),
+            options,
+            "timed out waiting for the UI to match",
+          ),
+  )
+
   const getElement = Effect.fn("Ui.getElement")(
     (target: number | string | ElementQuery, options?: WaitOptions) =>
       poll(
@@ -297,6 +321,7 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
     resize,
     submit,
     waitFor,
+    waitForEffect,
     getElement,
   }
 }

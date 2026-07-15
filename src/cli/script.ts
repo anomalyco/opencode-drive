@@ -1,35 +1,26 @@
-import { resolve, join } from "node:path"
+import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-import { connectBackendSimulation, connectSimulation } from "../client/index.js"
-import type {
-  BackendSimulationClient,
-  SimulationClient,
-} from "../client/index.js"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
+import * as OpenCodeDriver from "../driver/index.js"
+import type * as OpenCodeClient from "../driver/client.js"
+import * as PreparedDriver from "../driver/prepared.js"
+import type * as OpenCodeInstance from "../instance/runtime.js"
+import * as Llm from "../llm/index.js"
 import { createScriptFileSystem } from "../script/filesystem.js"
 import { hasGitMetadata } from "../script/project.js"
-import { finalizeRecording } from "../recording/finalize.js"
 import type {
   LlmOutput,
-  LlmRequest,
   LlmResponse,
-  LlmServeHandler,
-  LlmTitleHandler,
+  ScriptClientOptions,
   ScriptDefinition,
-  ScriptClients,
   ScriptLlm,
-  ScriptServer,
   ScriptUi,
-  UiElement,
   UiElementQuery,
-  UiKeyModifiers,
   UiMatcher,
-  UiPosition,
   UiPredicate,
-  UiState,
   UiWaitOptions,
-  UiViewport,
 } from "../script/types.js"
-import { chunkText, isTitleRequest } from "../llm/internal.js"
 
 export async function loadScript(file: string): Promise<ScriptDefinition> {
   const module: { readonly default?: unknown } = await import(
@@ -40,656 +31,230 @@ export async function loadScript(file: string): Promise<ScriptDefinition> {
   return module.default
 }
 
-export async function runScript(
+export const runScript = Effect.fn("DriveCli.runScript")(function* (
   script: ScriptDefinition,
-  artifacts: string,
-  launchServer: () => Promise<{ readonly endpoint: string }>,
-  killServer: () => Promise<void>,
-  launchClient: (
-    name: string,
-    options?: { readonly record?: boolean; readonly viewport?: UiViewport },
-  ) => Promise<{
-    readonly endpoint: string
-    readonly exited: Promise<number>
-    readonly close: () => Promise<void>
-    readonly recording?: { readonly timeline: string; readonly video: string }
-  }>,
+  instance: OpenCodeInstance.Instance,
   signal: AbortSignal,
   onScreenshot?: (path: string) => void,
   onRecording?: (path: string) => void,
   onReady?: () => void,
 ) {
-  let backend: BackendSimulationClient | undefined
-  const backendFailure = Promise.withResolvers<void>()
-  const connected = new Map<string, SimulationClient>()
-  const finalizers = new Map<string, () => Promise<string | undefined>>()
-  let closing = false
-  const clientAbort = new AbortController()
-  const scriptSignal = AbortSignal.any([signal, clientAbort.signal])
-  const timeoutFailure = Promise.withResolvers<never>()
-  void timeoutFailure.promise.catch(() => undefined)
-  let fatalTimeout = false
-  const abortTimeout = (error: unknown) => {
-    if (!isTimeoutError(error)) return
-    const reason = error instanceof Error ? error : new Error(String(error))
-    fatalTimeout = true
-    timeoutFailure.reject(reason)
-    if (!clientAbort.signal.aborted) clientAbort.abort(reason)
-  }
-  const clientExit = Promise.withResolvers<{
-    readonly name: string
-    readonly status: number
-  }>()
-  const clients: ScriptClients = {
-    async launch(name, options) {
-      if (connected.has(name)) throw new Error(`client "${name}" is already connected`)
-      const launched = await launchClient(name, {
-        ...options,
-        viewport: options?.viewport ?? script.viewport,
-      })
-      let intentional = false
-      void launched.exited.then((status) => {
-        if (!closing && !intentional) clientExit.resolve({ name, status })
-      })
-      let client: SimulationClient | undefined
-      try {
-        client = await connectSimulation({
-          url: launched.endpoint,
-          onScreenshot,
-        })
-        connected.set(name, client)
-        await waitForEditor(client, scriptSignal).catch((error) => {
-          abortTimeout(error)
-          throw error
-        })
-      } catch (error) {
-        intentional = true
-        connected.delete(name)
-        client?.close()
-        await launched.close().catch((cleanup) => {
-          throw new Error(`client cleanup failed: ${cleanup}`, {
-            cause: error,
-          })
-        })
-        throw error
-      }
-      const connectedClient = client
-      onReady?.()
-      let finalizing: Promise<string | undefined> | undefined
-      const finalize = () => {
-        finalizing ??= (async () => {
-          intentional = true
-          let output: string | undefined
-          try {
-            if (launched.recording && !fatalTimeout) {
-              const timeline = await connectedClient.finishRecording().catch((error) => {
-                abortTimeout(error)
-                throw error
-              })
-              output = await finalizeRecording(timeline, launched.recording)
-              onRecording?.(output)
-            }
-            return output
-          } finally {
-            finalizers.delete(name)
-            connected.delete(name)
-            connectedClient.close()
-            await launched.close()
-          }
-        })()
-        return finalizing
-      }
-      finalizers.set(name, finalize)
-      return new ScriptUiClient(connectedClient, scriptSignal, finalize, abortTimeout)
-    },
-  }
-  const llm = new ScriptLlmClient(abortTimeout)
-  let serverStarted = false
-  let serverStarting = false
-  let serverKilling = false
-  const server: ScriptServer = {
-    async launch() {
-      if (serverStarted || serverStarting || serverKilling)
-        throw new Error("the script server has already been launched")
-      serverStarting = true
-      try {
-        const launched = await launchServer()
-        let client: BackendSimulationClient | undefined
-        try {
-          client = await connectBackendSimulation({
-            url: launched.endpoint,
-          })
-          await llm.attach(client).catch((error) => {
-            abortTimeout(error)
-            throw error
-          })
-        } catch (error) {
-          client?.close()
-          await killServer().catch((cleanup) => {
-            throw new Error(`server cleanup failed: ${cleanup}`, {
-              cause: error,
-            })
-          })
-          throw error
-        }
-        backend = client
-        void client.closed.then(() => {
-          if (backend === client && serverStarted && !serverKilling)
-            backendFailure.resolve()
-        })
-        serverStarted = true
-      } finally {
-        serverStarting = false
-      }
-    },
-    async kill() {
-      if (!serverStarted || serverStarting || serverKilling)
-        throw new Error("the script server is not running")
-      serverKilling = true
-      try {
-        const client = backend
-        backend = undefined
-        llm.detach(client)
-        client?.close()
-        await killServer()
-        serverStarted = false
-      } finally {
-        serverKilling = false
-      }
-    },
-  }
-  const abort = () => {
-    backend?.close()
-  }
-  signal.addEventListener("abort", abort, { once: true })
-  try {
-    if (!("launch" in script)) await server.launch()
-    const protectGit = await hasGitMetadata(join(artifacts, "files"))
-    const context = {
-      fs: createScriptFileSystem(join(artifacts, "files"), { git: protectGit }),
-      clients,
-      server,
-      llm,
-      artifacts,
-      signal: scriptSignal,
-    }
-    const execution =
-      "launch" in script
-        ? Promise.resolve(script.run({ ...context, ui: null }))
-        : Promise.resolve(
-            script.run({ ...context, ui: await clients.launch("default", { viewport: script.viewport }) }),
-          )
-    const result = await Promise.race([
-      execution.then(() => ({ script: true as const })),
-      llm.failure,
-      timeoutFailure.promise,
-      clientExit.promise.then((exit) => ({ script: false as const, exit })),
-      backendFailure.promise.then(() => ({ backend: true as const })),
-      aborted(scriptSignal),
-    ])
-    if ("backend" in result)
-      throw new Error("OpenCode simulation backend disconnected")
-    if (!result.script) {
-      clientAbort.abort(
-        new Error(`OpenCode client "${result.exit.name}" exited`),
-      )
-      await execution
-      if (result.exit.status !== 0)
-        throw new Error(
-          `OpenCode client "${result.exit.name}" exited with status ${result.exit.status}`,
-        )
-      return
-    }
-    await Promise.race([
-      llm.settle(),
-      backendFailure.promise.then(() => {
-        throw new Error("OpenCode simulation backend disconnected")
-      }),
-    ])
-  } finally {
-    closing = true
-    clientAbort.abort(new Error("script finished"))
-    signal.removeEventListener("abort", abort)
-    await Promise.all([...finalizers.values()].map((finalize) => finalize()))
-    for (const client of connected.values()) client.close()
-    backend?.close()
-  }
-}
-
-class ScriptUiClient implements ScriptUi {
-  constructor(
-    private readonly client: SimulationClient,
-    private readonly signal: AbortSignal,
-    private readonly terminate: () => Promise<string | undefined>,
-    private readonly abortTimeout: (error: unknown) => void,
-  ) {}
-
-  kill(): Promise<string | undefined> {
-    return this.terminate()
-  }
-
-  state(): Promise<UiState> {
-    return this.failOnTimeout(this.client.state())
-  }
-
-  matches(matcher: UiMatcher): Promise<boolean> {
-    return this.failOnTimeout(this.client.matches(matcher))
-  }
-
-  screenshot(name?: string): Promise<string> {
-    return this.failOnTimeout(this.client.screenshot(name))
-  }
-
-  type(text: string): Promise<UiState> {
-    return this.failOnTimeout(this.client.typeText(text))
-  }
-
-  press(key: string, modifiers?: UiKeyModifiers): Promise<UiState> {
-    return this.failOnTimeout(this.client.pressKey(key, modifiers))
-  }
-
-  enter(): Promise<UiState> {
-    return this.failOnTimeout(this.client.pressEnter())
-  }
-
-  arrow(direction: "up" | "down" | "left" | "right"): Promise<UiState> {
-    return this.failOnTimeout(this.client.pressArrow(direction))
-  }
-
-  focus(target: number | UiElement): Promise<UiState> {
-    return this.failOnTimeout(
-      this.client.focus(typeof target === "number" ? target : target.num),
-    )
-  }
-
-  async click(
-    target: number | UiElement,
-    position?: UiPosition,
-  ): Promise<UiState> {
-    const element =
-      typeof target === "number" ? await this.getElement(target) : target
-    return this.failOnTimeout(
-      this.client.click(
-        element.num,
-        position?.x ?? Math.floor(element.width / 2),
-        position?.y ?? Math.floor(element.height / 2),
-      ),
-    )
-  }
-
-  resize(viewport: UiViewport): Promise<UiState> {
-    return this.failOnTimeout(this.client.resize(viewport))
-  }
-
-  async submit(text: string): Promise<UiState> {
-    await this.type(text)
-    return this.enter()
-  }
-
-  waitFor(
-    target: UiMatcher | UiPredicate,
-    options?: UiWaitOptions,
-  ): Promise<UiState> {
-    const message = typeof target === "string"
-      ? `timed out waiting for the UI to match ${JSON.stringify(target)}`
-      : "timed out waiting for the UI to match"
-    return this.poll(async () => {
-      if (typeof target === "string")
-        return (await this.matches(target)) ? await this.state() : undefined
-      const state = await this.state()
-      return (await target(state)) ? state : undefined
-    }, options, message)
-  }
-
-  getElement(
-    target: number | string | UiElementQuery,
-    options?: UiWaitOptions,
-  ): Promise<UiElement> {
-    return this.poll(async () => {
-      const state = await this.state()
-      const elements = state.elements.filter((element) =>
-        typeof target === "number"
-          ? element.num === target
-          : typeof target === "string"
-            ? element.id === target
-            : matchesElement(element, target),
-      )
-      if (elements.length > 1)
-        throw new Error(`ui.getElement matched ${elements.length} elements`)
-      return elements[0]
-    }, options, "timed out waiting for the UI element")
-  }
-
-  private async poll<T>(
-    read: () => Promise<T | undefined>,
-    options: UiWaitOptions | undefined,
-    message: string,
-  ): Promise<T> {
-    const deadline = Date.now() + (options?.timeout ?? 5_000)
-    do {
-      this.signal.throwIfAborted()
-      const result = await read()
-      if (result !== undefined) return result
-      await Bun.sleep(options?.interval ?? 50)
-    } while (Date.now() <= deadline)
-    const error = new Error(message)
-    this.abortTimeout(error)
-    throw error
-  }
-
-  private async failOnTimeout<T>(promise: Promise<T>): Promise<T> {
-    try {
-      return await promise
-    } catch (error) {
-      this.abortTimeout(error)
-      throw error
-    }
-  }
-}
-
-class ScriptLlmClient implements ScriptLlm {
-  constructor(private readonly abortTimeout: (error: unknown) => void) {}
-
-  private readonly pending: LlmRequest[] = []
-  private readonly queued: QueuedLlmResponse[] = []
-  private readonly tasks = new Set<Promise<void>>()
-  private handler: LlmServeHandler | undefined
-  private titleHandler: LlmTitleHandler = () => "OpenCode Drive"
-  private titleHandlerSet = false
-  private mode: "queue" | "serve" | undefined
-  private requestIndex = 0
-  private titleRequestIndex = 0
-  private failed = false
-  private readonly changes = new Set<() => void>()
-  private rejectFailure!: (error: unknown) => void
-  readonly failure = new Promise<never>((_resolve, reject) => {
-    this.rejectFailure = reject
+  const prepared = yield* PreparedDriver.make(instance, {
+    visible: false,
+    launch: "launch" in script ? "manual" : "automatic",
+    clientName: "default",
+    client: { viewport: script.viewport },
   })
-
-  private backend: BackendSimulationClient | undefined
-
-  async attach(backend: BackendSimulationClient) {
-    if (this.backend) throw new Error("LLM backend is already attached")
-    this.backend = backend
-    await backend.attach((request) => {
-      if (isTitleRequest(request.body)) {
-        const index = this.titleRequestIndex++
-        const pending = [...this.tasks]
-        this.start(request, async function* (this: ScriptLlmClient) {
-          await Promise.all(pending)
-          yield this.text(await this.titleHandler(request, index))
-        }.bind(this))
-        return
+  const localAbort = new AbortController()
+  const scriptSignal = AbortSignal.any([signal, localAbort.signal])
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => localAbort.abort(new Error("script finished"))),
+  )
+  const protectGit = yield* Effect.promise(() =>
+    hasGitMetadata(join(instance.artifacts, "files")),
+  )
+  const operationFailure = Promise.withResolvers<never>()
+  void operationFailure.promise.catch(() => undefined)
+  const recordings = new Set<string>()
+  const reportRecording = (path: string) => {
+    if (recordings.has(path)) return
+    recordings.add(path)
+    onRecording?.(path)
+  }
+  const run = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => {
+    const promise = Effect.runPromise(effect)
+    void promise.catch((cause) => {
+      if (isTimeoutError(cause)) {
+        if (!localAbort.signal.aborted) localAbort.abort(cause)
+        operationFailure.reject(cause)
       }
-      this.pending.push(request)
-      this.drain()
-      this.notify()
     })
+    return promise
   }
-
-  detach(backend: BackendSimulationClient | undefined) {
-    if (this.backend === backend) this.backend = undefined
+  const runBackground = <A, E>(effect: Effect.Effect<A, E>) => {
+    const promise = run(effect)
+    void promise.catch((cause) => operationFailure.reject(cause))
+    return promise
   }
-
-  queue(...output: ReadonlyArray<LlmOutput>): void {
-    if (this.mode === "serve")
-      throw new Error("llm.queue cannot be used after llm.serve")
-    this.mode = "queue"
-    this.queued.push({ output })
-    this.drain()
-  }
-
-  send(...output: ReadonlyArray<LlmOutput>): Promise<void> {
-    if (this.mode === "serve")
-      throw new Error("llm.send cannot be used after llm.serve")
-    this.mode = "queue"
-    const completed = Promise.withResolvers<void>()
-    this.queued.push({ output, completed })
-    this.drain()
-    return completed.promise
-  }
-
-  serve(handler: LlmServeHandler): void {
-    if (this.mode !== undefined)
-      throw new Error("llm.serve must be the only LLM response mode")
-    this.mode = "serve"
-    this.handler = handler
-    this.drain()
-  }
-
-  title(handler: LlmTitleHandler): void {
-    if (this.titleHandlerSet) throw new Error("llm.title may only be configured once")
-    this.titleHandlerSet = true
-    this.titleHandler = handler
-  }
-
-  text(text: string, options?: Parameters<ScriptLlm["text"]>[1]) {
+  const adaptUi = (client: OpenCodeClient.Client): ScriptUi => {
+    const ui = client.ui
+    const call = <A, E>(effect: Effect.Effect<A, E>) => run(effect)
     return {
-      type: "text" as const,
-      text,
-      ...(options === undefined ? {} : { options }),
-    }
-  }
-
-  reasoning(text: string, options?: Parameters<ScriptLlm["reasoning"]>[1]) {
-    return {
-      type: "reasoning" as const,
-      text,
-      ...(options === undefined ? {} : { options }),
-    }
-  }
-
-  pause(milliseconds: number) {
-    return { type: "pause" as const, milliseconds }
-  }
-
-  toolCall(call: Parameters<ScriptLlm["toolCall"]>[0]) {
-    return { type: "toolCall" as const, ...call }
-  }
-
-  raw(chunk: Parameters<ScriptLlm["raw"]>[0]) {
-    return { type: "raw" as const, chunk }
-  }
-
-  finish(reason?: Parameters<ScriptLlm["finish"]>[0]) {
-    return { type: "finish" as const, ...(reason === undefined ? {} : { reason }) }
-  }
-
-  disconnect() {
-    return { type: "disconnect" as const }
-  }
-
-  async settle() {
-    const deadline = Date.now() + 30_000
-    while (this.mode === "queue" && this.queued.length > 0) {
-      const remaining = deadline - Date.now()
-      if (remaining <= 0) {
-        const error = new Error(
-          `timed out with ${this.queued.length} unused LLM response(s)`,
+      async kill() {
+        const output = client.recording === undefined
+          ? undefined
+          : await call(client.recording.finish())
+        if (output !== undefined) reportRecording(output)
+        await call(client.close())
+        return output
+      },
+      state: () => call(ui.state()),
+      matches: (matcher) => call(ui.matches(matcher)),
+      async screenshot(name) {
+        const path = await call(ui.screenshot(name))
+        onScreenshot?.(path)
+        return path
+      },
+      type: (text) => call(ui.type(text)),
+      press: (key, modifiers) => call(ui.press(key, modifiers)),
+      enter: () => call(ui.enter()),
+      arrow: (direction) => call(ui.arrow(direction)),
+      focus: (target) => call(ui.focus(target)),
+      click: (target, position) => call(ui.click(target, position)),
+      resize: (viewport) => call(ui.resize(viewport)),
+      submit: (text) => call(ui.submit(text)),
+      waitFor(target: UiMatcher | UiPredicate, options?: UiWaitOptions) {
+        return call(
+          typeof target === "string"
+            ? ui.waitFor(target, options)
+            : ui.waitForEffect(
+                (state) =>
+                  Effect.tryPromise({
+                    try: () => Promise.resolve(target(state)),
+                    catch: (cause) =>
+                      cause instanceof Error ? cause : new Error(String(cause)),
+                  }),
+                options,
+              ),
         )
-        this.abortTimeout(error)
-        throw error
-      }
-      await this.waitForChange(remaining)
-    }
-    while (this.tasks.size > 0) await Promise.all(this.tasks)
-    if (this.mode === "queue" && this.pending.length > 0)
-      throw new Error(`received ${this.pending.length} unexpected LLM request(s)`)
-  }
-
-  private drain() {
-    while (this.pending.length > 0) {
-      const request = this.pending[0]!
-      if (this.handler !== undefined) {
-        this.pending.shift()
-        const index = this.requestIndex++
-        this.start(request, () => this.handler!(request, index))
-        continue
-      }
-      const queued = this.queued.shift()
-      if (queued === undefined) return
-      this.pending.shift()
-      this.requestIndex++
-      this.start(request, () => queued.output, queued.completed)
+      },
+      getElement: (
+        target: number | string | UiElementQuery,
+        options?: UiWaitOptions,
+      ) => call(ui.getElement(target, options)),
     }
   }
-
-  private start(
-    request: LlmRequest,
-    output: () => LlmResponse,
-    completed?: PromiseWithResolvers<void>,
-  ) {
-    const task = this.respond(request, output)
-      .then(() => completed?.resolve())
-      .catch((error) => {
-        completed?.reject(error)
-        this.abortTimeout(error)
-        if (!this.failed) {
-          this.failed = true
-          this.rejectFailure(error)
+  const llm = adaptLlm(prepared.llm, run, runBackground)
+  const clients = {
+    launch: (name: string, options?: ScriptClientOptions) =>
+      run(
+        prepared.clients.launch(name, {
+          recording: options?.record,
+          viewport: options?.viewport ?? script.viewport,
+        }),
+      ).then(adaptUi),
+  }
+  const context = {
+    fs: createScriptFileSystem(join(instance.artifacts, "files"), {
+      git: protectGit,
+    }),
+    clients,
+    server: {
+      launch: () => run(prepared.server.launch()),
+      kill: () => run(prepared.server.kill()),
+    },
+    llm,
+    artifacts: instance.artifacts,
+    signal: scriptSignal,
+  }
+  const primary = prepared.driver?.ui
+  const primaryClient = prepared.driver === undefined
+    ? undefined
+    : ({
+        ui: primary!,
+        close: () => Effect.void,
+        ...(prepared.driver.recording === undefined
+          ? {}
+          : { recording: prepared.driver.recording }),
+      } satisfies OpenCodeClient.Client)
+  const execution = Promise.resolve(
+    "launch" in script
+      ? script.run({ ...context, ui: null })
+      : script.run({ ...context, ui: adaptUi(primaryClient!) }),
+  )
+  onReady?.()
+  yield* Effect.tryPromise({
+    try: async () => {
+      try {
+        await Promise.race([
+          execution,
+          operationFailure.promise,
+          Effect.runPromise(prepared.failure),
+          aborted(scriptSignal),
+        ])
+      } catch (cause) {
+        if (isZeroStatusClientExit(cause)) {
+          localAbort.abort(cause)
+          await execution
+          return
         }
-        throw error
-      })
-      .finally(() => this.tasks.delete(task))
-    this.tasks.add(task)
-    void task.catch(() => undefined)
-  }
+        throw cause
+      }
+    },
+    catch: (cause) => cause,
+  })
+  const settlement = yield* prepared.settle()
+  for (const path of settlement.recordings) reportRecording(path)
+})
 
-  private waitForChange(timeout: number) {
-    return new Promise<void>((resolve, reject) => {
-      let settled = false
-      const finish = (result: () => void) => {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        this.changes.delete(changed)
-        result()
-      }
-      const changed = () => {
-        finish(resolve)
-      }
-      const timer = setTimeout(
-        () =>
-          finish(() => {
-            const error = new Error(
-              `timed out with ${this.queued.length} unused LLM response(s)`,
-            )
-            this.abortTimeout(error)
-            reject(error)
-          }),
-        timeout,
+function adaptLlm(
+  controller: OpenCodeDriver.Llm,
+  run: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
+  runBackground: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
+): ScriptLlm {
+  return {
+    queue(...output) {
+      void runBackground(controller.queue(...output.map(normalizeOutput)))
+    },
+    send: (...output) => run(controller.send(...output.map(normalizeOutput))),
+    serve(handler) {
+      void runBackground(
+        controller.serve((request, index) =>
+          responseStream(() => handler(request, index)),
+        ),
       )
-      this.changes.add(changed)
-      void this.failure.catch((error) => finish(() => reject(error)))
-    })
-  }
-
-  private notify() {
-    for (const changed of this.changes) changed()
-  }
-
-  private async respond(request: LlmRequest, output: () => LlmResponse) {
-    const backend = this.backend
-    if (!backend) throw new Error("launch the script server before handling LLM requests")
-    let terminal = false
-    for await (const item of output()) {
-      if (terminal)
-        throw new Error(`LLM response ${request.id} emitted output after its terminal event`)
-      if (item.type === "finish") {
-        terminal = true
-        await backend.finish(request.id, item.reason)
-      } else if (item.type === "disconnect") {
-        terminal = true
-        await backend.disconnect(request.id)
-      } else if (item.type === "text") {
-        await this.streamDelta(
-          request.id,
-          "textDelta",
-          "text",
-          item.text,
-          item.options,
-        )
-      } else if (item.type === "reasoning") {
-        await this.streamDelta(
-          request.id,
-          "reasoningDelta",
-          "reasoning",
-          item.text,
-          item.options,
-        )
-      } else if (item.type === "pause") {
-        if (!Number.isFinite(item.milliseconds) || item.milliseconds < 0)
-          throw new Error("llm.pause milliseconds must be a non-negative number")
-        if (item.milliseconds > 0) await Bun.sleep(item.milliseconds)
-      } else {
-        await backend.chunk(request.id, [item])
-      }
-    }
-    if (!terminal) await backend.finish(request.id, "stop")
-  }
-
-  private async streamDelta(
-    id: string,
-    type: "textDelta" | "reasoningDelta",
-    helper: "text" | "reasoning",
-    text: string,
-    options: Parameters<ScriptLlm["text"]>[1],
-  ) {
-    const backend = this.backend
-    if (!backend) throw new Error("launch the script server before streaming LLM output")
-    const delay = options?.delay ?? 2
-    const chunkSize = options?.chunkSize ?? 15
-    if (!Number.isFinite(delay) || delay < 0)
-      throw new Error(`llm.${helper} delay must be a non-negative number`)
-    if (!Number.isInteger(chunkSize) || chunkSize < 1)
-      throw new Error(`llm.${helper} chunkSize must be a positive integer`)
-
-    const chunks = [...chunkText(text, chunkSize)]
-    for (let index = 0; index < chunks.length; index++) {
-      const chunk = chunks[index]
-      if (chunk === undefined) continue
-      await backend.chunk(id, [{ type, text: chunk }])
-      if (index < chunks.length - 1 && delay > 0) await Bun.sleep(delay)
-    }
+    },
+    title(handler) {
+      void runBackground(
+        controller.title((request, index) =>
+          Effect.tryPromise({
+            try: () => Promise.resolve(handler(request, index)),
+            catch: (cause) => cause,
+          }).pipe(
+            Effect.mapError((cause) =>
+              new OpenCodeDriver.LlmControllerError({
+                operation: "title",
+                requestId: request.id,
+                message: cause instanceof Error ? cause.message : String(cause),
+              }),
+            ),
+          ),
+        ),
+      )
+    },
+    text: Llm.text,
+    reasoning: Llm.reasoning,
+    pause: Llm.pause,
+    toolCall: Llm.toolCall,
+    raw: Llm.raw,
+    finish: Llm.finish,
+    disconnect: Llm.disconnect,
   }
 }
 
-interface QueuedLlmResponse {
-  readonly output: ReadonlyArray<LlmOutput>
-  readonly completed?: PromiseWithResolvers<void>
-}
-
-async function waitForEditor(ui: SimulationClient, signal: AbortSignal) {
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline) {
-    signal.throwIfAborted()
-    if ((await ui.state()).focused.editor) return
-    await Bun.sleep(50)
+function responseStream(make: () => LlmResponse) {
+  const iterable = {
+    async *[Symbol.asyncIterator]() {
+      for await (const item of make()) yield normalizeOutput(item)
+    },
   }
-  throw new Error("timed out waiting for the prompt editor")
-}
-
-function matchesElement(element: UiElement, query: UiElementQuery) {
-  return (
-    (query.id === undefined || element.id === query.id) &&
-    (query.num === undefined || element.num === query.num) &&
-    (query.focusable === undefined || element.focusable === query.focusable) &&
-    (query.focused === undefined || element.focused === query.focused) &&
-    (query.clickable === undefined || element.clickable === query.clickable) &&
-    (query.editor === undefined || element.editor === query.editor)
+  return Stream.fromAsyncIterable(iterable, (cause) =>
+    new OpenCodeDriver.LlmControllerError({
+      operation: "serve",
+      message: cause instanceof Error ? cause.message : String(cause),
+    }),
   )
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function normalizeOutput(output: LlmOutput): Llm.Output {
+  if (output.type === "textDelta" || output.type === "reasoningDelta")
+    return Llm.raw({ type: output.type, text: output.text })
+  return output
 }
 
 function aborted(signal: AbortSignal) {
   return new Promise<never>((_resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason ?? new Error("script aborted"))
-      return
-    }
+    if (signal.aborted) return reject(signal.reason ?? new Error("script aborted"))
     signal.addEventListener(
       "abort",
       () => reject(signal.reason ?? new Error("script aborted")),
@@ -698,21 +263,36 @@ function aborted(signal: AbortSignal) {
   })
 }
 
-function isTimeoutError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
+function isZeroStatusClientExit(cause: unknown) {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "operation" in cause &&
+    cause.operation === "client.exit" &&
+    "message" in cause &&
+    typeof cause.message === "string" &&
+    cause.message.endsWith("status 0")
+  )
+}
+
+function isTimeoutError(cause: unknown) {
+  const message = cause instanceof Error ? cause.message : String(cause)
   return /\btimeout\b|\btimed out\b/i.test(message)
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function isScriptDefinition(value: unknown): value is ScriptDefinition {
   if (!isRecord(value)) return false
-  const script = value
   return (
-    typeof script.run === "function" &&
-    (script.project === undefined || isScriptProject(script.project)) &&
-    (script.config === undefined || isJsonObject(script.config)) &&
-    (script.tui === undefined || isJsonObject(script.tui)) &&
-    (script.setup === undefined || typeof script.setup === "function") &&
-    (!("launch" in script) || script.launch === "manual")
+    typeof value.run === "function" &&
+    (value.project === undefined || isScriptProject(value.project)) &&
+    (value.config === undefined || isJsonObject(value.config)) &&
+    (value.tui === undefined || isJsonObject(value.tui)) &&
+    (value.setup === undefined || typeof value.setup === "function") &&
+    (!("launch" in value) || value.launch === "manual")
   )
 }
 
@@ -724,13 +304,12 @@ function isJsonObject(value: unknown) {
 
 function isScriptProject(value: unknown) {
   if (!isRecord(value)) return false
-  const project = value
-  if (project.git !== undefined && typeof project.git !== "boolean") return false
-  if (project.files === undefined) return true
-  if (!isRecord(project.files)) return false
-  const prototype = Object.getPrototypeOf(project.files)
+  if (value.git !== undefined && typeof value.git !== "boolean") return false
+  if (value.files === undefined) return true
+  if (!isRecord(value.files)) return false
+  const prototype = Object.getPrototypeOf(value.files)
   if (prototype !== Object.prototype && prototype !== null) return false
-  return Object.values(project.files).every(
+  return Object.values(value.files).every(
     (contents) => typeof contents === "string" || contents instanceof Uint8Array,
   )
 }
