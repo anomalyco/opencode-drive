@@ -5,6 +5,8 @@ import type { SampledFrame, TimelineHeader } from "./types.js"
 export interface ReplayOptions {
   fps?: number
   signal?: AbortSignal
+  startAtMs?: number
+  durationMs?: number
 }
 
 interface InternalReplayOptions extends ReplayOptions {
@@ -23,6 +25,10 @@ export async function replayRecording(path: string, options: ReplayOptions = {})
 export async function replay(path: string, options: InternalReplayOptions = {}): Promise<SampledFrame[]> {
   options.signal?.throwIfAborted()
   const interval = sampleInterval(options.fps ?? 20)
+  if (options.startAtMs !== undefined && (!Number.isFinite(options.startAtMs) || options.startAtMs < 0))
+    throw new Error("startAtMs must be a non-negative finite number")
+  if (options.durationMs !== undefined && (!Number.isFinite(options.durationMs) || options.durationMs < 0))
+    throw new Error("durationMs must be a non-negative finite number")
   const records = decodeTimeline(path)[Symbol.asyncIterator]()
   const first = await records.next()
   options.signal?.throwIfAborted()
@@ -31,7 +37,9 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   const terminal = await (options.terminalFactory ?? createTerminalParser)(header.cols, header.rows)
   options.signal?.throwIfAborted()
   const frames: SampledFrame[] = []
-  let nextSample = 0
+  const startAt = options.startAtMs ?? 0
+  const endAt = options.durationMs === undefined ? Number.POSITIVE_INFINITY : startAt + options.durationMs
+  let nextSample = startAt
   let finalAt = 0
 
   for (;;) {
@@ -40,7 +48,11 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
     if (next.done) break
     const event = next.value
     if (event.type === "header") throw new Error("Recording timeline contains a second header")
-    while (nextSample < event.at_ms) {
+    if (event.at_ms > endAt) {
+      finalAt = endAt
+      break
+    }
+    while (nextSample < event.at_ms && nextSample <= endAt) {
       frames.push({ atMs: nextSample, frame: terminal.snapshot() })
       nextSample += interval
     }
@@ -50,12 +62,16 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   }
   terminal.finish()
 
-  while (nextSample <= finalAt) {
+  const targetFinal = options.durationMs === undefined ? Math.max(startAt, finalAt) : endAt
+  while (nextSample <= targetFinal) {
     frames.push({ atMs: nextSample, frame: terminal.snapshot() })
     nextSample += interval
   }
-  if (frames.length === 0 || frames.at(-1)!.atMs !== finalAt) {
-    frames.push({ atMs: finalAt, frame: terminal.snapshot() })
+  if (frames.length === 0 || frames.at(-1)!.atMs !== targetFinal) {
+    frames.push({ atMs: targetFinal, frame: terminal.snapshot() })
+  }
+  if (options.startAtMs !== undefined) {
+    return frames.map((sample) => ({ ...sample, atMs: sample.atMs - startAt }))
   }
   const firstVisible = frames.findIndex((sample) =>
     sample.frame.lines.some((line) => line.spans.some((span) => span.text.trim().length > 0)),

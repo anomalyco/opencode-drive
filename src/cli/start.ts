@@ -1,7 +1,4 @@
-import { NodeServices } from "@effect/platform-node"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
-import * as Scope from "effect/Scope"
 import { initializeInstance } from "../instance/instance.js"
 import * as DriveProcess from "../instance/process.js"
 import * as OpenCodeInstance from "../instance/runtime.js"
@@ -28,80 +25,112 @@ import {
 } from "../instance/registry.js"
 import type { StartOptions } from "./types.js"
 
-export async function start(options: StartOptions) {
-  const initialized = await initializeManifest(
-    options.name,
-    process.cwd(),
-    () => initializeInstance(options.name),
-    { temporary: true },
+export const start = Effect.fn("DriveCli.start")((options: StartOptions) =>
+  Effect.scoped(startScoped(options)),
+)
+
+const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartOptions) {
+  const initialized = yield* fromPromise(() =>
+    initializeManifest(
+      options.name,
+      process.cwd(),
+      () => initializeInstance(options.name),
+      { temporary: true },
+    ),
   )
   configureLogFile(initialized.artifacts)
   logSuccess(`starting ${options.name}`)
   logSuccess(`using artifacts ${initialized.artifacts}`)
   if (!options.visible && !options.script && !options.daemon)
-    return startDetached(options, initialized.artifacts)
+    return yield* startDetached(options, initialized.artifacts)
   const scriptPath = options.script
   const scriptTooling = scriptPath
-    ? await (async () => {
-        logSuccess(`preparing script ${scriptPath}`)
-        return prepareScriptTooling(initialized.artifacts, scriptPath)
-      })()
+    ? yield* Effect.acquireRelease(
+        fromPromise(async () => {
+          logSuccess(`preparing script ${scriptPath}`)
+          return prepareScriptTooling(initialized.artifacts, scriptPath)
+        }),
+        (tooling) => fromPromise(() => tooling.links.remove()).pipe(Effect.ignore),
+      )
     : undefined
   const script = scriptTooling
-    ? await (async () => {
-        logSuccess(`loading script ${scriptTooling.file}`)
-        return loadScript(scriptTooling.file)
-      })().catch(async (error) => {
-        await scriptTooling.links.remove()
-        throw error
+    ? yield* fromPromise(async () => {
+        try {
+          logSuccess(`loading script ${scriptTooling.file}`)
+          return await loadScript(scriptTooling.file)
+        } catch (error) {
+          await scriptTooling.links.remove()
+          throw error
+        }
       })
     : undefined
   if (script && "launch" in script && options.record) {
-    await scriptTooling?.links.remove()
-    throw new Error("--record is not supported when launch is manual")
+    return yield* Effect.fail(new Error("--record is not supported when launch is manual"))
   }
   const responses = createResponseSettings()
   logSuccess("launching instance")
-  const instanceScope = await Effect.runPromise(Scope.make())
-  const instance = await Effect.runPromise(
-    OpenCodeInstance.make({
-      artifacts: initialized.artifacts,
-      name: options.name,
-      command: options.command,
-      dev: options.dev,
-      scripted: options.script !== undefined,
-      visible: options.visible,
-      record: options.record,
-      viewport: script?.viewport,
-      project: script?.project,
-      setup: script?.setup,
-      log: logSuccess,
-    }).pipe(
-      Scope.provide(instanceScope),
-      Effect.provide(NodeServices.layer),
-    ),
-  ).catch(async (error) => {
-    await Effect.runPromise(Scope.close(instanceScope, Exit.void))
-    await scriptTooling?.links.remove()
-    throw error
-  })
-  await register({
-    version: 1,
+  const instance = yield* OpenCodeInstance.make({
+    artifacts: initialized.artifacts,
     name: options.name,
-    pid: process.pid,
-    startedAt: new Date().toISOString(),
-    cwd: process.cwd(),
-    artifacts: instance.artifacts,
+    command: options.command,
+    dev: options.dev,
+    scripted: options.script !== undefined,
     visible: options.visible,
-    status: "starting",
-    endpoints: instance.endpoints,
-    control: controlPath(options.name),
-  }).catch(async (error) => {
-    await runEffect(instance.stop)
-    await Effect.runPromise(Scope.close(instanceScope, Exit.void))
-    await scriptTooling?.links.remove()
-    throw error
+    record: options.record,
+    viewport: script?.viewport,
+    project: script?.project,
+    setup: script?.setup,
+    log: logSuccess,
   })
+  yield* Effect.acquireRelease(
+    fromPromise(() =>
+      register({
+        version: 1,
+        name: options.name,
+        pid: process.pid,
+        startedAt: new Date().toISOString(),
+        cwd: process.cwd(),
+        artifacts: instance.artifacts,
+        visible: options.visible,
+        status: "starting",
+        endpoints: instance.endpoints,
+        control: controlPath(options.name),
+      }),
+    ),
+    () => fromPromise(() => unregister(options.name, process.pid)).pipe(Effect.ignore),
+  )
+  return yield* lifecycle(options, instance, responses, script, scriptTooling)
+})
+
+function lifecycle(
+  options: StartOptions,
+  instance: OpenCodeInstance.Instance,
+  responses: ReturnType<typeof createResponseSettings>,
+  script: ScriptDefinition | undefined,
+  scriptTooling: Awaited<ReturnType<typeof prepareScriptTooling>> | undefined,
+) {
+  return Effect.callback<void, unknown>((resume) => {
+    const abort = new AbortController()
+    const promise = runLifecycle(options, instance, responses, script, scriptTooling, abort.signal)
+    void promise.then(
+      () => resume(Effect.void),
+      (error) => resume(Effect.fail(error)),
+    )
+    return Effect.gen(function* () {
+      abort.abort(new Error("opencode-drive interrupted"))
+      yield* Effect.promise(() => promise.catch(() => undefined))
+    })
+  })
+}
+
+async function runLifecycle(
+  options: StartOptions,
+  instance: OpenCodeInstance.Instance,
+  responses: ReturnType<typeof createResponseSettings>,
+  script: ScriptDefinition | undefined,
+  scriptTooling: Awaited<ReturnType<typeof prepareScriptTooling>> | undefined,
+  signal: AbortSignal,
+) {
   let completed = false
   let current: ReturnType<typeof run> | undefined
   let restarting: Promise<string | undefined> | undefined
@@ -123,15 +152,13 @@ export async function start(options: StartOptions) {
   }
   const interrupt = () => {
     stopping = true
-    current?.abort.abort(new Error("opencode-drive interrupted"))
-    void finishCurrentRecording()
-      .catch((error) =>
-        logError(`failed to export recording: ${error}`),
+    current?.abort.abort(signal.reason)
+    if (!options.script)
+      void stopInstance().catch((error) =>
+        logError(`failed to stop interrupted instance: ${error}`),
       )
-      .finally(() => runEffect(instance.stop))
   }
-  process.once("SIGINT", interrupt)
-  process.once("SIGTERM", interrupt)
+  signal.addEventListener("abort", interrupt, { once: true })
   const stopInstance = async (onProgress?: (percent: number) => void) => {
     try {
       const output = await finishCurrentRecording(onProgress)
@@ -193,6 +220,7 @@ export async function start(options: StartOptions) {
         return responses.update(input)
       },
     })
+    if (signal.aborted) return
     current = run(
       options,
       instance,
@@ -268,8 +296,7 @@ export async function start(options: StartOptions) {
     failure = error
     throw error
   } finally {
-    process.off("SIGINT", interrupt)
-    process.off("SIGTERM", interrupt)
+    signal.removeEventListener("abort", interrupt)
     current?.abort.abort(new Error("opencode-drive stopped"))
     let cleanupFailure: unknown
     const recordingPath = await finishCurrentRecording().catch((error) => {
@@ -302,10 +329,11 @@ export async function start(options: StartOptions) {
         cleanupFailure ??= error
         logError(`failed to clean artifacts ${instance.artifacts}: ${error}`)
       })
-    if (options.script && failure !== undefined)
-      setTimeout(() => process.exit(1), 0)
+    if (options.script && failure !== undefined) {
+      logError(failure instanceof Error ? failure.message : String(failure))
+      process.exit(1)
+    }
     if (failure === undefined && cleanupFailure !== undefined) process.exitCode = 1
-    await Effect.runPromise(Scope.close(instanceScope, Exit.void))
   }
 }
 
@@ -349,65 +377,60 @@ async function finishRecording(
   return finalizeRecording(timeline, expected, { onProgress })
 }
 
-async function startDetached(options: StartOptions, artifacts: string) {
-  const existing = await resolveInstance(options.name, { ready: false }).catch(() => undefined)
+const startDetached = Effect.fn("DriveCli.startDetached")(function* (
+  options: StartOptions,
+  artifacts: string,
+) {
+  const existing = yield* fromPromise(() =>
+    resolveInstance(options.name, { ready: false }).catch(() => undefined),
+  )
   if (existing) throw new Error(`drive instance "${options.name}" is already running`)
   const ownerLog = join(registryDirectory(), `${options.name}.log`)
-  await mkdir(registryDirectory(), { recursive: true })
-  await rm(ownerLog, { force: true })
+  yield* fromPromise(() => mkdir(registryDirectory(), { recursive: true }))
+  yield* fromPromise(() => rm(ownerLog, { force: true }))
   logSuccess(`launching detached owner for ${options.name}`)
-  const ownerScope = await Effect.runPromise(Scope.make())
-  try {
-    const child = await Effect.runPromise(
-      DriveProcess.spawn([
-        process.execPath,
-        process.argv[1]!,
-        "start",
-        "--daemon",
-        "--name",
-        options.name,
-        ...(options.script ? ["--script", options.script] : []),
-        ...(options.dev ? ["--dev", options.dev] : []),
-        ...(options.record ? ["--record"] : []),
-        ...(options.command.length ? ["--", ...options.command] : []),
-      ], {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          OPENCODE_DRIVE_LOG: configureLogFile(artifacts),
-          OPENCODE_DRIVE_OWNER_LOG: ownerLog,
-        },
-        stdin: "ignore",
-        stdout: "ignore",
-        stderr: "ignore",
-        detached: true,
-      }).pipe(
-        Scope.provide(ownerScope),
-        Effect.provide(NodeServices.layer),
-      ),
-    )
-    logSuccess(`waiting for ${options.name} to become ready`)
-    const deadline = Date.now() + 60_000
-    while (Date.now() < deadline) {
-      const manifest = await resolveInstance(options.name).catch(() => undefined)
-      if (manifest?.pid === child.pid) {
-        logSuccess(`ready ${options.name}`)
-        await logReadyPaths(manifest.artifacts)
-        await runEffect(child.detach)
-        return
-      }
-      if (!(await runEffect(child.isRunning))) {
-        const status = await runEffect(child.exitCode)
-        throw new Error(`detached instance exited with status ${status}; see ${ownerLog}`)
-      }
-      await Bun.sleep(50)
+  const child = yield* DriveProcess.spawn([
+    process.execPath,
+    process.argv[1]!,
+    "start",
+    "--daemon",
+    "--name",
+    options.name,
+    ...(options.script ? ["--script", options.script] : []),
+    ...(options.dev ? ["--dev", options.dev] : []),
+    ...(options.record ? ["--record"] : []),
+    ...(options.command.length ? ["--", ...options.command] : []),
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      OPENCODE_DRIVE_LOG: configureLogFile(artifacts),
+      OPENCODE_DRIVE_OWNER_LOG: ownerLog,
+    },
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+    detached: true,
+  })
+  logSuccess(`waiting for ${options.name} to become ready`)
+  const deadline = Date.now() + 60_000
+  while (Date.now() < deadline) {
+    const manifest = yield* fromPromise(() => resolveInstance(options.name).catch(() => undefined))
+    if (manifest?.pid === child.pid) {
+      logSuccess(`ready ${options.name}`)
+      yield* fromPromise(() => logReadyPaths(manifest.artifacts))
+      yield* child.detach
+      return
     }
-    await runEffect(child.terminate)
-    throw new Error(`timed out starting drive instance "${options.name}"; see ${ownerLog}`)
-  } finally {
-    await Effect.runPromise(Scope.close(ownerScope, Exit.void))
+    if (!(yield* child.isRunning)) {
+      const status = yield* child.exitCode
+      yield* Effect.fail(new Error(`detached instance exited with status ${status}; see ${ownerLog}`))
+    }
+    yield* Effect.sleep(50)
   }
-}
+  yield* child.terminate
+  yield* Effect.fail(new Error(`timed out starting drive instance "${options.name}"; see ${ownerLog}`))
+})
 
 function run(
   options: StartOptions,
@@ -491,6 +514,9 @@ function run(
 
 const runEffect = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(effect)
+
+const fromPromise = <A>(task: () => Promise<A>) =>
+  Effect.tryPromise({ try: task, catch: (error) => error })
 
 function report(status?: string) {
   if (status) logSuccess(status)

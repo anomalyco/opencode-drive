@@ -109,6 +109,22 @@ describe("replayRecording", () => {
     expect(frames.every((frame) => lineText(frame.frame) === "ready")).toBe(true)
   })
 
+  test("trims to an explicit origin and holds the final frame to a shared duration", async () => {
+    const frames = await replayRecording(
+      await recording([
+        [0, "A"],
+        [500, "B"],
+        [1_000, "C"],
+      ]),
+      { fps: 10, startAtMs: 500, durationMs: 1_000 },
+    )
+
+    expect(frames[0]!.atMs).toBe(0)
+    expect(lineText(frames[0]!.frame)).toBe("AB")
+    expect(frames.at(-1)!.atMs).toBe(1_000)
+    expect(lineText(frames.at(-1)!.frame)).toBe("ABC")
+  })
+
   test("resizes the terminal during replay", async () => {
     const frames = await replayRecording(
       await timeline(

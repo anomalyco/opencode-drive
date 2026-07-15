@@ -23,6 +23,7 @@ export interface Client {
 
 export interface Recording {
   readonly path: string
+  readonly timeline: string
   readonly finish: () => Effect.Effect<
     string,
     OpenCodeDriverError | OpenCodeUi.OperationError
@@ -123,6 +124,7 @@ export const make = Effect.fn("OpenCodeClient.make")(function* (
       : {
           recording: {
             path: recording.video,
+            timeline: recording.timeline,
             finish: () => managedRecording.exportRecording,
           },
           _recording: managedRecording,
@@ -142,6 +144,10 @@ export interface Clients {
 }
 
 export interface Control extends Clients {
+  readonly finish: () => Effect.Effect<
+    void,
+    OpenCodeDriverError | OpenCodeUi.OperationError
+  >
   readonly settle: () => Effect.Effect<
     ReadonlyArray<string>,
     OpenCodeDriverError | OpenCodeUi.OperationError
@@ -214,18 +220,40 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
     )
   })
 
+  const finishTimelines = yield* Effect.cached(
+    Effect.gen(function* () {
+      const active = yield* lock.withPermit(
+        Effect.gen(function* () {
+          yield* Ref.set(closed, true)
+          return yield* Ref.get(recordings)
+        }),
+      )
+      const finished = yield* Effect.forEach(active, (recording) =>
+        Effect.exit(recording.finishTimeline), {
+        concurrency: "unbounded",
+      })
+      yield* Scope.close(clientsScope, Exit.void)
+      return { active, finished }
+    }),
+  )
+
+  const finish = Effect.fn("OpenCodeClients.finish")(function* () {
+    const { finished } = yield* finishTimelines
+    let failure: Cause.Cause<
+      OpenCodeDriverError | OpenCodeUi.OperationError
+    > | undefined
+    for (const result of finished) {
+      if (!Exit.isFailure(result)) continue
+      failure = failure === undefined
+        ? result.cause
+        : Cause.combine(failure, result.cause)
+    }
+    if (failure !== undefined) return yield* Effect.failCause(failure)
+    return undefined
+  })
+
   const settle = Effect.fn("OpenCodeClients.settle")(function* () {
-    const active = yield* lock.withPermit(
-      Effect.gen(function* () {
-        yield* Ref.set(closed, true)
-        return yield* Ref.get(recordings)
-      }),
-    )
-    const finished = yield* Effect.forEach(active, (recording) =>
-      Effect.exit(recording.finishTimeline), {
-      concurrency: "unbounded",
-    })
-    yield* Scope.close(clientsScope, Exit.void)
+    const { active, finished } = yield* finishTimelines
     const exported = yield* Effect.forEach(active, (recording, index) =>
       Exit.isSuccess(finished[index]!)
         ? Effect.exit(recording.exportRecording).pipe(
@@ -255,7 +283,7 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
     )
   })
 
-  return { make: makeClient, settle } satisfies Control
+  return { make: makeClient, finish, settle } satisfies Control
 })
 
 export * as OpenCodeClient from "./client.js"

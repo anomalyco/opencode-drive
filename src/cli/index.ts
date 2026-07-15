@@ -81,7 +81,13 @@ const startCommand = Command.make(
       Flag.withDescription("Path to an OpenCode development checkout"),
     ),
   },
-  (config) => execute(() => start(toStartOptions(config, extracted.commands, extracted.app))),
+  (config) =>
+    executeEffect(
+      Effect.try({
+        try: () => toStartOptions(config, extracted.commands, extracted.app),
+        catch: (error) => error,
+      }).pipe(Effect.flatMap(start)),
+    ),
 ).pipe(
   Command.withDescription("Launch a local simulated OpenCode instance"),
   Command.withExamples([
@@ -243,7 +249,11 @@ function toSendOptions(
 }
 
 function execute(task: () => Promise<void>) {
-  return Effect.tryPromise({ try: task, catch: (error) => error }).pipe(
+  return executeEffect(Effect.tryPromise({ try: task, catch: (error) => error }))
+}
+
+function executeEffect<R>(task: Effect.Effect<void, unknown, R>) {
+  return task.pipe(
     Effect.catch((error) =>
       Effect.sync(() => {
         logError(error instanceof Error ? error.message : String(error))

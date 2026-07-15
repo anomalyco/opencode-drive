@@ -1016,6 +1016,71 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
+  test("waits for script cancellation and lifecycle cleanup on interruption", async () => {
+    const root = await temporary()
+    const name = "interrupted-script-test"
+    const script = join(root, "interrupted-script.ts")
+    const marker = join(root, "script-interrupted")
+    await Bun.write(
+      script,
+      `import { defineScript } from ${JSON.stringify(resolve("src/index.ts"))}\nexport default defineScript({ async run({ signal, artifacts }) { await new Promise<void>((resolve) => signal.addEventListener("abort", () => { void (async () => { const pid = Number(await Bun.file(artifacts + "/child.pid").text()); let running = true; try { process.kill(pid, 0) } catch { running = false }; await Bun.write(${JSON.stringify(marker)}, running ? "child-running\\n" : "child-stopped\\n"); resolve() })() }, { once: true })) } })\n`,
+    )
+    const child = spawn(
+      [
+        "start",
+        "--daemon",
+        "--name",
+        name,
+        "--script",
+        script,
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const manifest = await waitForManifest(root, name)
+    roots.push(manifest.artifacts)
+    const openCodePid = Number(await Bun.file(join(manifest.artifacts, "child.pid")).text())
+
+    process.kill(child.pid, "SIGTERM")
+    await child.exited
+
+    expect(await Bun.file(marker).text()).toBe("child-running\n")
+    expect(running(openCodePid)).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.sock`)).exists()).toBe(false)
+    expect(await Bun.file(join(root, "node_modules", "opencode-drive")).exists()).toBe(false)
+    expect(await Bun.file(join(root, "node_modules")).exists()).toBe(false)
+  })
+
+  test("finalizes recording before interrupted owner teardown completes", async () => {
+    const root = await temporary()
+    const name = "interrupted-recording-test"
+    const child = spawn(
+      [
+        "start",
+        "--daemon",
+        "--name",
+        name,
+        "--record",
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const manifest = await waitForManifest(root, name)
+    roots.push(manifest.artifacts)
+
+    process.kill(child.pid, "SIGTERM")
+    await child.exited
+
+    expect((await readdir(join(root, "output"))).some((file) => file.endsWith(".mp4"))).toBe(true)
+    expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
+    expect(await Bun.file(join(root, "registry", `${name}.sock`)).exists()).toBe(false)
+  }, 60_000)
+
   test("rejects removed LLM commands", async () => {
     const root = await temporary()
     expect(await spawn(["send", "--command.llm.pending"], root).exited).toBe(1)

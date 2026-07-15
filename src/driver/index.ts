@@ -33,6 +33,14 @@ export interface Driver {
   readonly clients: OpenCodeClient.Clients
   readonly artifacts: string
   readonly recording?: OpenCodeClient.Recording
+  /** Validates queued LLM work, stops clients, and finishes recording timelines without exporting them. */
+  readonly finish: () => Effect.Effect<
+    void,
+    | LlmControllerError
+    | LlmSettlementError
+    | OpenCodeDriverError
+    | OpenCodeUi.OperationError
+  >
   /** Validates queued LLM work, stops clients, and exports recordings. */
   readonly settle: () => Effect.Effect<
     Settlement,
@@ -68,11 +76,16 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
       target: options.opencode,
     })
     const primary = yield* server.clients.make(options.client)
-    const settle = yield* Effect.cached(
+    const complete = (
+      clients: Effect.Effect<
+        ReadonlyArray<string>,
+        OpenCodeDriverError | OpenCodeUi.OperationError
+      >,
+    ) =>
       Effect.gen(function* () {
         const llm = yield* Effect.exit(server.llm.settle())
         const shutdown = yield* Effect.exit(server.llm.shutdown())
-        const clients = yield* Effect.exit(server.clients.settle())
+        const clientExit = yield* Effect.exit(clients)
         let failure: Cause.Cause<
           | LlmControllerError
           | LlmSettlementError
@@ -84,16 +97,21 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
           failure = failure === undefined
             ? shutdown.cause
             : Cause.combine(failure, shutdown.cause)
-        if (Exit.isFailure(clients))
+        if (Exit.isFailure(clientExit))
           failure = failure === undefined
-            ? clients.cause
-            : Cause.combine(failure, clients.cause)
+            ? clientExit.cause
+            : Cause.combine(failure, clientExit.cause)
         if (failure !== undefined)
           return yield* Effect.failCause(failure)
         return {
-          recordings: Exit.isSuccess(clients) ? clients.value : [],
+          recordings: Exit.isSuccess(clientExit) ? clientExit.value : [],
         } satisfies Settlement
-      }),
+      })
+    const finish = yield* Effect.cached(
+      complete(server.clients.finish().pipe(Effect.as([]))),
+    )
+    const settle = yield* Effect.cached(
+      complete(server.clients.settle()),
     )
     yield* Effect.addFinalizer(() => server.llm.shutdown())
     const driver: Driver = {
@@ -107,6 +125,7 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
       },
       clients: server.clients,
       artifacts: project.artifacts,
+      finish: () => finish.pipe(Effect.asVoid),
       settle: () => settle,
       ...(primary.recording === undefined
         ? {}
