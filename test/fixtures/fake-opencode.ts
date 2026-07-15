@@ -12,6 +12,7 @@ if (role === "service" && process.env.OPENCODE_TEST_HOME)
 
 const screen = { value: `Fake OpenCode${role === "client" ? ` ${process.env.OPENCODE_DRIVE}` : ""}` }
 const drive = await resolveDrive()
+const recordingStarted = performance.now()
 const endpoints = drive.endpoints
 if (drive.recording && role !== "service")
   await Bun.write(
@@ -170,6 +171,14 @@ await new Promise<void>((resolve) => {
 await Promise.all([ui?.stop(true), backend?.stop(true)])
 
 function frontend(method: string, params: unknown) {
+  if (method === "ui.capture") {
+    return {
+      cols: 80,
+      rows: 24,
+      cursor: [0, 0],
+      lines: [{ spans: [{ text: screen.value, fg: [255, 255, 255, 255], bg: [0, 0, 0, 255], attributes: 0, width: screen.value.length }] }],
+    }
+  }
   if (method === "ui.screenshot") {
     const name = isRecord(params) && typeof params.name === "string"
       ? params.name
@@ -179,6 +188,17 @@ function frontend(method: string, params: unknown) {
   if (method === "ui.recording.finish") {
     if (!drive.recording) throw new Error("recording is not enabled")
     return drive.recording.timeline
+  }
+  if (method === "ui.resize" && drive.recording && isRecord(params)) {
+    void appendFile(
+      drive.recording.timeline,
+      `${JSON.stringify({
+        type: "resize",
+        at_ms: Math.max(1, Math.round(performance.now() - recordingStarted)),
+        cols: params.cols,
+        rows: params.rows,
+      })}\n`,
+    )
   }
   if (method === "ui.matches" && isRecord(params) && typeof params.text === "string")
     return screen.value.includes(params.text)

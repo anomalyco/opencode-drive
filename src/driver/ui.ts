@@ -68,6 +68,7 @@ export type OperationError = RpcError | UiTimeoutError
 
 export interface Ui {
   readonly state: () => Effect.Effect<Frontend.State, OperationError>
+  readonly capture: () => Effect.Effect<Frontend.CapturedFrame, OperationError>
   readonly matches: (text: string) => Effect.Effect<boolean, OperationError>
   readonly screenshot: (
     name?: string,
@@ -131,6 +132,9 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
     })
 
   const state = Effect.fn("Ui.state")(() => call("state", rpc["ui.state"]()))
+  const capture = Effect.fn("Ui.capture")(() =>
+    call("capture", rpc["ui.capture"]()),
+  )
   const matches = Effect.fn("Ui.matches")((text: string) =>
     call("matches", rpc["ui.matches"]({ text })),
   )
@@ -280,6 +284,7 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
 
   return {
     state,
+    capture,
     matches,
     screenshot,
     finishRecording,

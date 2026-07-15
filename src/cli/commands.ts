@@ -22,6 +22,10 @@ export const commandInfo = {
     value: false,
     description: "Take a screenshot and return its path",
   },
+  "ui.capture": {
+    value: false,
+    description: "Capture the terminal frame as JSON",
+  },
   "ui.state": {
     value: false,
     description: "Return focus, elements, and available UI actions",
@@ -45,6 +49,7 @@ export function commandAcceptsValue(operation: string) {
   if (operation === "ui.click") return commandInfo[operation].value
   if (operation === "ui.resize") return commandInfo[operation].value
   if (operation === "ui.screenshot") return commandInfo[operation].value
+  if (operation === "ui.capture") return commandInfo[operation].value
   if (operation === "ui.state") return commandInfo[operation].value
   if (operation === "ui.matches") return commandInfo[operation].value
   if (operation === "ui.recording.finish") return commandInfo[operation].value
@@ -158,6 +163,8 @@ async function execute(
     }
     case "ui.screenshot":
       return ui.screenshot()
+    case "ui.capture":
+      return ui.capture()
     case "ui.state":
       return ui.state()
     case "ui.matches": {

@@ -23,6 +23,25 @@ const state = {
 }
 
 describe("OpenCodeUi", () => {
+  it.live("captures a normalized terminal frame", () => {
+    const frame = {
+      cols: 2,
+      rows: 1,
+      cursor: [0, 0] as const,
+      lines: [{ spans: [{ text: "ok", fg: [255, 255, 255, 255] as const, bg: [0, 0, 0, 255] as const, attributes: 0, width: 2 }] }],
+    }
+    const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, frame))
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      expect(yield* OpenCodeUi.make(connection).capture()).toEqual(frame)
+      expect(peer.received.map(({ request }) => request)).toEqual([
+        { jsonrpc: "2.0", id: 1, method: "ui.capture" },
+      ])
+    })
+  })
+
   it.live("wraps generated UI RPCs with user-level operations", () => {
     let matchCalls = 0
     const peer = startTransportPeer(({ request, socket }) => {

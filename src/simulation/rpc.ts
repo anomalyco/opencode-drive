@@ -30,6 +30,7 @@ const request = <
 
 export const UiRpcs = RpcGroup.make(
   request("ui.state", { success: Frontend.State }),
+  request("ui.capture", { success: Frontend.CapturedFrame }),
   request("ui.matches", {
     payload: Frontend.MatchesParams,
     success: Frontend.Matches,

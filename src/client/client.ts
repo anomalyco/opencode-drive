@@ -72,6 +72,7 @@ export class SimulationClient {
     method: "ui.screenshot",
     params?: Frontend.ScreenshotParams,
   ): Promise<Frontend.Screenshot>
+  call(method: "ui.capture"): Promise<Frontend.CapturedFrame>
   call(method: "ui.state"): Promise<Frontend.State>
   call(
     method: "ui.matches",
@@ -88,6 +89,7 @@ export class SimulationClient {
   call(
     method:
       | "ui.screenshot"
+      | "ui.capture"
       | "ui.state"
       | "ui.matches"
       | "ui.recording.finish"
@@ -107,7 +109,9 @@ export class SimulationClient {
       | Frontend.FocusParams
       | Frontend.ClickParams
       | Frontend.ResizeParams,
-  ): Promise<Frontend.State | Frontend.Screenshot | Frontend.Matches> {
+  ): Promise<
+    Frontend.State | Frontend.Screenshot | Frontend.CapturedFrame | Frontend.Matches
+  > {
     if (this.closed)
       return Promise.reject(new SimulationError("connection is not open", method))
     recordLog("INFO", `ui command ${method} params=${formatParams(params)}`)
@@ -118,6 +122,8 @@ export class SimulationClient {
         ...(params === undefined ? {} : { params }),
       })
       switch (request.method) {
+        case "ui.capture":
+          return this.run(method, this.connection.rpc["ui.capture"]())
         case "ui.screenshot":
           return this.run(method, this.connection.rpc["ui.screenshot"](request.params))
         case "ui.state":
@@ -154,6 +160,10 @@ export class SimulationClient {
 
   state() {
     return this.call("ui.state")
+  }
+
+  capture() {
+    return this.call("ui.capture")
   }
 
   matches(text: string) {
