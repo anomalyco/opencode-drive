@@ -346,8 +346,10 @@ remains available for provider-wire scenarios not covered by these helpers.
 
 ## Release validation
 
-Version `0.5.0` is not ready to publish until the driver consolidation is complete. Before publishing a release, run the non-publishing validation command to check, test, and inspect the packed artifact:
+Version `0.5.0` is not ready to publish until the driver consolidation is complete. Before pushing its `v0.5.0` release tag, run the non-publishing validation command to check, test, and inspect the packed artifact:
 
 ```sh
 bun run release:validate
 ```
+
+Pushing a `v<version>` tag runs the npm trusted-publisher workflow. The tag must exactly match `package.json`; see [`docs/releasing.md`](docs/releasing.md) for the one-time npm configuration and release process.
