@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createCanvas, loadImage } from "@napi-rs/canvas"
-import { exportRecording, renderFrame } from "../../src/recording/index.js"
+import { exportRecording, joinFrames, renderFrame } from "../../src/recording/index.js"
 
 const directories: string[] = []
 
@@ -26,6 +26,23 @@ test("exports the final frame as a PNG and creates its parent", async () => {
   expect(result).toEqual({ frames: 1, durationMs: 0, width: 40, height: 40 })
   expect((await readFile(output)).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   expect((await stat(output)).size).toBeGreaterThan(100)
+})
+
+test("renders an optional recording header", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drive-export-header-test-"))
+  directories.push(directory)
+  const timeline = join(directory, "timeline.jsonl")
+  await writeFile(
+    timeline,
+    `${JSON.stringify({ type: "header", version: 1, cols: 4, rows: 2, encoding: "base64" })}\n` +
+      `${JSON.stringify({ type: "output", at_ms: 0, data: Buffer.from("hi").toString("base64") })}\n`,
+  )
+  const output = join(directory, "frame.png")
+  const result = await exportRecording(timeline, output, { header: "Before · Submit prompt" })
+  const data = await readFile(output)
+
+  expect(result.height).toBe(80)
+  expect(data.readUInt32BE(20)).toBe(80)
 })
 
 test("exports resized recordings on a stable maximum-size canvas", async () => {
@@ -127,6 +144,19 @@ test("renders block elements edge-to-edge", async () => {
   expect(pixel(20, 9)).toEqual([8, 8, 8, 255])
   expect(pixel(20, 10)).toEqual([255, 255, 255, 255])
   expect(pixel(29, 19)).toEqual([255, 255, 255, 255])
+})
+
+test("joins rendered frames horizontally", async () => {
+  const frame = {
+    cols: 2,
+    rows: 1,
+    cursor: { row: 0, col: 0, visible: false },
+    lines: [{ spans: [{ text: "hi", width: 2, fg: 0xffffff, bg: 0x080808, attributes: 0 }] }],
+  }
+  const joined = await joinFrames(renderFrame(frame), renderFrame(frame))
+
+  expect(joined.readUInt32BE(16)).toBe(40)
+  expect(joined.readUInt32BE(20)).toBe(20)
 })
 
 test("renders distinct fallback glyphs centered in their cells", async () => {

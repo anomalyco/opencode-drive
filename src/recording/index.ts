@@ -1,6 +1,7 @@
 export { decodeTimeline } from "./decode.js"
+export { encodeFrames, type EncodeOptions, type ImageFrame } from "./encode.js"
 export { exportRecording, type ExportRecordingOptions, type ExportRecordingResult } from "./export.js"
-export { renderFrame } from "./render.js"
+export { joinFrames, renderFrame } from "./render.js"
 export { replayRecording, type ReplayOptions } from "./replay.js"
 export type {
   CapturedFrame,

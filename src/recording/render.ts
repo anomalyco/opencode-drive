@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import { GlobalFonts, createCanvas, type SKRSContext2D } from "@napi-rs/canvas"
+import { GlobalFonts, createCanvas, loadImage, type SKRSContext2D } from "@napi-rs/canvas"
 import { TextStyle, type CapturedFrame } from "./types.js"
 
 export const CellWidth = 10
@@ -72,15 +72,26 @@ function drawBlockElement(context: SKRSContext2D, char: string, x: number, y: nu
 export interface RenderFrameOptions {
   readonly cols?: number
   readonly rows?: number
+  readonly header?: string
 }
 
 export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = {}): Buffer {
   const cols = Math.max(frame.cols, options.cols ?? frame.cols)
   const rows = Math.max(frame.rows, options.rows ?? frame.rows)
-  const canvas = createCanvas(cols * CellWidth, rows * CellHeight)
+  const headerHeight = options.header ? 40 : 0
+  const canvas = createCanvas(cols * CellWidth, rows * CellHeight + headerHeight)
   const context = canvas.getContext("2d")
   context.fillStyle = "#080808"
   context.fillRect(0, 0, canvas.width, canvas.height)
+  if (options.header) {
+    context.fillStyle = "#151515"
+    context.fillRect(0, 0, canvas.width, headerHeight)
+    context.font = `700 ${FontSize}px "${FontFamily}", "${SymbolFontFamily}"`
+    context.fillStyle = "#d8d8d8"
+    context.textBaseline = "middle"
+    context.textAlign = "left"
+    context.fillText(options.header, 16, headerHeight / 2, canvas.width - 32)
+  }
   context.textBaseline = "alphabetic"
   context.textAlign = "center"
 
@@ -91,7 +102,7 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
       const hidden = Boolean(span.attributes & TextStyle.invisible)
       const foreground = inverse ? span.bg : span.fg
       const background = inverse ? span.fg : span.bg
-      const y = row * CellHeight
+      const y = headerHeight + row * CellHeight
       context.fillStyle = color(background)
       context.fillRect(column * CellWidth, y, span.width * CellWidth, CellHeight)
       if (hidden) {
@@ -135,10 +146,23 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
     context.lineWidth = 2
     context.strokeRect(
       frame.cursor.col * CellWidth + 1,
-      frame.cursor.row * CellHeight + 1,
+      headerHeight + frame.cursor.row * CellHeight + 1,
       CellWidth - 2,
       CellHeight - 2,
     )
   }
+  return canvas.toBuffer("image/png")
+}
+
+export async function joinFrames(left: Buffer, right: Buffer): Promise<Buffer> {
+  const [leftImage, rightImage] = await Promise.all([loadImage(left), loadImage(right)])
+  if (leftImage.height !== rightImage.height)
+    throw new Error(
+      `comparison recordings must have the same height: ${leftImage.height} !== ${rightImage.height}`,
+    )
+  const canvas = createCanvas(leftImage.width + rightImage.width, leftImage.height)
+  const context = canvas.getContext("2d")
+  context.drawImage(leftImage, 0, 0)
+  context.drawImage(rightImage, leftImage.width, 0)
   return canvas.toBuffer("image/png")
 }
