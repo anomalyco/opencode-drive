@@ -85,6 +85,33 @@ describe("instance configuration", () => {
       }),
     ).rejects.toThrow("invalid .opencode/tui.jsonc")
   })
+
+  test("does not let setup mutate declarative configuration inputs", async () => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+    const config = { nested: { value: "declared" }, items: ["declared"] }
+    const tui = { keybinds: { app_exit: "ctrl+q" } }
+
+    await prepareInstanceProject({
+      artifacts: root,
+      config,
+      tui,
+      setup({ config, tui }) {
+        const nested = config.nested as Record<string, string>
+        const items = config.items as Array<string>
+        const keybinds = tui.keybinds as Record<string, string>
+        nested.value = "setup"
+        items.push("setup")
+        keybinds.app_exit = "ctrl+x"
+      },
+    })
+
+    expect(config).toEqual({
+      nested: { value: "declared" },
+      items: ["declared"],
+    })
+    expect(tui).toEqual({ keybinds: { app_exit: "ctrl+q" } })
+  })
 })
 
 async function git(cwd: string, args: ReadonlyArray<string>) {

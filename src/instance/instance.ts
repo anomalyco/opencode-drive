@@ -111,7 +111,7 @@ function deepMerge(target: OpenCodeConfig, source: OpenCodeConfig | undefined) {
     if (isJsonObject(existing) && isJsonObject(value)) {
       deepMerge(existing, value)
     } else {
-      target[key] = value
+      target[key] = structuredClone(value)
     }
   }
   return target
