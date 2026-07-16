@@ -9,15 +9,32 @@ import {
   Failure,
   ShellInput,
   ShellResult,
+  WebFetchInput,
+  WebFetchResult,
+  WebSearchInput,
+  WebSearchResult,
+  type Registration,
   type Registry,
   type Setup,
   type ShellHandler,
+  type WebFetchHandler,
+  type WebSearchHandler,
 } from "./types.js"
 
+type Result = ShellResult | WebFetchResult | WebSearchResult
 type Event =
-  | { readonly type: "progress"; readonly result: ShellResult }
-  | { readonly type: "success"; readonly result: ShellResult }
+  | { readonly type: "progress"; readonly result: Result }
+  | { readonly type: "success"; readonly result: Result }
   | { readonly type: "failure"; readonly message: string }
+type Definition = {
+  readonly schema: typeof ShellInput | typeof WebFetchInput | typeof WebSearchInput
+  readonly invoke: (
+    input: unknown,
+    index: number,
+    signal: AbortSignal,
+    progress: (result: Result) => Effect.Effect<void>,
+  ) => Effect.Effect<Result, unknown>
+}
 
 const MAX_EVENT_BYTES = 1024 * 1024
 
@@ -38,38 +55,96 @@ export function composeSetup(
 }
 
 export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
-  const handlers = new Map<string, ShellHandler>()
-  const registry: Registry = {
-    handle(name, handler) {
-      if (handlers.has(name)) throw new Error(`tool handler already registered: ${name}`)
-      handlers.set(name, handler)
-    },
+  const definitions = new Map<string, Definition>()
+  const add = (name: string, definition: Definition) => {
+    if (definitions.has(name)) throw new Error(`tool handler already registered: ${name}`)
+    definitions.set(name, definition)
   }
+  function handle(name: "shell", handler: ShellHandler): void
+  function handle(name: "webfetch", handler: WebFetchHandler): void
+  function handle(name: "websearch", handler: WebSearchHandler): void
+  function handle(...registration: Registration) {
+      switch (registration[0]) {
+        case "shell": {
+          const handler = registration[1]
+          add("shell", {
+            schema: ShellInput,
+            invoke: (raw, index, signal, progress) =>
+              Effect.gen(function* () {
+                const input = yield* Schema.decodeUnknownEffect(ShellInput)(raw)
+                const result = yield* handler({
+                  input,
+                  index,
+                  signal,
+                  progress: (value) => progress(typeof value === "string" ? { output: value } : value),
+                })
+                return yield* Schema.decodeUnknownEffect(ShellResult)(result)
+              }),
+          })
+          return
+        }
+        case "webfetch": {
+          const handler = registration[1]
+          add("webfetch", {
+            schema: WebFetchInput,
+            invoke: (raw, index, signal, progress) =>
+              Effect.gen(function* () {
+                const input = yield* Schema.decodeUnknownEffect(WebFetchInput)(raw)
+                const result = yield* handler({
+                  input,
+                  index,
+                  signal,
+                  progress: (value) => progress(typeof value === "string" ? { output: value } : value),
+                })
+                return yield* Schema.decodeUnknownEffect(WebFetchResult)(result)
+              }),
+          })
+          return
+        }
+        case "websearch": {
+          const handler = registration[1]
+          add("websearch", {
+            schema: WebSearchInput,
+            invoke: (raw, index, signal, progress) =>
+              Effect.gen(function* () {
+                const input = yield* Schema.decodeUnknownEffect(WebSearchInput)(raw)
+                const result = yield* handler({
+                  input,
+                  index,
+                  signal,
+                  progress: (value) => progress(typeof value === "string" ? { output: value } : value),
+                })
+                return yield* Schema.decodeUnknownEffect(WebSearchResult)(result)
+              }),
+          })
+        }
+      }
+  }
+  const registry: Registry = { handle }
   setup?.(registry)
-
-  if (handlers.size === 0) {
-    return { configure() {} } satisfies Controller
-  }
+  if (definitions.size === 0) return { configure() {} } satisfies Controller
 
   const token = crypto.randomUUID()
-  let nextIndex = 0
+  const indexes = new Map<string, number>()
   const active = new Set<AbortController>()
   const server = yield* Effect.acquireRelease(
     Effect.sync(() =>
       Bun.serve({
         hostname: "127.0.0.1",
         port: 0,
+        idleTimeout: 255,
         fetch(request) {
           if (request.headers.get("authorization") !== `Bearer ${token}`)
             return new Response("Unauthorized", { status: 401 })
-          const url = new URL(request.url)
-          const name = url.pathname.match(/^\/execute\/([^/]+)$/)?.[1]
-          const handler = name === undefined ? undefined : handlers.get(name)
+          const name = new URL(request.url).pathname.match(/^\/execute\/([^/]+)$/)?.[1]
+          const definition = name === undefined ? undefined : definitions.get(name)
           if (request.method !== "POST" || name === undefined)
             return new Response("Not found", { status: 404 })
-          if (handler === undefined)
+          if (definition === undefined)
             return new Response("Tool handler not registered", { status: 404 })
-          return execute(request, handler, nextIndex++, active)
+          const index = indexes.get(name) ?? 0
+          indexes.set(name, index + 1)
+          return execute(request, definition, index, active)
         },
       }),
     ),
@@ -84,8 +159,11 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
   )
   const endpoint = `http://${server.hostname}:${server.port}`
   const plugin = fileURLToPath(new URL("./plugin.js", import.meta.url))
-  const shellSchema: JsonValue = JSON.parse(
-    JSON.stringify(Schema.toJsonSchemaDocument(ShellInput).schema),
+  const schemas = Object.fromEntries(
+    [...definitions].map(([name, definition]) => [
+      name,
+      JSON.parse(JSON.stringify(Schema.toJsonSchemaDocument(definition.schema).schema)),
+    ]),
   )
 
   return {
@@ -97,14 +175,7 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
         ...(current ?? []),
         {
           package: plugin,
-          options: {
-            endpoint,
-            token,
-            tools: [...handlers.keys()],
-            schemas: {
-              shell: shellSchema,
-            },
-          },
+          options: { endpoint, token, tools: [...definitions.keys()], schemas },
         },
       ] as JsonValue
     },
@@ -113,7 +184,7 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
 
 function execute(
   request: Request,
-  handler: ShellHandler,
+  definition: Definition,
   index: number,
   active: Set<AbortController>,
 ) {
@@ -131,18 +202,8 @@ function execute(
       return Effect.promise(() => writer.write(frame))
     })
   const result = Effect.gen(function* () {
-    const input = yield* Schema.decodeUnknownEffect(ShellInput)(yield* Effect.promise(() => request.json()))
-    const result = yield* handler({
-      input,
-      index,
-      signal,
-      progress: (value) =>
-        send({
-          type: "progress",
-          result: typeof value === "string" ? { output: value } : value,
-        }),
-    })
-    return yield* Schema.decodeUnknownEffect(ShellResult)(result)
+    const input = yield* Effect.promise(() => request.json())
+    return yield* definition.invoke(input, index, signal, (value) => send({ type: "progress", result: value }))
   })
   void writer.closed.catch((cause) => controller.abort(cause))
   void (async () => {

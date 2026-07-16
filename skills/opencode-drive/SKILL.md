@@ -149,7 +149,8 @@ const tools = (registry: Tool.Registry) => {
 export default OpenCodeDriver.use({ tools }, (driver) => program(driver))
 ```
 
-The same `tools` callback is accepted by `defineScript`.
+The same `tools` callback is accepted by `defineScript`. Supported adapters are
+`shell`, `webfetch`, and `websearch`; unregistered tools remain real.
 Each progress value replaces the visible tool output, so send accumulated text
 when earlier lines should remain visible.
 

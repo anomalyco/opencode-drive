@@ -63,3 +63,87 @@ it.effect("does not inject a plugin without handlers", () =>
     }),
   ),
 )
+
+it.effect("routes typed webfetch and websearch handlers independently", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const controller = yield* ToolController.make((tools) => {
+        tools.handle("webfetch", ({ input, index }) =>
+          Effect.succeed({ output: `${index}:${input.format}:${input.url}` }),
+        )
+        tools.handle("websearch", ({ input, index }) =>
+          Effect.succeed({ output: `${index}:${input.query}`, provider: "exa" }),
+        )
+      })
+      const config: OpenCodeConfig = {}
+      controller.configure(config)
+      const injected = (config.plugins as Array<{
+        options: { endpoint: string; token: string; tools: string[] }
+      }>)[0]!
+      expect(injected.options.tools).toEqual(["webfetch", "websearch"])
+
+      const invoke = (name: string, input: unknown) =>
+        Effect.promise(async () => {
+          const response = await fetch(`${injected.options.endpoint}/execute/${name}`, {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${injected.options.token}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(input),
+          })
+          return (await response.text()).trim().split("\n").map((line) => JSON.parse(line))
+        })
+
+      expect(yield* invoke("webfetch", { url: "https://example.com" })).toEqual([
+        {
+          type: "success",
+          result: { output: "0:markdown:https://example.com" },
+        },
+      ])
+      expect(yield* invoke("websearch", { query: "effect typescript" })).toEqual([
+        {
+          type: "success",
+          result: { output: "0:effect typescript", provider: "exa" },
+        },
+      ])
+    }),
+  ),
+)
+
+it.effect("aborts a handler when its transport disconnects", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const started = Promise.withResolvers<void>()
+      const aborted = Promise.withResolvers<void>()
+      const controller = yield* ToolController.make((tools) => {
+        tools.handle("shell", ({ signal }) =>
+          Effect.gen(function* () {
+            signal.addEventListener("abort", () => aborted.resolve(), { once: true })
+            started.resolve()
+            return yield* Effect.never
+          }),
+        )
+      })
+      const config: OpenCodeConfig = {}
+      controller.configure(config)
+      const injected = (config.plugins as Array<{
+        options: { endpoint: string; token: string }
+      }>)[0]!
+      const request = new AbortController()
+      const response = fetch(`${injected.options.endpoint}/execute/shell`, {
+        method: "POST",
+        signal: request.signal,
+        headers: {
+          authorization: `Bearer ${injected.options.token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ command: "wait" }),
+      }).catch(() => undefined)
+      yield* Effect.promise(() => started.promise)
+      request.abort()
+      yield* Effect.promise(() => aborted.promise)
+      yield* Effect.promise(() => response)
+    }),
+  ),
+)

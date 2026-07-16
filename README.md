@@ -290,6 +290,8 @@ export default defineScript({
 Only registered tools are replaced. Unhandled tools continue to use OpenCode's
 real implementations. Each `progress` value replaces the visible tool output;
 send accumulated output when earlier lines should remain visible.
+Supported adapters are `shell`, `webfetch`, and `websearch`; each handler
+receives its canonical typed V2 input and maintains an independent call index.
 
 Type-check every new or edited script before running it:
 
