@@ -292,6 +292,10 @@ real implementations. Each `progress` value replaces the visible tool output;
 send accumulated output when earlier lines should remain visible.
 Supported adapters are `shell`, `webfetch`, and `websearch`; each handler
 receives its canonical typed V2 input and maintains an independent call index.
+When a shell call sets `background: true`, Drive returns immediately with the
+OpenCode tool call ID as `shellID`, keeps the handler running, and injects the
+terminal `completed`, `error`, or `cancelled` result into the session
+automatically. Background handlers are cancelled when Drive shuts down.
 
 Type-check every new or edited script before running it:
 

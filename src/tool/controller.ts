@@ -26,6 +26,17 @@ type Event =
   | { readonly type: "progress"; readonly result: Result }
   | { readonly type: "success"; readonly result: Result }
   | { readonly type: "failure"; readonly message: string }
+type BackgroundCompletion = {
+  readonly shellID: string
+  readonly command: string
+  readonly state: "completed" | "error" | "cancelled"
+  readonly output: string
+}
+type BackgroundJob = {
+  readonly input: string
+  readonly completion: Promise<BackgroundCompletion>
+  readonly cancel: () => void
+}
 type Definition = {
   readonly schema: typeof ShellInput | typeof WebFetchInput | typeof WebSearchInput
   readonly invoke: (
@@ -37,6 +48,13 @@ type Definition = {
 }
 
 const MAX_EVENT_BYTES = 1024 * 1024
+const ExecutionRequest = Schema.Struct({
+  input: Schema.Unknown,
+  context: Schema.Struct({
+    callID: Schema.String,
+  }),
+})
+const encoder = new TextEncoder()
 
 export interface Controller {
   readonly configure: (config: OpenCodeConfig) => void
@@ -127,6 +145,8 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
   const token = crypto.randomUUID()
   const indexes = new Map<string, number>()
   const active = new Set<AbortController>()
+  const background = new Map<string, BackgroundJob>()
+  let closing = false
   const server = yield* Effect.acquireRelease(
     Effect.sync(() =>
       Bun.serve({
@@ -136,24 +156,39 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
         fetch(request) {
           if (request.headers.get("authorization") !== `Bearer ${token}`)
             return new Response("Unauthorized", { status: 401 })
-          const name = new URL(request.url).pathname.match(/^\/execute\/([^/]+)$/)?.[1]
+          if (closing && request.method === "POST")
+            return new Response("Tool controller is stopping", { status: 503 })
+          const pathname = new URL(request.url).pathname
+          const shellID = pathname.match(/^\/background\/([^/]+)$/)?.[1]
+          if (request.method === "GET" && shellID !== undefined) {
+            const job = background.get(shellID)
+            if (job === undefined) return new Response("Background shell not found", { status: 404 })
+            server.timeout(request, 0)
+            return job.completion.then((completion) => Response.json(completion))
+          }
+          if (request.method === "DELETE" && shellID !== undefined) {
+            background.delete(shellID)
+            return new Response(null, { status: 204 })
+          }
+          const name = pathname.match(/^\/execute\/([^/]+)$/)?.[1]
           const definition = name === undefined ? undefined : definitions.get(name)
           if (request.method !== "POST" || name === undefined)
             return new Response("Not found", { status: 404 })
           if (definition === undefined)
             return new Response("Tool handler not registered", { status: 404 })
-          const index = indexes.get(name) ?? 0
-          indexes.set(name, index + 1)
-          return execute(request, definition, index, active)
+          return execute(request, name, definition, indexes, active, background)
         },
       }),
     ),
     (server) =>
       Effect.gen(function* () {
+        closing = true
         yield* Effect.sync(() => {
           for (const controller of active)
             controller.abort(new Error("Drive tool controller stopped"))
         })
+        yield* Effect.promise(() => Promise.allSettled([...background.values()].map((job) => job.completion)))
+        background.clear()
         yield* Effect.promise(() => server.stop(true))
       }),
   )
@@ -184,11 +219,12 @@ export const make = Effect.fn("ToolController.make")(function* (setup?: Setup) {
 
 function execute(
   request: Request,
+  name: string,
   definition: Definition,
-  index: number,
+  indexes: Map<string, number>,
   active: Set<AbortController>,
+  background: Map<string, BackgroundJob>,
 ) {
-  const encoder = new TextEncoder()
   const transport = new TransformStream<Uint8Array, Uint8Array>()
   const writer = transport.writable.getWriter()
   const controller = new AbortController()
@@ -196,13 +232,38 @@ function execute(
   active.add(controller)
   const send = (event: Event) =>
     Effect.suspend(() => {
-      const frame = encoder.encode(`${JSON.stringify(event)}\n`)
-      if (frame.byteLength > MAX_EVENT_BYTES)
-        return Effect.die(new Error(`Drive tool event exceeds ${MAX_EVENT_BYTES} bytes`))
+      const frame = encodeEvent(event)
       return Effect.promise(() => writer.write(frame))
     })
+  let launched: BackgroundJob | undefined
   const result = Effect.gen(function* () {
-    const input = yield* Effect.promise(() => request.json())
+    const body = yield* Schema.decodeUnknownEffect(ExecutionRequest)(yield* Effect.promise(() => request.json()))
+    const input = body.input
+    if (name === "shell" && isBackgroundShell(input)) {
+      const shellID = body.context.callID
+      if (shellID.length === 0) return yield* Effect.die(new Error("Background shell requires a tool call ID"))
+      const key = JSON.stringify(input)
+      const existing = background.get(shellID)
+      if (existing !== undefined) {
+        if (existing.input !== key)
+          return yield* Effect.die(new Error(`Background shell ID reused with different input: ${shellID}`))
+        return {
+          output: "The command was moved to the background.",
+          shellID,
+          status: "running" as const,
+        }
+      }
+      const index = nextIndex(indexes, name)
+      const job = startBackgroundShell(definition, input, index, shellID, key, active)
+      background.set(shellID, job)
+      launched = job
+      return {
+        output: "The command was moved to the background.",
+        shellID,
+        status: "running" as const,
+      }
+    }
+    const index = nextIndex(indexes, name)
     return yield* definition.invoke(input, index, signal, (value) => send({ type: "progress", result: value }))
   })
   void writer.closed.catch((cause) => controller.abort(cause))
@@ -212,22 +273,17 @@ function execute(
       if (Exit.isSuccess(exit))
         await Effect.runPromise(send({ type: "success", result: exit.value }), { signal })
       else {
-        const failure = Cause.findErrorOption(exit.cause)
-        const error = Option.isSome(failure) ? failure.value : Cause.squash(exit.cause)
         await Effect.runPromise(
           send({
             type: "failure",
-            message: error instanceof Failure
-              ? error.message
-              : error instanceof Error
-                ? error.message
-                : String(error),
+            message: causeMessage(exit.cause),
           }),
           { signal },
         )
       }
       await writer.close()
     } catch (cause) {
+      if (launched !== undefined) launched.cancel()
       await writer.abort(cause).catch(() => undefined)
     } finally {
       active.delete(controller)
@@ -236,4 +292,96 @@ function execute(
   return new Response(transport.readable, {
     headers: { "content-type": "application/x-ndjson" },
   })
+}
+
+function isBackgroundShell(input: unknown): input is { readonly command: string; readonly background: true } {
+  return typeof input === "object" && input !== null && "background" in input && input.background === true &&
+    "command" in input && typeof input.command === "string"
+}
+
+function startBackgroundShell(
+  definition: Definition,
+  input: { readonly command: string; readonly background: true },
+  index: number,
+  shellID: string,
+  inputKey: string,
+  active: Set<AbortController>,
+): BackgroundJob {
+  const controller = new AbortController()
+  active.add(controller)
+  let output = ""
+  const result = definition.invoke(input, index, controller.signal, (value) =>
+    Effect.sync(() => {
+      encodeEvent({ type: "progress", result: value })
+      output = value.output
+    }))
+  const completion = Effect.runPromise(Effect.exit(result), { signal: controller.signal })
+    .then((exit): BackgroundCompletion => {
+      if (Exit.isSuccess(exit)) {
+        encodeEvent({ type: "success", result: exit.value })
+        return { shellID, command: input.command, state: "completed", output: exit.value.output }
+      }
+      if (controller.signal.aborted)
+        return { shellID, command: input.command, state: "cancelled", output: output || "Command cancelled" }
+      const message = causeMessage(exit.cause)
+      return {
+        shellID,
+        command: input.command,
+        state: "error",
+        output: errorOutput(output, message),
+      }
+    })
+    .catch((cause): BackgroundCompletion => ({
+      shellID,
+      command: input.command,
+      state: controller.signal.aborted ? "cancelled" : "error",
+      output: errorOutput(output, cause instanceof Error ? cause.message : String(cause)),
+    }))
+    .finally(() => active.delete(controller))
+  return {
+    input: inputKey,
+    completion,
+    cancel: () => controller.abort(new Error("Background shell launch disconnected")),
+  }
+}
+
+function nextIndex(indexes: Map<string, number>, name: string): number {
+  const index = indexes.get(name) ?? 0
+  indexes.set(name, index + 1)
+  return index
+}
+
+function encodeEvent(event: Event): Uint8Array {
+  const frame = encoder.encode(`${JSON.stringify(event)}\n`)
+  if (frame.byteLength > MAX_EVENT_BYTES)
+    throw new Error(`Drive tool event exceeds ${MAX_EVENT_BYTES} bytes`)
+  return frame
+}
+
+function boundedOutput(output: string): string {
+  const bytes = Buffer.from(output)
+  return bytes.byteLength <= MAX_EVENT_BYTES
+    ? output
+    : bytes.subarray(0, MAX_EVENT_BYTES).toString("utf8")
+}
+
+function errorOutput(output: string, message: string): string {
+  if (!output) return boundedOutput(message)
+  const suffix = `\n${message}`
+  const suffixBytes = Buffer.from(suffix)
+  if (suffixBytes.byteLength >= MAX_EVENT_BYTES) return boundedOutput(message)
+  const prefix = Buffer.from(output.replace(/\n$/, ""))
+    .subarray(0, MAX_EVENT_BYTES - suffixBytes.byteLength)
+    .toString("utf8")
+  return `${prefix}${suffix}`
+}
+
+function causeMessage(cause: Cause.Cause<unknown>): string {
+  const failure = Cause.findErrorOption(cause)
+  const error = Option.isSome(failure) ? failure.value : Cause.squash(cause)
+  return error instanceof Failure
+    ? error.message
+    : error instanceof Error
+      ? error.message
+      : String(error)
 }
