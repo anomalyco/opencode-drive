@@ -118,9 +118,10 @@ handler is an Effect. Available outputs include `text`, `reasoning`, `pause`,
 
 ```ts
 import { Stream } from "effect"
+import { Llm } from "opencode-drive"
 
 yield* llm.serve((_request, index) =>
-  Stream.make(llm.text(`Response ${index + 1}`)),
+  Stream.make(Llm.text(`Response ${index + 1}`)),
 )
 ```
 
@@ -184,7 +185,7 @@ Promise API or compatibility shim.
 
 ```ts
 import { Effect } from "effect"
-import { defineScript } from "opencode-drive"
+import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
   config: { autoupdate: false },
@@ -195,7 +196,7 @@ export default defineScript({
   },
   run: ({ ui, llm }) =>
     Effect.gen(function* () {
-      yield* llm.queue(llm.text("The value is 1."))
+      yield* llm.queue(Llm.text("The value is 1."))
       yield* ui.submit("Read src/value.ts")
       yield* ui.waitFor("The value is 1.")
     }),

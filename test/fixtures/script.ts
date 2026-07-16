@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import { defineScript } from "../../src/index.js"
+import { defineScript, Llm } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 
 export default defineScript({
@@ -37,7 +37,7 @@ export default defineScript({
       yield* ui.focus(editor)
       yield* ui.click(editor)
       yield* ui.submit("script-text")
-      yield* llm.send(llm.text("script response", { delay: 0, chunkSize: 3 }))
+      yield* llm.send(Llm.text("script response", { delay: 0, chunkSize: 3 }))
       const matches = yield* ui.matches("script-text")
       yield* ui.waitFor("script-text")
       yield* ui.screenshot("script-shot")

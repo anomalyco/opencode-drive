@@ -2,6 +2,12 @@ import type * as Effect from "effect/Effect"
 import type * as Stream from "effect/Stream"
 import type * as Llm from "../llm/index.js"
 import type * as Tool from "../tool/index.js"
+import type { Backend } from "../simulation/protocol.js"
+import type * as OpenCodeUi from "../driver/ui.js"
+import type * as OpenCodeClient from "../driver/client.js"
+import type * as LlmController from "../driver/llm-controller.js"
+import type * as OpenCodeServer from "../driver/server.js"
+import type { FileSystemError, UiPredicateError } from "./errors.js"
 
 export type JsonValue =
   | null
@@ -21,8 +27,30 @@ export interface OpenCodeTuiConfig extends JsonObject {}
 
 export interface ScriptFileSystem {
   /** Writes inside the simulated project and creates parent directories. */
-  writeFile(path: string, contents: string | Uint8Array): Effect.Effect<void, Error>
+  writeFile(path: string, contents: string | Uint8Array): Effect.Effect<void, ScriptFileSystemError>
 }
+
+export type ScriptFileSystemError = FileSystemError
+export type ScriptUiError = Effect.Error<ReturnType<OpenCodeUi.Ui["state"]>>
+export type ScriptUiWaitError = ScriptUiError | OpenCodeUi.UiWaitOptionsError
+export type ScriptUiElementError = Effect.Error<
+  ReturnType<OpenCodeUi.Ui["getElement"]>
+>
+export type ScriptUiKillError = Effect.Error<
+  ReturnType<OpenCodeClient.Recording["finish"]>
+>
+export type ScriptLlmError = Effect.Error<
+  ReturnType<LlmController.Controller["queue"]>
+>
+export type ScriptClientLaunchError = Effect.Error<
+  ReturnType<OpenCodeClient.Clients["launch"]>
+>
+export type ScriptServerLaunchError = Effect.Error<
+  ReturnType<OpenCodeServer.Server["launch"]>
+>
+export type ScriptServerKillError = Effect.Error<
+  ReturnType<OpenCodeServer.Server["kill"]>
+>
 
 export interface UiKeyModifiers {
   readonly ctrl?: boolean
@@ -102,60 +130,35 @@ export interface UiViewport {
 
 export type UiPredicate = (
   state: UiState,
-) => boolean | Effect.Effect<boolean, Error>
+) => boolean | Effect.Effect<boolean, unknown>
 
 export interface ScriptUi {
   /** Terminates this TUI. The client name may be launched again afterward. */
-  kill(): Effect.Effect<string | undefined, unknown>
-  state(): Effect.Effect<UiState, unknown>
-  matches(matcher: UiMatcher): Effect.Effect<boolean, unknown>
-  screenshot(name?: string): Effect.Effect<string, unknown>
+  kill(): Effect.Effect<string | undefined, ScriptUiKillError>
+  state(): Effect.Effect<UiState, ScriptUiError>
+  matches(matcher: UiMatcher): Effect.Effect<boolean, ScriptUiError>
+  screenshot(name?: string): Effect.Effect<string, ScriptUiError>
 
-  type(text: string): Effect.Effect<UiState, unknown>
-  press(key: string, modifiers?: UiKeyModifiers): Effect.Effect<UiState, unknown>
-  enter(): Effect.Effect<UiState, unknown>
-  arrow(direction: UiDirection): Effect.Effect<UiState, unknown>
-  focus(target: number | UiElement): Effect.Effect<UiState, unknown>
+  type(text: string): Effect.Effect<UiState, ScriptUiError>
+  press(key: string, modifiers?: UiKeyModifiers): Effect.Effect<UiState, ScriptUiError>
+  enter(): Effect.Effect<UiState, ScriptUiError>
+  arrow(direction: UiDirection): Effect.Effect<UiState, ScriptUiError>
+  focus(target: number | UiElement): Effect.Effect<UiState, ScriptUiError>
   /** Clicks the element center unless a local position is provided. */
-  click(target: number | UiElement, position?: UiPosition): Effect.Effect<UiState, unknown>
-  resize(viewport: UiViewport): Effect.Effect<UiState, unknown>
-  submit(text: string): Effect.Effect<UiState, unknown>
+  click(target: number | UiElement, position?: UiPosition): Effect.Effect<UiState, ScriptUiElementError>
+  resize(viewport: UiViewport): Effect.Effect<UiState, ScriptUiError>
+  submit(text: string): Effect.Effect<UiState, ScriptUiError>
 
-  waitFor(matcher: UiMatcher, options?: UiWaitOptions): Effect.Effect<UiState, unknown>
-  waitFor(predicate: UiPredicate, options?: UiWaitOptions): Effect.Effect<UiState, unknown>
+  waitFor(matcher: UiMatcher, options?: UiWaitOptions): Effect.Effect<UiState, ScriptUiWaitError>
+  waitFor(predicate: UiPredicate, options?: UiWaitOptions): Effect.Effect<UiState, ScriptUiWaitError | UiPredicateError>
   /** Waits for exactly one element matching a renderable number, id, or query. */
-  getElement(target: number, options?: UiWaitOptions): Effect.Effect<UiElement, unknown>
-  getElement(id: string, options?: UiWaitOptions): Effect.Effect<UiElement, unknown>
-  getElement(query: UiElementQuery, options?: UiWaitOptions): Effect.Effect<UiElement, unknown>
+  getElement(target: number, options?: UiWaitOptions): Effect.Effect<UiElement, ScriptUiElementError>
+  getElement(id: string, options?: UiWaitOptions): Effect.Effect<UiElement, ScriptUiElementError>
+  getElement(query: UiElementQuery, options?: UiWaitOptions): Effect.Effect<UiElement, ScriptUiElementError>
 }
 
-export type LlmStreamOptions = Llm.StreamOptions
-
-export type LlmText = Llm.Text
-
-export type LlmReasoning = Llm.Reasoning
-
-export type LlmPause = Llm.Pause
-
-export type LlmToolCall = Llm.ToolCall
-
-export type LlmRawChunk = Llm.Raw
-
-export type LlmFinishReason = Llm.FinishReason
-
-export type LlmFinish = Llm.Finish
-
-export type LlmDisconnect = Llm.Disconnect
-
-export type LlmOutput = Llm.Output
-
-export interface LlmRequest {
-  readonly id: string
-  readonly url: string
-  readonly body: JsonValue
-}
-
-export type LlmResponse = Stream.Stream<LlmOutput, unknown>
+export type LlmRequest = Backend.OpenedExchange
+export type LlmResponse = Stream.Stream<Llm.Output, unknown>
 
 export type LlmServeHandler = (
   request: LlmRequest,
@@ -169,28 +172,13 @@ export type LlmTitleHandler = (
 
 export interface ScriptLlm {
   /** Queues one response composed of these chunks and terminal events. */
-  queue(...output: ReadonlyArray<LlmOutput>): Effect.Effect<void, unknown>
+  queue(...output: ReadonlyArray<Llm.Output>): Effect.Effect<void, ScriptLlmError>
   /** Waits for the next request and resolves after its response is accepted. */
-  send(...output: ReadonlyArray<LlmOutput>): Effect.Effect<void, unknown>
+  send(...output: ReadonlyArray<Llm.Output>): Effect.Effect<void, ScriptLlmError>
   /** Generates a response for every LLM request until the script ends. */
-  serve(handler: LlmServeHandler): Effect.Effect<void, unknown>
+  serve(handler: LlmServeHandler): Effect.Effect<void, ScriptLlmError>
   /** Overrides the default response for background title requests. */
-  title(handler: LlmTitleHandler): Effect.Effect<void, unknown>
-
-  text(text: string, options?: LlmStreamOptions): LlmText
-  reasoning(text: string, options?: LlmStreamOptions): LlmReasoning
-  /** Waits locally before processing the next output. */
-  pause(milliseconds: number): LlmPause
-  /** Streams JSON input when options are provided; otherwise emits the call atomically. */
-  toolCall(
-    call: Omit<LlmToolCall, "type" | "options">,
-    options?: LlmStreamOptions,
-  ): LlmToolCall
-  raw(chunk: JsonValue): LlmRawChunk
-  /** Explicitly finishes a response; responses without this event finish with "stop". */
-  finish(reason?: LlmFinishReason): LlmFinish
-  /** Terminates a response without sending a finish event. */
-  disconnect(): LlmDisconnect
+  title(handler: LlmTitleHandler): Effect.Effect<void, ScriptLlmError>
 }
 
 export interface ScriptSetupContext {
@@ -210,7 +198,7 @@ export interface ScriptProject {
 
 export interface ScriptClients {
   /** Launches a headless TUI connected to this script's shared service. */
-  launch(name: string, options?: ScriptClientOptions): Effect.Effect<ScriptUi, unknown>
+  launch(name: string, options?: ScriptClientOptions): Effect.Effect<ScriptUi, ScriptClientLaunchError>
 }
 
 export interface ScriptClientOptions {
@@ -222,9 +210,9 @@ export interface ScriptClientOptions {
 
 export interface ScriptServer {
   /** Launches the one shared OpenCode server for this script. */
-  launch(): Effect.Effect<void, unknown>
+  launch(): Effect.Effect<void, ScriptServerLaunchError>
   /** Stops the shared server. It may be launched again afterward. */
-  kill(): Effect.Effect<void, unknown>
+  kill(): Effect.Effect<void, ScriptServerKillError>
 }
 
 export interface ScriptContext {

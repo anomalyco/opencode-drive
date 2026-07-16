@@ -25,9 +25,9 @@ export interface ElementQuery {
 export type Position = Pick<Frontend.ClickParams, "x" | "y">
 
 export type Predicate = (state: Frontend.State) => boolean
-export type EffectPredicate = (
+export type EffectPredicate<E> = (
   state: Frontend.State,
-) => Effect.Effect<boolean, Error>
+) => Effect.Effect<boolean, E>
 
 export class UiTimeoutError extends Schema.TaggedErrorClass<UiTimeoutError>()(
   "UiTimeoutError",
@@ -102,15 +102,16 @@ export interface Ui {
   readonly submit: (
     text: string,
   ) => Effect.Effect<Frontend.State, OperationError>
-  readonly waitFor: (
-    target: string | Predicate,
-    options?: WaitOptions,
-  ) => Effect.Effect<Frontend.State, OperationError | WaitError>
-  /** Internal adapter seam for Promise predicates without duplicating polling. */
-  readonly waitForEffect: (
-    target: string | EffectPredicate,
-    options?: WaitOptions,
-  ) => Effect.Effect<Frontend.State, OperationError | WaitError | Error>
+  readonly waitFor: {
+    (
+      target: string | Predicate,
+      options?: WaitOptions,
+    ): Effect.Effect<Frontend.State, OperationError | WaitError>
+    <E>(
+      target: EffectPredicate<E>,
+      options?: WaitOptions,
+    ): Effect.Effect<Frontend.State, OperationError | WaitError | E>
+  }
   readonly getElement: (
     target: number | string | ElementQuery,
     options?: WaitOptions,
@@ -233,7 +234,10 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
   }
 
   const waitFor = Effect.fn("Ui.waitFor")(
-    (target: string | Predicate, options?: WaitOptions) =>
+    <E>(
+      target: string | Predicate | EffectPredicate<E>,
+      options?: WaitOptions,
+    ) =>
       poll(
         "waitFor",
         typeof target === "string"
@@ -241,30 +245,16 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
               if (!(yield* matches(target))) return undefined
               return yield* state()
             })
-          : Effect.map(state(), (value) =>
-              target(value) ? value : undefined,
+          : Effect.flatMap(state(), (value) =>
+              predicateEffect(target, value).pipe(
+                Effect.map((matches) => matches ? value : undefined),
+              ),
             ),
         options,
         typeof target === "string"
           ? `timed out waiting for the UI to match ${JSON.stringify(target)}`
           : "timed out waiting for the UI to match",
       ),
-  )
-
-  const waitForEffect = Effect.fn("Ui.waitForEffect")(
-    (target: string | EffectPredicate, options?: WaitOptions) =>
-      typeof target === "string"
-        ? waitFor(target, options)
-        : poll(
-            "waitFor",
-            Effect.flatMap(state(), (value) =>
-              Effect.map(target(value), (matches) =>
-                matches ? value : undefined,
-              ),
-            ),
-            options,
-            "timed out waiting for the UI to match",
-          ),
   )
 
   const getElement = Effect.fn("Ui.getElement")(
@@ -321,9 +311,16 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
     resize,
     submit,
     waitFor,
-    waitForEffect,
     getElement,
   }
+}
+
+function predicateEffect<E>(
+  predicate: Predicate | EffectPredicate<E>,
+  state: Frontend.State,
+): Effect.Effect<boolean, E> {
+  const result = predicate(state)
+  return Effect.isEffect(result) ? result : Effect.succeed(result)
 }
 
 function matchesElement(element: Frontend.Element, query: ElementQuery) {

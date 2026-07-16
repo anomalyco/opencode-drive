@@ -220,7 +220,7 @@ return Effects; Promise callbacks are not part of the API:
 
 ```ts
 import { Effect } from "effect"
-import { defineScript } from "opencode-drive"
+import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
   config: {
@@ -243,7 +243,7 @@ export default defineScript({
   run: ({ ui, llm }) =>
     Effect.gen(function* () {
       yield* ui.submit("Read src/example.ts")
-      yield* llm.send(llm.text("The value is 1."))
+      yield* llm.send(Llm.text("The value is 1."))
       yield* ui.waitFor("The value is 1.")
     }),
 })
@@ -263,7 +263,7 @@ input and emits progress or a terminal result:
 
 ```ts
 import { Effect } from "effect"
-import { defineScript, Tool } from "opencode-drive"
+import { defineScript, Llm, Tool } from "opencode-drive"
 
 export default defineScript({
   tools(tools) {
@@ -279,13 +279,13 @@ export default defineScript({
   run: ({ ui, llm }) =>
     Effect.gen(function* () {
       yield* llm.queue(
-        llm.toolCall({
+        Llm.toolCall({
           index: 0,
           id: "call_shell",
           name: "shell",
           input: { command: "deploy production" },
         }),
-        llm.finish("tool-calls"),
+        Llm.finish("tool-calls"),
       )
       yield* ui.submit("Deploy production")
     }),
@@ -372,9 +372,10 @@ the handler passed to `llm.serve` returns an Effect `Stream`:
 
 ```ts
 import { Stream } from "effect"
+import { Llm } from "opencode-drive"
 
 yield* llm.serve((_request, index) =>
-  Stream.make(llm.text(`Response ${index + 1}`)),
+  Stream.make(Llm.text(`Response ${index + 1}`)),
 )
 ```
 
@@ -386,21 +387,21 @@ API. All public script types are canonically defined in
 [`src/script/types.ts`](./src/script/types.ts), which can be provided directly
 to an authoring agent.
 
-`llm.text()` streams text in randomized chunks. It defaults to a 2 ms delay and
+`Llm.text()` streams text in randomized chunks. It defaults to a 2 ms delay and
 a target chunk size of 15 characters, varied by plus or minus 5 per chunk:
 
 ```ts
-llm.text("A deliberately slower response", { delay: 20, chunkSize: 10 })
+Llm.text("A deliberately slower response", { delay: 20, chunkSize: 10 })
 ```
 
-`llm.reasoning()` accepts the same streaming options. Use
-`llm.pause(milliseconds)` to add timing between any two outputs.
+`Llm.reasoning()` accepts the same streaming options. Use
+`Llm.pause(milliseconds)` to add timing between any two outputs.
 
-`llm.toolCall()` emits a complete call atomically by default. Pass the same
+`Llm.toolCall()` emits a complete call atomically by default. Pass the same
 streaming options to expose partial JSON input while it is generated:
 
 ```ts
-llm.toolCall(
+Llm.toolCall(
   {
     index: 0,
     id: "call_patch",
@@ -411,9 +412,27 @@ llm.toolCall(
 )
 ```
 
-Finish a tool-calling response with `llm.finish("tool-calls")`. Streamed calls
-drive OpenCode's normal tool-input start, delta, and end lifecycle; `llm.raw()`
+Finish a tool-calling response with `Llm.finish("tool-calls")`. Streamed calls
+drive OpenCode's normal tool-input start, delta, and end lifecycle; `Llm.raw()`
 remains available for provider-wire scenarios not covered by these helpers.
+
+Script capability errors are typed and the concrete classes are grouped under
+`ScriptError`. UI timeouts remain owner-fatal even when caught; recover locally
+from errors for which the script has a truthful fallback:
+
+```ts
+import { Effect } from "effect"
+import { ScriptError } from "opencode-drive"
+
+yield* ui.getElement({ editor: true }).pipe(
+  Effect.catchTag("UiElementAmbiguousError", (error) =>
+    Effect.logWarning(`Matched ${error.count} editors`),
+  ),
+)
+
+const isFileSystemError = (error: unknown) =>
+  error instanceof ScriptError.FileSystemError
+```
 
 ## Release validation
 

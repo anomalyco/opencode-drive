@@ -1,4 +1,4 @@
-import { defineScript, type JsonValue, type ScriptUi } from "../../src/index.js"
+import { defineScript, Llm, type JsonValue, type ScriptUi } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
@@ -18,7 +18,7 @@ export default defineScript({
 
       yield* llm.serve((request) => {
         if (isTitleRequest(request.body)) {
-          return Stream.make(llm.text("Delegating ledger checks"))
+          return Stream.make(Llm.text("Delegating ledger checks"))
         }
 
         if (phase === 0 || phase === 3) {
@@ -26,12 +26,12 @@ export default defineScript({
           const first = phase === 0
           phase++
           return Stream.make(
-            llm.reasoning(
+            Llm.reasoning(
               first
                 ? "I will delegate repository inspection to an explore agent."
                 : "I will ask a general agent to independently verify the result.",
             ),
-            llm.toolCall({
+            Llm.toolCall({
               index: 0,
               id: first ? "call_explore_ledger" : "call_verify_ledger",
               name: tool,
@@ -44,14 +44,14 @@ export default defineScript({
                 first ? "explore" : "general",
               ),
             }),
-            llm.finish("tool-calls"),
+            Llm.finish("tool-calls"),
           )
         }
 
         if (phase === 1) {
           phase++
           return Stream.make(
-            llm.text(
+            Llm.text(
               "The ledger exports credits containing 8, 13, and 21, plus a computed total.",
             ),
           )
@@ -59,7 +59,7 @@ export default defineScript({
         if (phase === 2) {
           phase++
           return Stream.make(
-            llm.text(
+            Llm.text(
               "First delegation complete: the explore agent inspected the ledger.",
             ),
           )
@@ -67,13 +67,13 @@ export default defineScript({
         if (phase === 4) {
           phase++
           return Stream.make(
-            llm.text("The independent calculation is 8 + 13 + 21 = 42."),
+            Llm.text("The independent calculation is 8 + 13 + 21 = 42."),
           )
         }
 
         phase++
         return Stream.make(
-          llm.text(
+          Llm.text(
             "Second delegation complete: the general agent confirmed total 42.",
           ),
         )

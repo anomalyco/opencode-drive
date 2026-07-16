@@ -5,9 +5,10 @@ import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as OpenCodeDriver from "../driver/index.js"
 import type * as OpenCodeClient from "../driver/client.js"
+import type * as OpenCodeUi from "../driver/ui.js"
 import * as PreparedDriver from "../driver/prepared.js"
 import type * as OpenCodeInstance from "../instance/runtime.js"
-import * as Llm from "../llm/index.js"
+import { UiPredicateError } from "../script/errors.js"
 import { createScriptFileSystem } from "../script/filesystem.js"
 import { hasGitMetadata } from "../script/project.js"
 import type {
@@ -15,9 +16,11 @@ import type {
   ScriptDefinition,
   ScriptLlm,
   ScriptUi,
+  ScriptUiWaitError,
   UiElementQuery,
   UiMatcher,
   UiPredicate,
+  UiState,
   UiWaitOptions,
 } from "../script/types.js"
 
@@ -67,6 +70,21 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
   }
   const adaptUi = (client: OpenCodeClient.Client): ScriptUi => {
     const ui = client.ui
+    function waitFor(
+      matcher: UiMatcher,
+      options?: UiWaitOptions,
+    ): Effect.Effect<UiState, ScriptUiWaitError>
+    function waitFor(
+      predicate: UiPredicate,
+      options?: UiWaitOptions,
+    ): Effect.Effect<UiState, ScriptUiWaitError | UiPredicateError>
+    function waitFor(
+      target: UiMatcher | UiPredicate,
+      options?: UiWaitOptions,
+    ) {
+      if (typeof target === "string") return runUi(ui.waitFor(target, options))
+      return runUi(ui.waitFor(adaptPredicate(target), options))
+    }
     return {
       kill: () =>
         runUi(Effect.gen(function* () {
@@ -88,33 +106,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       click: (target, position) => runUi(ui.click(target, position)),
       resize: (viewport) => runUi(ui.resize(viewport)),
       submit: (text) => runUi(ui.submit(text)),
-      waitFor(target: UiMatcher | UiPredicate, options?: UiWaitOptions) {
-        if (typeof target === "string") return runUi(ui.waitFor(target, options))
-        return runUi(
-          ui.waitForEffect(
-            (state) =>
-              Effect.try({
-                try: (): unknown => target(state),
-                catch: toError,
-              }).pipe(
-                Effect.flatMap((result) => {
-                  if (isEffect(result))
-                    return result.pipe(
-                      Effect.mapError(toError),
-                      Effect.flatMap((value) =>
-                        typeof value === "boolean"
-                          ? Effect.succeed(value)
-                          : Effect.fail(new Error("ui.waitFor predicate Effect must produce a boolean")),
-                      ),
-                    )
-                  if (typeof result === "boolean") return Effect.succeed(result)
-                  return Effect.fail(new Error("ui.waitFor predicate must return a boolean or Effect"))
-                }),
-              ),
-            options,
-          ),
-        )
-      },
+      waitFor,
       getElement: (
         target: number | string | UiElementQuery,
         options?: UiWaitOptions,
@@ -181,13 +173,6 @@ function adaptLlm(
           Effect.mapError((cause) => llmError("title", cause, request.id)),
         ),
       ),
-    text: Llm.text,
-    reasoning: Llm.reasoning,
-    pause: Llm.pause,
-    toolCall: Llm.toolCall,
-    raw: Llm.raw,
-    finish: Llm.finish,
-    disconnect: Llm.disconnect,
   }
 }
 
@@ -199,8 +184,37 @@ function llmError(operation: string, cause: unknown, requestId?: string) {
   })
 }
 
-function toError(cause: unknown) {
-  return cause instanceof Error ? cause : new Error(String(cause))
+function predicateError(cause: unknown) {
+  if (cause instanceof UiPredicateError) return cause
+  return new UiPredicateError({
+    cause,
+    message: `ui.waitFor ${cause instanceof Error ? cause.message : String(cause)}`,
+  })
+}
+
+function adaptPredicate(
+  predicate: UiPredicate,
+): OpenCodeUi.EffectPredicate<UiPredicateError> {
+  return (state) =>
+    Effect.try({
+      try: (): unknown => predicate(state),
+      catch: predicateError,
+    }).pipe(
+      Effect.flatMap((result) => {
+        if (isEffect(result))
+          return result.pipe(
+            Effect.mapError(predicateError),
+            Effect.flatMap((value) =>
+              typeof value === "boolean"
+                ? Effect.succeed(value)
+                : Effect.fail(predicateError("predicate Effect must produce a boolean")),
+            ),
+          )
+        return typeof result === "boolean"
+          ? Effect.succeed(result)
+          : Effect.fail(predicateError("predicate must return a boolean or Effect"))
+      }),
+    )
 }
 
 function isEffect(value: unknown): value is Effect.Effect<unknown, unknown> {

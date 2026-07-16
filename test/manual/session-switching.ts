@@ -1,4 +1,4 @@
-import { defineScript, type ScriptUi } from "../../src/index.js"
+import { defineScript, Llm, type ScriptUi } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
@@ -20,27 +20,27 @@ export default defineScript({
       yield* llm.serve((request) => {
         if (isTitleRequest(request.body)) {
           return Stream.make(
-            llm.text(title++ === 0 ? "Garden inventory" : "Project follow-up"),
+            Llm.text(title++ === 0 ? "Garden inventory" : "Project follow-up"),
           )
         }
 
         if (phase === 0) {
           phase++
           return Stream.make(
-            llm.reasoning("I should read the source before answering."),
-            llm.toolCall({
+            Llm.reasoning("I should read the source before answering."),
+            Llm.toolCall({
               index: 0,
               id: "call_read_garden",
               name: "read",
               input: { filePath: "src/garden.ts" },
             }),
-            llm.finish("tool-calls"),
+            Llm.finish("tool-calls"),
           )
         }
         if (phase === 1) {
           phase++
           return Stream.make(
-            llm.text(
+            Llm.text(
               "Session one complete: the garden contains aster, dahlia, and iris.",
             ),
           )
@@ -48,27 +48,27 @@ export default defineScript({
         if (phase === 2) {
           phase++
           return Stream.make(
-            llm.reasoning("I will search for the exported count."),
-            llm.toolCall({
+            Llm.reasoning("I will search for the exported count."),
+            Llm.toolCall({
               index: 0,
               id: "call_grep_count",
               name: "grep",
               input: { pattern: "count", path: "src", include: "*.ts" },
             }),
-            llm.finish("tool-calls"),
+            Llm.finish("tool-calls"),
           )
         }
         if (phase === 3) {
           phase++
           return Stream.make(
-            llm.text(
+            Llm.text(
               "Session two complete: the project exports count from src/garden.ts.",
             ),
           )
         }
 
         return Stream.make(
-          llm.text("Back in session one: there are exactly three flowers."),
+          Llm.text("Back in session one: there are exactly three flowers."),
         )
       })
 

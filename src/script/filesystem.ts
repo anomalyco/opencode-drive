@@ -1,6 +1,7 @@
 import { lstat, mkdir, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import * as Effect from "effect/Effect"
+import { FileSystemError } from "./errors.js"
 import type { ScriptFileSystem } from "./types.js"
 
 interface FileSystemOptions {
@@ -20,7 +21,11 @@ export function createScriptFileSystem(
           await mkdir(dirname(destination), { recursive: true })
           await writeFile(destination, contents)
         },
-        catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
+        catch: (cause) => new FileSystemError({
+          path,
+          cause,
+          message: cause instanceof Error ? cause.message : String(cause),
+        }),
       }),
   }
 }

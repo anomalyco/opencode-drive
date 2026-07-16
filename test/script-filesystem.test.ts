@@ -3,6 +3,7 @@ import { mkdtemp, rm, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as Effect from "effect/Effect"
+import { ScriptError } from "../src/index.js"
 import { createScriptFileSystem } from "../src/script/filesystem.js"
 
 const roots: string[] = []
@@ -25,7 +26,15 @@ describe("script filesystem", () => {
     const fs = createScriptFileSystem(root)
     await symlink(outside, join(root, "linked"))
 
-    await expect(Effect.runPromise(fs.writeFile("../outside.ts", "no"))).rejects.toThrow("stay inside")
+    const outsideError = await Effect.runPromise(
+      fs.writeFile("../outside.ts", "no").pipe(Effect.flip),
+    )
+    expect(outsideError).toBeInstanceOf(ScriptError.FileSystemError)
+    expect(outsideError).toMatchObject({
+      _tag: "FileSystemError",
+      path: "../outside.ts",
+      message: expect.stringContaining("stay inside"),
+    })
     await expect(Effect.runPromise(fs.writeFile(join(outside, "absolute.ts"), "no"))).rejects.toThrow("must be relative")
     await expect(Effect.runPromise(fs.writeFile("linked/outside.ts", "no"))).rejects.toThrow("must not contain symbolic links")
   })

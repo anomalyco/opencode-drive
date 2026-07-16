@@ -306,12 +306,12 @@ and `clients`. Compose script operations in the same runtime with
 
 ```ts
 import { Effect } from "effect"
-import { defineScript } from "opencode-drive"
+import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
   run: ({ ui, llm }) =>
     Effect.gen(function* () {
-      yield* llm.queue(llm.text("The value is 1."))
+      yield* llm.queue(Llm.text("The value is 1."))
       yield* ui.submit("Read src/example.ts")
       yield* ui.waitFor("The value is 1.")
     }),
@@ -323,13 +323,16 @@ itself is also an Effect:
 
 ```ts
 import { Stream } from "effect"
+import { Llm } from "opencode-drive"
 
 yield* llm.serve((_request, index) =>
-  Stream.make(llm.text(`Response ${index + 1}`)),
+  Stream.make(Llm.text(`Response ${index + 1}`)),
 )
 ```
 
 Predicates passed to `ui.waitFor` may return a boolean or an Effect.
+Capability methods expose typed error channels. Concrete tagged errors are
+available from the `ScriptError` namespace.
 
 ### Additional client
 

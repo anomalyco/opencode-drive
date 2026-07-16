@@ -1,4 +1,4 @@
-import { defineScript } from "../../src/index.js"
+import { defineScript, Llm } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
@@ -7,7 +7,7 @@ export default defineScript({
     Effect.gen(function* () {
       yield* llm.serve(() =>
         Stream.fromEffect(
-          Effect.sleep(500).pipe(Effect.as(llm.text("late response"))),
+          Effect.sleep(500).pipe(Effect.as(Llm.text("late response"))),
         ),
       )
       const file = `${artifacts}/script-runs.txt`

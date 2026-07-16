@@ -1,4 +1,4 @@
-import { defineScript } from "../../src/index.js"
+import { defineScript, Llm } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 
 export default defineScript({
@@ -7,6 +7,6 @@ export default defineScript({
     Effect.gen(function* () {
       yield* llm.title(() => Effect.succeed("Custom title"))
       yield* server.launch()
-      yield* llm.send(llm.text("Normal response"))
+      yield* llm.send(Llm.text("Normal response"))
     }),
 })

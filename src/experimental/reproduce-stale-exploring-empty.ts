@@ -2,7 +2,7 @@ import { join } from "node:path"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
-import { defineScript } from "../index.js"
+import { defineScript, Llm } from "../index.js"
 import type { ScriptUi } from "../index.js"
 
 export default defineScript({
@@ -16,27 +16,27 @@ export default defineScript({
 
       yield* llm.serve((request) => {
         if (isTitleRequest(request.body)) {
-          return Stream.make(llm.text("Stale exploring reproduction"))
+          return Stream.make(Llm.text("Stale exploring reproduction"))
         }
         const current = turn++
         if (current === 0) {
           return Stream.make(
-            llm.toolCall({
+            Llm.toolCall({
               index: 0,
               id: "call_read",
               name: "read",
               input: { filePath: join(artifacts, "files", "src", "garden.js") },
             }),
-            llm.finish("tool-calls"),
+            Llm.finish("tool-calls"),
           )
         }
         if (current === 1) {
-          return Stream.make(llm.finish("tool-calls")).pipe(
+          return Stream.make(Llm.finish("tool-calls")).pipe(
             Stream.onEnd(Deferred.succeed(completed[0]!, undefined)),
           )
         }
         return Stream.make(
-          llm.text(
+          Llm.text(
             current === 2
               ? "The file exports a small greeting function."
               : "Confirmed again with no more tools.",
