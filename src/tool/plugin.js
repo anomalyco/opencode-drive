@@ -1,6 +1,8 @@
-import { Effect, Schema } from "effect"
+import { Effect, Schedule, Schema, Scope } from "effect"
 
 const MAX_BUFFER_CHARS = 1024 * 1024
+const BACKGROUND_INSTRUCTION =
+  "You will be notified automatically when the command finishes. DO NOT sleep, poll, or proactively check on its progress."
 const descriptions = {
   shell: "Executes a shell command.",
   webfetch: "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML.",
@@ -13,7 +15,10 @@ class ToolFailure extends Schema.TaggedErrorClass()("LLM.ToolFailure", {
 
 const output = (result) => ({
   structured: result,
-  content: [{ type: "text", text: result.output }],
+  content: [
+    { type: "text", text: result.output },
+    ...(result.status === "running" ? [{ type: "text", text: BACKGROUND_INSTRUCTION }] : []),
+  ],
 })
 
 const failure = (cause) =>
@@ -27,7 +32,55 @@ const parse = (line) =>
     catch: (cause) => failure(cause),
   })
 
-const execute = (options, name, input, context) =>
+const waitForBackground = (options, shellID) =>
+  Effect.gen(function* () {
+    const response = yield* Effect.tryPromise({
+      try: (signal) =>
+        fetch(`${options.endpoint}/background/${shellID}`, {
+          headers: { authorization: `Bearer ${options.token}` },
+          signal,
+        }),
+      catch: failure,
+    })
+    if (!response.ok)
+      return yield* new ToolFailure({ message: `Drive background shell returned HTTP ${response.status}` })
+    return yield* Effect.tryPromise({
+      try: () => response.json(),
+      catch: failure,
+    })
+  })
+
+const notifyWhenDone = (ctx, options, sessionID, shellID) =>
+  Effect.gen(function* () {
+    const completion = yield* waitForBackground(options, shellID).pipe(
+      Effect.retry({ times: 3, schedule: Schedule.spaced("100 millis") }),
+    )
+    yield* ctx.session
+      .synthetic({
+        id: `msg_${shellID}_completion`,
+        sessionID,
+        text: `<shell id="${shellID}" state="${completion.state}" command="${completion.command}">\n${completion.output}\n</shell>`,
+        description: completion.command,
+        metadata: { source: "shell", state: completion.state },
+      })
+      .pipe(Effect.retry({ times: 3, schedule: Schedule.spaced("100 millis") }))
+    yield* Effect.tryPromise({
+      try: (signal) =>
+        fetch(`${options.endpoint}/background/${shellID}`, {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${options.token}` },
+          signal,
+        }).then((response) => {
+          if (!response.ok)
+            throw new Error(`Drive background shell acknowledgement returned HTTP ${response.status}`)
+        }),
+      catch: failure,
+    }).pipe(Effect.retry({ times: 3, schedule: Schedule.spaced("100 millis") }))
+  }).pipe(
+    Effect.catch((cause) => Effect.logError("Drive background shell notification failed", cause)),
+  )
+
+const execute = (ctx, scope, options, name, input, context) =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
       try: (signal) =>
@@ -37,7 +90,10 @@ const execute = (options, name, input, context) =>
             authorization: `Bearer ${options.token}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify(input),
+          body: JSON.stringify({
+            input,
+            context: { callID: context.callID },
+          }),
           signal,
         }),
       catch: failure,
@@ -78,6 +134,10 @@ const execute = (options, name, input, context) =>
           }
           if (!result)
             return yield* new ToolFailure({ message: "Drive tool handler ended without a result" })
+          if (name === "shell" && result.status === "running" && result.shellID)
+            yield* notifyWhenDone(ctx, options, context.sessionID, result.shellID).pipe(
+              Effect.forkIn(scope, { startImmediately: true }),
+            )
           return output(result)
         }),
       (reader) => Effect.promise(() => reader.cancel().catch(() => undefined)),
@@ -87,17 +147,20 @@ const execute = (options, name, input, context) =>
 export default {
   id: "opencode-drive.tool-handlers",
   effect: (ctx) =>
-    ctx.tool.transform((tools) => {
-      for (const name of ctx.options.tools) {
-        tools.add(
-          name,
-          {
-            description: descriptions[name],
-            jsonSchema: ctx.options.schemas[name],
-            execute: (input, context) => execute(ctx.options, name, input, context),
-          },
-          { codemode: false },
-        )
-      }
+    Effect.gen(function* () {
+      const scope = yield* Scope.Scope
+      yield* ctx.tool.transform((tools) => {
+        for (const name of ctx.options.tools) {
+          tools.add(
+            name,
+            {
+              description: descriptions[name],
+              jsonSchema: ctx.options.schemas[name],
+              execute: (input, context) => execute(ctx, scope, ctx.options, name, input, context),
+            },
+            { codemode: false },
+          )
+        }
+      })
     }),
 }
