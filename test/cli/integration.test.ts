@@ -771,8 +771,42 @@ describe("opencode-drive", () => {
 
     await Bun.write(join(directory, "invalid.ts"), 'import { wait } from "opencode-drive"\nwait("wrong")\n')
     const invalid = spawn(["check", join(directory, "invalid.ts")], root)
+    const invalidError = new Response(invalid.stderr).text()
     expect(await invalid.exited).toBe(1)
-    expect(await new Response(invalid.stdout).text()).toContain("is not assignable to parameter of type")
+    expect(await invalidError).toContain("is not assignable to parameter of type")
+
+    await Bun.write(
+      join(directory, "promise.ts"),
+      'import { defineScript } from "opencode-drive"\nexport default defineScript({ run: async ({ ui }) => { await ui.submit("Hello") } })\n',
+    )
+    const promise = spawn(["check", join(directory, "promise.ts")], root)
+    const promiseError = new Response(promise.stderr).text()
+    expect(await promise.exited).toBe(1)
+    expect(await promiseError).toContain("OpenCode Drive scripts are Effect-only")
+    expect(await promiseError).toContain("Effect.gen(function* ()")
+  }, 60_000)
+
+  test("creates a type-checkable Effect script without overwriting it", async () => {
+    const root = await temporary()
+    const file = join(root, "scripts", "drive.ts")
+    const created = spawn(["script", "init", file], root)
+    const [status, stdout] = await Promise.all([
+      created.exited,
+      new Response(created.stdout).text(),
+    ])
+    expect(status).toBe(0)
+    expect(stdout.trim()).toBe(file)
+    const source = await Bun.file(file).text()
+    expect(source).toContain('import { defineScript, Llm } from "opencode-drive"')
+    expect(source).toContain('llm.queue(Llm.text("The value is 1."))')
+
+    const checked = spawn(["check", file], root)
+    expect(await checked.exited).toBe(0)
+
+    const repeated = spawn(["script", "init", file], root)
+    expect(await repeated.exited).toBe(1)
+    expect(await new Response(repeated.stderr).text()).toContain("script already exists")
+    expect(await Bun.file(file).text()).toBe(source)
   }, 60_000)
 
   test("launches all clients explicitly for a manual UI script", async () => {

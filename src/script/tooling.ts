@@ -140,7 +140,7 @@ function isPackageMetadata(
 export async function checkScript(artifacts: string, script: string) {
   const tooling = await prepareScriptTooling(artifacts, script)
   try {
-    await typecheckPreparedTooling(tooling, artifacts, "script")
+    await typecheckPreparedTooling(tooling, artifacts, "script", true)
   } finally {
     await tooling.links.remove()
   }
@@ -150,14 +150,22 @@ export async function typecheckPreparedTooling(
   tooling: Awaited<ReturnType<typeof prepareScriptTooling>>,
   cwd: string,
   label: string,
+  capture: boolean = false,
 ) {
   const output = await runProcess(
     [tooling.tsgo, "-p", tooling.tsconfig],
     cwd,
-    { stdout: "inherit", stderr: "inherit" },
+    capture ? {} : { stdout: "inherit", stderr: "inherit" },
   )
-  if (output.status !== 0)
-    throw new Error(`${label} type check failed with status ${output.status}`)
+  if (output.status !== 0) {
+    const diagnostics = [output.stdout, output.stderr]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join("\n")
+    throw new Error(
+      diagnostics || `${label} type check failed with status ${output.status}`,
+    )
+  }
 }
 
 const runProcess = (

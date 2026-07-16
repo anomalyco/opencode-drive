@@ -218,6 +218,14 @@ View the [skills file](https://github.com/anomalyco/opencode-drive/blob/main/ski
 Scripted runs use one fully typed, Effect-only definition. `setup` and `run`
 return Effects; Promise callbacks are not part of the API:
 
+```sh
+opencode-drive script init ./drive.ts
+```
+
+This creates a canonical starter without overwriting an existing file. The
+generated script is ready for `opencode-drive check ./drive.ts` and
+`start --script ./drive.ts`.
+
 ```ts
 import { Effect } from "effect"
 import { defineScript, Llm } from "opencode-drive"
@@ -313,8 +321,10 @@ opencode-drive check ./drive.ts
 ```
 
 Drive temporarily exposes its script API and `tsgo` beside the script while
-checking, then removes only the links it created. `wait(milliseconds)` is
-available for unconditional delays.
+checking, then removes only the links it created. When it detects an old
+Promise-style `setup`, `run`, or `ui.waitFor` callback, it prints the equivalent
+Effect shape after the TypeScript diagnostics. `wait(milliseconds)` is available
+for unconditional delays.
 
 The `fs`, `ui`, `llm`, `server`, and `clients` capabilities expose
 Effect-returning operations. Compose them with `yield*`, `Effect.flatMap`, or

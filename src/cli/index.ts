@@ -13,6 +13,7 @@ import { restart } from "./restart.js"
 import { responses } from "./responses.js"
 import { runProgram } from "./run.js"
 import { send } from "./send.js"
+import { initScript } from "./script-init.js"
 import { start } from "./start.js"
 import { stop } from "./stop.js"
 import { logError } from "../log.js"
@@ -59,6 +60,25 @@ const checkCommand = Command.make(
       description: "Type-check a script with the bundled script API",
     },
   ]),
+)
+
+const scriptInitCommand = Command.make(
+  "init",
+  { file: Argument.string("file") },
+  (config) => execute(() => initScript(config.file)),
+).pipe(
+  Command.withDescription("Create an Effect-native OpenCode Drive script"),
+  Command.withExamples([
+    {
+      command: "opencode-drive script init ./drive.ts",
+      description: "Create a type-checkable script without overwriting existing files",
+    },
+  ]),
+)
+
+const scriptCommand = Command.make("script").pipe(
+  Command.withDescription("Create and manage OpenCode Drive scripts"),
+  Command.withSubcommands([scriptInitCommand]),
 )
 
 const runCommand = Command.make(
@@ -210,6 +230,7 @@ const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
   Command.withSubcommands([
     initCommand,
+    scriptCommand,
     checkCommand,
     runCommand,
     startCommand,
