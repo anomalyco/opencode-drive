@@ -60,7 +60,7 @@ export default defineScript({
           30_000,
           `timed out waiting for empty continuation ${index + 1}`,
         )
-        yield* waitForEditor(ui)
+        yield* ui.waitFor((state) => state.focused.editor, { timeout: 30_000 })
         yield* Effect.sleep(500)
         yield* ui.screenshot(`stale-exploring-${index + 1}`)
       }
@@ -86,17 +86,6 @@ const typeSlowly = Effect.fn("typeSlowly")(function* (
     yield* ui.type(char)
     yield* Effect.sleep(55)
   }
-})
-
-const waitForEditor = Effect.fn("waitForEditor")(function* (ui: ScriptUi) {
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline) {
-    if ((yield* ui.state()).focused.editor) return
-    yield* Effect.sleep(50)
-  }
-  return yield* Effect.fail(
-    new Error("timed out waiting for the session to become idle"),
-  )
 })
 
 function isTitleRequest(body: unknown) {

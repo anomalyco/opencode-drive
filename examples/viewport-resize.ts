@@ -4,13 +4,10 @@ import { defineScript, Llm, wait } from "opencode-drive"
 export default defineScript({
   viewport: { cols: 120, rows: 36 },
 
-  setup: ({ fs }) =>
-    Effect.gen(function* () {
-      yield* fs.writeFile(
-        "src/viewport.ts",
-        `export const viewportSequence = ["120x36", "80x24", "50x18"]\n`,
-      )
-    }),
+  setup: ({ fs }) => fs.writeFile(
+    "src/viewport.ts",
+    `export const viewportSequence = ["120x36", "80x24", "50x18"]\n`,
+  ),
 
   run: ({ ui, llm }) =>
     Effect.gen(function* () {

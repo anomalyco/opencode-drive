@@ -148,7 +148,6 @@ export type LlmFinish = Llm.Finish
 export type LlmDisconnect = Llm.Disconnect
 
 export type LlmOutput = Llm.Output
-export type LlmItem = Llm.Output
 
 export interface LlmRequest {
   readonly id: string

@@ -2,13 +2,10 @@ import { Effect } from "effect"
 import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
-  setup: ({ fs }) =>
-    Effect.gen(function* () {
-      yield* fs.writeFile(
-        "src/message.ts",
-        'export const message = "Hello from OpenCode Drive"\n',
-      )
-    }),
+  setup: ({ fs }) => fs.writeFile(
+    "src/message.ts",
+    'export const message = "Hello from OpenCode Drive"\n',
+  ),
 
   run: ({ llm, ui }) =>
     Effect.gen(function* () {

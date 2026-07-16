@@ -51,10 +51,10 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     hasGitMetadata(join(instance.artifacts, "files")),
   )
   const operationFailure = yield* Deferred.make<never, unknown>()
-  const run = <A, E>(effect: Effect.Effect<A, E>) =>
+  const runUi = <A, E>(effect: Effect.Effect<A, E>) =>
     effect.pipe(
       Effect.tapError((cause) =>
-        isTimeoutError(cause)
+        cause instanceof OpenCodeDriver.UiTimeoutError
           ? Deferred.fail(operationFailure, cause).pipe(Effect.asVoid)
           : Effect.void,
       ),
@@ -69,7 +69,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     const ui = client.ui
     return {
       kill: () =>
-        run(Effect.gen(function* () {
+        runUi(Effect.gen(function* () {
           const output = client.recording === undefined
             ? undefined
             : yield* client.recording.finish()
@@ -77,20 +77,20 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
           yield* client.close()
           return output
         })),
-      state: () => run(ui.state()),
-      matches: (matcher) => run(ui.matches(matcher)),
-      screenshot: (name) => run(ui.screenshot(name)).pipe(Effect.tap((path) => Effect.sync(() => onScreenshot?.(path)))),
-      type: (text) => run(ui.type(text)),
-      press: (key, modifiers) => run(ui.press(key, modifiers)),
-      enter: () => run(ui.enter()),
-      arrow: (direction) => run(ui.arrow(direction)),
-      focus: (target) => run(ui.focus(target)),
-      click: (target, position) => run(ui.click(target, position)),
-      resize: (viewport) => run(ui.resize(viewport)),
-      submit: (text) => run(ui.submit(text)),
+      state: () => runUi(ui.state()),
+      matches: (matcher) => runUi(ui.matches(matcher)),
+      screenshot: (name) => runUi(ui.screenshot(name)).pipe(Effect.tap((path) => Effect.sync(() => onScreenshot?.(path)))),
+      type: (text) => runUi(ui.type(text)),
+      press: (key, modifiers) => runUi(ui.press(key, modifiers)),
+      enter: () => runUi(ui.enter()),
+      arrow: (direction) => runUi(ui.arrow(direction)),
+      focus: (target) => runUi(ui.focus(target)),
+      click: (target, position) => runUi(ui.click(target, position)),
+      resize: (viewport) => runUi(ui.resize(viewport)),
+      submit: (text) => runUi(ui.submit(text)),
       waitFor(target: UiMatcher | UiPredicate, options?: UiWaitOptions) {
-        if (typeof target === "string") return run(ui.waitFor(target, options))
-        return run(
+        if (typeof target === "string") return runUi(ui.waitFor(target, options))
+        return runUi(
           ui.waitForEffect(
             (state) =>
               Effect.try({
@@ -118,19 +118,19 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       getElement: (
         target: number | string | UiElementQuery,
         options?: UiWaitOptions,
-      ) => run(ui.getElement(target, options)),
+      ) => runUi(ui.getElement(target, options)),
     }
   }
-  const llm = adaptLlm(prepared.llm, run)
+  const llm = adaptLlm(prepared.llm)
   const clients = {
     launch: (name: string, options?: ScriptClientOptions) =>
-      run(prepared.clients.launch(name, {
-          recording: options?.record,
-          viewport: options?.viewport ?? script.viewport,
-        })).pipe(
-          Effect.tap(() => Effect.sync(() => onReady?.())),
-          Effect.map(adaptUi),
-        ),
+      prepared.clients.launch(name, {
+        recording: options?.record,
+        viewport: options?.viewport ?? script.viewport,
+      }).pipe(
+        Effect.tap(() => Effect.sync(() => onReady?.())),
+        Effect.map(adaptUi),
+      ),
   }
   const context = {
     fs: createScriptFileSystem(join(instance.artifacts, "files"), {
@@ -138,8 +138,8 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     }),
     clients,
     server: {
-      launch: () => run(prepared.server.launch()),
-      kill: () => run(prepared.server.kill()),
+      launch: prepared.server.launch,
+      kill: prepared.server.kill,
     },
     llm,
     artifacts: instance.artifacts,
@@ -165,23 +165,22 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
 
 function adaptLlm(
   controller: OpenCodeDriver.Llm,
-  run: <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<A, E>,
 ): ScriptLlm {
   return {
-    queue: (...output) => run(controller.queue(...output)),
-    send: (...output) => run(controller.send(...output)),
+    queue: controller.queue,
+    send: controller.send,
     serve: (handler) =>
-      run(controller.serve((request, index) =>
+      controller.serve((request, index) =>
         handler(request, index).pipe(
           Stream.mapError((cause) => llmError("serve", cause, request.id)),
         ),
-      )),
+      ),
     title: (handler) =>
-      run(controller.title((request, index) =>
+      controller.title((request, index) =>
         handler(request, index).pipe(
           Effect.mapError((cause) => llmError("title", cause, request.id)),
         ),
-      )),
+      ),
     text: Llm.text,
     reasoning: Llm.reasoning,
     pause: Llm.pause,
@@ -214,11 +213,6 @@ function isZeroStatusClientExit(cause: unknown) {
     cause.operation === "client.exit" &&
     cause.message.endsWith("status 0")
   )
-}
-
-function isTimeoutError(cause: unknown) {
-  const message = cause instanceof Error ? cause.message : String(cause)
-  return /\btimeout\b|\btimed out\b/i.test(message)
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

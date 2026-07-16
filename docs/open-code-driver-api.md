@@ -361,10 +361,6 @@ shim.
 
 ## Settled interface
 
-- The API is Effect-native.
-- `defineScript` accepts only Effect-returning `setup` and `run` callbacks.
-- Script capability methods return Effects; `llm.serve` handlers return Streams.
-- Cancellation uses Effect interruption, without a Promise compatibility shim.
 - `OpenCodeDriver.use(options, run)` is the safe top-level bracket and performs typed settlement.
 - `OpenCodeDriver.make(options)` is the primary scoped constructor.
 - Programs that call `make` directly call terminal `driver.settle()` before leaving the scope.

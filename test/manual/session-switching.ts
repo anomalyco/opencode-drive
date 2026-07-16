@@ -3,17 +3,14 @@ import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
 export default defineScript({
-  setup: ({ fs }) =>
-    Effect.gen(function* () {
-      yield* fs.writeFile(
-        "src/garden.ts",
-        [
-          "export const flowers = [\"aster\", \"dahlia\", \"iris\"]",
-          "export const count = flowers.length",
-          "",
-        ].join("\n"),
-      )
-    }),
+  setup: ({ fs }) => fs.writeFile(
+    "src/garden.ts",
+    [
+      "export const flowers = [\"aster\", \"dahlia\", \"iris\"]",
+      "export const count = flowers.length",
+      "",
+    ].join("\n"),
+  ),
 
   run: ({ llm, ui }) =>
     Effect.gen(function* () {

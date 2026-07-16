@@ -3,17 +3,14 @@ import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
 export default defineScript({
-  setup: ({ fs }) =>
-    Effect.gen(function* () {
-      yield* fs.writeFile(
-        "src/ledger.ts",
-        [
-          "export const credits = [8, 13, 21]",
-          "export const total = credits.reduce((sum, value) => sum + value, 0)",
-          "",
-        ].join("\n"),
-      )
-    }),
+  setup: ({ fs }) => fs.writeFile(
+    "src/ledger.ts",
+    [
+      "export const credits = [8, 13, 21]",
+      "export const total = credits.reduce((sum, value) => sum + value, 0)",
+      "",
+    ].join("\n"),
+  ),
 
   run: ({ llm, ui }) =>
     Effect.gen(function* () {

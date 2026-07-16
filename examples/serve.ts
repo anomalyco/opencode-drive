@@ -2,18 +2,15 @@ import { Effect, Stream } from "effect"
 import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
-  setup: ({ fs }) =>
-    Effect.gen(function* () {
-      yield* fs.writeFile(
-        "src/greeting.ts",
-        [
-          "export function greeting(name: string) {",
-          '  return `Welcome, ${name}!`',
-          "}",
-          "",
-        ].join("\n"),
-      )
-    }),
+  setup: ({ fs }) => fs.writeFile(
+    "src/greeting.ts",
+    [
+      "export function greeting(name: string) {",
+      '  return `Welcome, ${name}!`',
+      "}",
+      "",
+    ].join("\n"),
+  ),
 
   run: ({ llm, ui }) =>
     Effect.gen(function* () {
