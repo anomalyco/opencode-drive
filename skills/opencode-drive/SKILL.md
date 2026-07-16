@@ -210,6 +210,11 @@ opencode-drive check ./drive.ts
 opencode-drive start --name demo --script ./drive.ts
 ```
 
+For a new script, run `opencode-drive script init ./drive.ts` once. It creates a
+canonical Effect-native starter and refuses to overwrite an existing file.
+`check` adds focused migration guidance when it finds Promise-style script
+callbacks.
+
 The script DSL applies `project`, `config`, `tui`, and `setup` with the same deterministic ordering described above. Automatic scripts run again after `opencode-drive restart --name demo`.
 
 Use `launch: "manual"` only when the workflow must control server and client restarts itself. In manual mode `ui` is `null`; run `server.launch()` before `clients.launch(name)`. Only one server may run at a time, `server.kill()` permits relaunch, and a killed client name may be reused.
