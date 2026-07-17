@@ -546,10 +546,6 @@ kbd {
   flex: 0 1 auto;
 }
 
-.capture-caption .id-chip-text {
-  justify-items: end;
-}
-
 .capture-title {
   overflow: hidden;
   color: var(--kit-fg-muted);
@@ -609,6 +605,10 @@ kbd {
 
 .id-chip-copied {
   visibility: hidden;
+}
+
+.id-chip-end .id-chip-text {
+  justify-items: end;
 }
 
 .id-chip[data-copied] .id-chip-value {
@@ -834,24 +834,37 @@ kbd {
 .flow-step-meta {
   display: grid;
   grid-template-columns: 1.6rem minmax(0, 1fr);
+  align-items: baseline;
   gap: 0.7rem;
 }
 
 .flow-step-number {
-  padding-top: 0.1rem;
   color: var(--catalog-accent);
   font-family: var(--kit-mono);
   font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
-.flow-step-meta > span:last-child {
+.flow-step-text {
   display: grid;
   gap: 0.3rem;
-  justify-items: start;
+  min-width: 0;
+}
+
+.flow-step-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.flow-step-title .id-chip {
+  flex: 0 1 auto;
 }
 
 .flow-step-meta strong {
+  min-width: 0;
   overflow: hidden;
   color: var(--kit-fg-strong);
   font-size: 0.83rem;

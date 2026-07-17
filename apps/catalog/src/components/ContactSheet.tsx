@@ -98,7 +98,7 @@ export function ContactSheet({
               </button>
               <footer className="capture-caption">
                 <span className="capture-title">{screen.title}</span>
-                <IdChip id={screen.id} />
+                <IdChip id={screen.id} className="id-chip-end" />
               </footer>
             </article>
           )

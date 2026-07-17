@@ -89,10 +89,12 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
                 </button>
                 <footer className="flow-step-meta">
                   <span className="flow-step-number">{String(index + 1).padStart(2, "0")}</span>
-                  <span>
-                    <strong>{step.title}</strong>
+                  <span className="flow-step-text">
+                    <span className="flow-step-title">
+                      <strong>{step.title}</strong>
+                      <IdChip id={`${activeFlow.id}/${screen.id}`} className="id-chip-end" />
+                    </span>
                     {step.trigger ? <small>{step.trigger}</small> : undefined}
-                    <IdChip id={`${activeFlow.id}/${screen.id}`} />
                   </span>
                 </footer>
               </li>
