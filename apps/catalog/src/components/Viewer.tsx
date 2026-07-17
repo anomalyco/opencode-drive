@@ -3,13 +3,14 @@ import type { Facet, Filter, Screen, Taxonomy, TaxonomyGroup, Variant } from "..
 import { facetValues, frameFor, label, taxonomyLabel } from "../catalog"
 import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
+import { CaptureSetSwitcher } from "./CaptureSetSwitcher"
 
 interface ViewerProps {
   readonly screen: Screen
   readonly identifier: string
   readonly variant: Variant
+  readonly variants: ReadonlyArray<Variant>
   readonly variantPosition: number
-  readonly variantTotal: number
   readonly screenTaxonomy: ReadonlyArray<TaxonomyGroup>
   readonly uiElementTaxonomy: ReadonlyArray<TaxonomyGroup>
   readonly position: number
@@ -18,6 +19,7 @@ interface ViewerProps {
   readonly onClose: () => void
   readonly onNavigate: (direction: 1 | -1) => void
   readonly onVariant: (direction: 1 | -1) => void
+  readonly onVariantSelect: (id: string) => void
   readonly onFacet: (filter: Filter) => void
   readonly onTaxonomy: (taxonomy: Taxonomy, value: string) => void
 }
@@ -28,8 +30,8 @@ export function Viewer({
   screen,
   identifier,
   variant,
+  variants,
   variantPosition,
-  variantTotal,
   screenTaxonomy,
   uiElementTaxonomy,
   position,
@@ -38,6 +40,7 @@ export function Viewer({
   onClose,
   onNavigate,
   onVariant,
+  onVariantSelect,
   onFacet,
   onTaxonomy,
 }: ViewerProps) {
@@ -92,9 +95,13 @@ export function Viewer({
         </span>
         <div className="viewer-actions">
           <IdChip id={identifier} className="viewer-button" />
-          <button type="button" className="viewer-button" onClick={() => onVariant(-1)} aria-label="Previous variant">←</button>
-          <span className="viewer-variant"><strong>{variant.label}</strong> {variantPosition}/{variantTotal}</span>
-          <button type="button" className="viewer-button" onClick={() => onVariant(1)} aria-label="Next variant">→</button>
+          <CaptureSetSwitcher
+            sets={variants}
+            active={variant}
+            position={variantPosition}
+            onNavigate={onVariant}
+            onSelect={onVariantSelect}
+          />
         </div>
       </header>
       <div className="viewer-body">

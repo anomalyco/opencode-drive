@@ -69,6 +69,7 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
           </div>
           <span>{activeFlow.steps.length} {activeFlow.steps.length === 1 ? "step" : "steps"}</span>
           <p>{activeFlow.description}</p>
+          {!activeFlow.replayable ? <small className="flow-browse-only">Browse only · IDs identify captures, not recipes</small> : undefined}
         </header>
         <ol className="flow-rail" role="list">
           {activeFlow.steps.map((step, index) => {
@@ -92,7 +93,10 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
                   <span className="flow-step-text">
                     <span className="flow-step-title">
                       <strong>{step.title}</strong>
-                      <IdChip id={`${activeFlow.id}/${screen.id}`} className="id-chip-end" />
+                    <IdChip
+                      id={activeFlow.replayable ? `${activeFlow.id}/${screen.id}` : screen.id}
+                      className="id-chip-end"
+                    />
                     </span>
                     {step.trigger ? <small>{step.trigger}</small> : undefined}
                   </span>

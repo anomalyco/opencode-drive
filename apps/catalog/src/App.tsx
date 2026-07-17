@@ -226,9 +226,9 @@ export function App({ catalog }: AppProps) {
       target instanceof HTMLTextAreaElement ||
       (target instanceof HTMLElement && target.isContentEditable)
     if (editing) return
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault()
-      navigateVariant(event.key === "ArrowLeft" ? -1 : 1)
+      navigateVariant(event.key === "ArrowUp" ? -1 : 1)
       return
     }
     if (event.key === "/") {
@@ -275,6 +275,7 @@ export function App({ catalog }: AppProps) {
           onClearSearch={() => dispatch({ type: "clear-search" })}
           onOpenPalette={() => dispatch({ type: "open-palette" })}
           onVariant={navigateVariant}
+          onVariantSelect={(id) => setVariantIndex(Math.max(0, catalog.variants.findIndex((variant) => variant.id === id)))}
         />
         {ui.mode !== "flows" ? (
           <SelectionBar
@@ -311,10 +312,12 @@ export function App({ catalog }: AppProps) {
         <Viewer
           key={selectedScreen.id}
           screen={selectedScreen}
-          identifier={ui.mode === "flows" && activeFlow ? `${activeFlow.id}/${selectedScreen.id}` : selectedScreen.id}
+          identifier={ui.mode === "flows" && activeFlow?.replayable
+            ? `${activeFlow.id}/${selectedScreen.id}`
+            : selectedScreen.id}
           variant={activeVariant}
+          variants={catalog.variants}
           variantPosition={variantIndex + 1}
-          variantTotal={catalog.variants.length}
           screenTaxonomy={catalog.screenTaxonomy}
           uiElementTaxonomy={catalog.uiElementTaxonomy}
           position={viewerScreens.findIndex((screen) => screen.id === selectedScreen.id) + 1}
@@ -323,6 +326,7 @@ export function App({ catalog }: AppProps) {
           onClose={() => dispatch({ type: "close-viewer" })}
           onNavigate={navigateViewer}
           onVariant={navigateVariant}
+          onVariantSelect={(id) => setVariantIndex(Math.max(0, catalog.variants.findIndex((variant) => variant.id === id)))}
           onFacet={(filter) => dispatch({ type: "toggle-facet", ...filter })}
           onTaxonomy={(taxonomy, value) => dispatch({ type: "toggle-taxonomy", taxonomy, value })}
         />

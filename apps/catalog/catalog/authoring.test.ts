@@ -8,7 +8,15 @@ import type { DriveManifest } from "./schema"
 const manifest: DriveManifest = {
   format: "opencode-terminal-frame-captures-v1",
   generatedBy: "scripts/capture-opencode-drive.ts",
-  variants: [{ id: "baseline", label: "Baseline", source: "/tmp/opencode", revision: "abc123", theme: "opencode" }],
+  variants: [{
+    id: "baseline",
+    label: "Baseline",
+    source: "/tmp/opencode",
+    revision: "abc123",
+    ref: "v2",
+    committedAt: "2026-07-17T10:17:51Z",
+    theme: "opencode",
+  }],
   captures: [
     {
       id: "home",

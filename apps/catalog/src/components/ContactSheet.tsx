@@ -34,10 +34,9 @@ export function ContactSheet({
       target instanceof HTMLTextAreaElement ||
       (target instanceof HTMLElement && target.isContentEditable)
     if (editing) return
-    const columns = gridColumns(gridRef.current)
     const steps: Record<string, number> = {
-      ArrowUp: -columns,
-      ArrowDown: columns,
+      ArrowLeft: -1,
+      ArrowRight: 1,
     }
     const current = Math.max(
       0,
@@ -106,9 +105,4 @@ export function ContactSheet({
       )}
     </section>
   )
-}
-
-function gridColumns(grid: HTMLElement | null): number {
-  if (!grid) return 1
-  return getComputedStyle(grid).gridTemplateColumns.split(" ").length
 }

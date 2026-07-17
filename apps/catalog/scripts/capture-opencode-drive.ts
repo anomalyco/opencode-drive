@@ -1,5 +1,6 @@
-import { mkdir } from "node:fs/promises"
-import { basename, resolve } from "node:path"
+import { mkdir, mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Effect } from "effect"
 import { Llm, OpenCodeDriver } from "opencode-drive"
@@ -7,6 +8,14 @@ import { screens, type CaptureId } from "../catalog/authored/screens"
 import type { ScreenCategory } from "../catalog/dsl"
 import { executeFlow } from "../catalog/flow"
 import { patchSuccessFlow } from "../scenarios/tools/patch-success"
+import type { DriveManifest, Variant as CaptureSet } from "../catalog/schema"
+import {
+  captureSetId,
+  captureSetLabel,
+  captureSource,
+  mergeCaptureHistory,
+  parseCaptureOptions,
+} from "./capture-sets"
 
 type Capture = {
   readonly id: CaptureId
@@ -25,13 +34,17 @@ type Variant = {
   readonly label: string
   readonly source: string
   readonly revision: string
+  readonly ref: string
+  readonly committedAt: string
   readonly path: string
   readonly theme?: string
 }
 
 const viewport = { cols: 118, rows: 34 } as const
 const defaultOpenCode = fileURLToPath(new URL("../../../../opencode-v2-latest/", import.meta.url))
-const variants = await Effect.runPromise(parseVariants(process.argv.slice(2)))
+const options = parseCaptureOptions(process.argv.slice(2), defaultOpenCode)
+const prepared = await prepareCaptureSets(options)
+const variants = prepared.variants
 
 const captureVariant = (variant: Variant) => OpenCodeDriver.use(
   {
@@ -198,89 +211,84 @@ const captureVariant = (variant: Variant) => OpenCodeDriver.use(
     }),
 )
 
-const captured = await Effect.runPromise(
-  Effect.forEach(variants, captureVariant, { concurrency: Math.min(variants.length, 2) }),
-)
-const captures = captured[0]?.map((first) => ({
-  id: first.id,
-  title: first.title,
-  category: first.category,
-  frames: captured.flatMap((variantCaptures) =>
-    variantCaptures.filter((capture) => capture.id === first.id).map((capture) => capture.frame),
-  ),
-})) ?? []
-await Bun.write(
-  new URL("../public/drive-captures.json", import.meta.url),
-  `${JSON.stringify(
-    {
-      format: "opencode-terminal-frame-captures-v1",
-      generatedBy: "scripts/capture-opencode-drive.ts",
-      variants: variants.map(({ id, label, source, revision, theme }) => ({
-        id,
-        label,
-        source,
-        revision,
-        ...(theme === undefined ? {} : { theme }),
-      })),
-      captures,
-    },
-    undefined,
-    2,
-  )}\n`,
-)
+try {
+  const captured = await Effect.runPromise(
+    Effect.forEach(variants, captureVariant, { concurrency: Math.min(variants.length, 2) }),
+  )
+  const captures = captured[0]?.map((first) => ({
+    id: first.id,
+    title: first.title,
+    category: first.category,
+    frames: captured.flatMap((variantCaptures) =>
+      variantCaptures.filter((capture) => capture.id === first.id).map((capture) => capture.frame),
+    ) as [Capture["frame"], ...Array<Capture["frame"]>],
+  })) ?? []
+  const manifestFile = new URL("../public/drive-captures.json", import.meta.url)
+  const previous = await readPreviousManifest(manifestFile)
+  const captureSets = variants.map(({ path: _, ...variant }) => variant satisfies CaptureSet)
+  const manifest = mergeCaptureHistory(previous, captureSets, captures)
+  await Bun.write(manifestFile, `${JSON.stringify(manifest, undefined, 2)}\n`)
+} finally {
+  await prepared.cleanup()
+}
 
-function parseVariants(args: ReadonlyArray<string>) {
-  return Effect.gen(function* () {
-    const values: Array<string> = []
-    const themes = new Map<string, string>()
-    for (let index = 0; index < args.length; index++) {
-      if (args[index] === "--theme") {
-        const value = args[++index]
-        if (!value) return yield* Effect.fail(new Error("--theme requires variant=theme"))
-        const separator = value.indexOf("=")
-        if (separator <= 0 || separator === value.length - 1) {
-          return yield* Effect.fail(new Error(`Invalid theme ${JSON.stringify(value)}; expected variant=theme`))
-        }
-        themes.set(value.slice(0, separator), value.slice(separator + 1))
-        continue
-      }
-      if (args[index] !== "--variant") {
-        return yield* Effect.fail(new Error(`Unknown capture argument: ${args[index]}`))
-      }
-      const value = args[++index]
-      if (!value) return yield* Effect.fail(new Error("--variant requires name=path"))
-      values.push(value)
+async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions>) {
+  const worktrees: Array<string> = []
+  const variants: Array<Variant> = []
+  const revisions = new Map<string, { ref: string; committedAt: string; path: string }>()
+
+  try {
+    for (const ref of options.revisions) {
+      const revision = await git(options.opencode, "rev-parse", `${ref}^{commit}`)
+      if (revisions.has(revision)) continue
+      const committedAt = await git(options.opencode, "show", "-s", "--format=%cI", revision)
+      const path = await mkdtemp(join(tmpdir(), "opencode-catalog-"))
+      await command(["git", "worktree", "add", "--detach", path, revision], options.opencode)
+      worktrees.push(path)
+      await command(["bun", "install", "--frozen-lockfile"], path)
+      revisions.set(revision, { ref, committedAt, path })
     }
-    if (values.length === 0) values.push(`v2=${defaultOpenCode}`)
-    return yield* Effect.forEach(values, (value) =>
-      Effect.gen(function* () {
-        const separator = value.indexOf("=")
-        const id = separator === -1 ? "" : value.slice(0, separator)
-        const source = resolve(separator === -1 ? "" : value.slice(separator + 1))
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || separator === value.length - 1) {
-          return yield* Effect.fail(new Error(`Invalid variant ${JSON.stringify(value)}; expected slug=path`))
-        }
-        const revision = yield* Effect.tryPromise({
-          try: async () => {
-            const process = Bun.spawn(["git", "rev-parse", "--short=12", "HEAD"], {
-              cwd: source,
-              stdout: "pipe",
-              stderr: "ignore",
-            })
-            const output = await new Response(process.stdout).text()
-            return (await process.exited) === 0 ? output.trim() : "working-tree"
-          },
-          catch: () => "working-tree",
-        }).pipe(Effect.catch(() => Effect.succeed("working-tree")))
-        return {
-          id,
-          label: id,
-          source: basename(source),
+
+    for (const [revision, preparedRevision] of revisions) {
+      for (const theme of options.themes) {
+        variants.push({
+          id: captureSetId(revision, theme),
+          label: captureSetLabel(revision, theme),
+          source: captureSource(options.opencode),
           revision,
-          path: source,
-          ...(themes.get(id) === undefined ? {} : { theme: themes.get(id) }),
-        } satisfies Variant
-      }),
-    )
-  })
+          ref: preparedRevision.ref,
+          committedAt: preparedRevision.committedAt,
+          path: preparedRevision.path,
+          ...(theme === undefined ? {} : { theme }),
+        })
+      }
+    }
+  } catch (error) {
+    await cleanup()
+    throw error
+  }
+
+  return { variants, cleanup }
+
+  async function cleanup() {
+    for (const path of worktrees.reverse()) {
+      await command(["git", "worktree", "remove", "--force", path], options.opencode).catch(() => rm(path, { recursive: true, force: true }))
+    }
+  }
+}
+
+async function readPreviousManifest(file: URL): Promise<DriveManifest | undefined> {
+  const source = Bun.file(file)
+  return (await source.exists()) ? source.json() as Promise<DriveManifest> : undefined
+}
+
+async function git(cwd: string, ...args: ReadonlyArray<string>): Promise<string> {
+  return (await command(["git", ...args], cwd)).trim()
+}
+
+async function command(argv: ReadonlyArray<string>, cwd: string): Promise<string> {
+  const process = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "inherit" })
+  const output = await new Response(process.stdout).text()
+  if (await process.exited !== 0) throw new Error(`${argv.join(" ")} failed`)
+  return output
 }

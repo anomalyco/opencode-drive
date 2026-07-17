@@ -23,7 +23,17 @@ export const Patterns = [
 ] as const
 export type Pattern = (typeof Patterns)[number]
 
-export const States = ["default", "empty", "populated", "streaming", "confirmation", "success", "error"] as const
+export const States = [
+  "default",
+  "empty",
+  "populated",
+  "pending",
+  "running",
+  "streaming",
+  "confirmation",
+  "success",
+  "error",
+] as const
 export type ScreenState = (typeof States)[number]
 
 export type TaxonomyDefinition = Readonly<
@@ -78,6 +88,7 @@ export interface FlowStepDefinition<CaptureId extends string> {
 export interface FlowDefinition<CaptureId extends string> {
   readonly title: string
   readonly description: string
+  readonly replayable?: boolean
   readonly steps: NonEmpty<FlowStepDefinition<CaptureId>>
 }
 
