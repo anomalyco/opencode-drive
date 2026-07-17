@@ -9,6 +9,7 @@ interface MatrixNavigationProps {
 }
 
 export function MatrixNavigation({ screens, states, selectedStates, onState }: MatrixNavigationProps) {
+  const selected = new Set(selectedStates)
   const categories = Array.from(
     screens.reduce((counts, screen) => counts.set(screen.category, (counts.get(screen.category) ?? 0) + 1), new Map<string, number>()),
   )
@@ -31,14 +32,14 @@ export function MatrixNavigation({ screens, states, selectedStates, onState }: M
         <span className="matrix-label">State</span>
         {states.map((state) => {
           const count = stateCounts.get(state) ?? 0
-          if (count === 0 && !selectedStates.includes(state)) return undefined
-          const selected = selectedStates.includes(state)
+          if (count === 0 && !selected.has(state)) return undefined
+          const active = selected.has(state)
           return (
             <button
               type="button"
               key={state}
-              className={selected ? "active" : ""}
-              aria-pressed={selected}
+              className={active ? "active" : ""}
+              aria-pressed={active}
               onClick={() => onState(state)}
             >
               {label(state)} <small>{count}</small>
