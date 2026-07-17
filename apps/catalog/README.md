@@ -1,5 +1,7 @@
 # OpenCode Terminal Catalog
 
+Production: <https://catalog.kitlangton.dev>
+
 Capture a reproducible catalog of OpenCode terminal states from local checkouts, browse every state in one web app, and flip between themes or branches without changing the selected screen.
 
 The catalog currently contains 23 scripted states covering the home screen, command and model pickers, integrations, themes, MCPs, permissions, questions, sessions, subagents, shell output, toasts, and the diff viewer.
