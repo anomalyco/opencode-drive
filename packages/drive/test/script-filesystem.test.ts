@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as Effect from "effect/Effect"
-import { ScriptError } from "../src/index.js"
+import { Errors } from "../src/index.js"
 import { createScriptFileSystem } from "../src/script/filesystem.js"
 
 const roots: string[] = []
@@ -29,7 +29,7 @@ describe("script filesystem", () => {
     const outsideError = await Effect.runPromise(
       fs.writeFile("../outside.ts", "no").pipe(Effect.flip),
     )
-    expect(outsideError).toBeInstanceOf(ScriptError.FileSystemError)
+    expect(outsideError).toBeInstanceOf(Errors.FileSystemError)
     expect(outsideError).toMatchObject({
       _tag: "FileSystemError",
       path: "../outside.ts",

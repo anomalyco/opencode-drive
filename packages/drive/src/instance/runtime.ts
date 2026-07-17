@@ -17,13 +17,15 @@ import type { RecordingPaths } from "../recording/finalize.js"
 import { stripGitEnvironment } from "../script/project.js"
 import * as ToolController from "../tool/controller.js"
 import type * as Tool from "../tool/index.js"
+import type { Frontend } from "../client/protocol.js"
 import type {
   OpenCodeConfig,
   OpenCodeTuiConfig,
-  ScriptProject,
-  ScriptSetup,
-  UiViewport,
+  Project,
+  Setup,
 } from "../script/types.js"
+
+type Viewport = Frontend.ResizeParams
 
 export class OpenCodeInstanceError extends Schema.TaggedErrorClass<OpenCodeInstanceError>()(
   "OpenCodeInstanceError",
@@ -41,12 +43,12 @@ export interface Options {
   readonly scripted?: boolean
   readonly visible?: boolean
   readonly record?: boolean
-  readonly viewport?: UiViewport
+  readonly viewport?: Viewport
   readonly env?: Readonly<Record<string, string>>
-  readonly project?: ScriptProject
+  readonly project?: Project
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
-  readonly setup?: ScriptSetup
+  readonly setup?: Setup
   readonly tools?: Tool.Setup
   readonly log?: (message: string) => void
 }
@@ -74,7 +76,7 @@ export interface Instance {
   readonly killServer: Effect.Effect<void, OpenCodeInstanceError>
   readonly launchClient: (
     name: string,
-    options?: { readonly record?: boolean; readonly viewport?: UiViewport },
+    options?: { readonly record?: boolean; readonly viewport?: Viewport },
   ) => Effect.Effect<Client, OpenCodeInstanceError>
   readonly waitForDrive: (
     requirement?: "ui" | "backend" | "both",
@@ -171,7 +173,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     name: string,
     manifestEndpoints: { readonly ui: string; readonly backend: string },
     recording?: RecordingPaths,
-    viewport?: UiViewport,
+    viewport?: Viewport,
   ) {
     yield* Effect.tryPromise({
       try: () =>
@@ -319,7 +321,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
 
   const launchClient = Effect.fn("OpenCodeInstance.launchClient")(function* (
     name: string,
-    clientOptions: { readonly record?: boolean; readonly viewport?: UiViewport } = {},
+    clientOptions: { readonly record?: boolean; readonly viewport?: Viewport } = {},
   ) {
     const pending = yield* lock.withPermit(
       Effect.gen(function* () {

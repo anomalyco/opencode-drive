@@ -3,7 +3,7 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import { defineScript, Llm } from "../index.js"
-import type { ScriptUi } from "../index.js"
+import type { Ui } from "../index.js"
 
 export default defineScript({
   run: ({ artifacts, llm, ui }) =>
@@ -79,7 +79,7 @@ function withTimeout(
 }
 
 const typeSlowly = Effect.fn("typeSlowly")(function* (
-  ui: ScriptUi,
+  ui: Ui,
   text: string,
 ) {
   for (const char of text) {

@@ -11,8 +11,8 @@ import {
 import type {
   OpenCodeConfig,
   OpenCodeTuiConfig,
-  ScriptProject,
-  ScriptSetup,
+  Project,
+  Setup,
 } from "../script/types.js"
 
 export function artifactDirectory() {
@@ -55,10 +55,10 @@ export async function initializeInstance(name?: string) {
 
 export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject")(function* (options: {
   readonly artifacts: string
-  readonly project?: ScriptProject
+    readonly project?: Project
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
-  readonly setup?: ScriptSetup
+    readonly setup?: Setup
 }) {
   const files = join(resolve(options.artifacts), "files")
   const configPath = join(files, ".opencode", "opencode.jsonc")
@@ -81,16 +81,17 @@ export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject
       tui,
     })
     if (!Effect.isEffect(setup))
-      return yield* Effect.fail(new Error("script setup must return an Effect"))
+        return yield* Effect.fail(new Error("setup must return an Effect"))
     yield* setup
   }
   yield* Effect.all([
     promise(() => Bun.write(configPath, `${JSON.stringify(config, undefined, 2)}\n`)),
     promise(() => Bun.write(tuiPath, `${JSON.stringify(tui, undefined, 2)}\n`)),
   ], { concurrency: "unbounded" })
-  if (options.project?.git)
-    yield* promise(() => commitScriptProject(files))
-})
+    if (options.project?.git)
+      yield* promise(() => commitScriptProject(files))
+    return undefined
+  })
 
 const promise = <A>(evaluate: () => PromiseLike<A>) =>
   Effect.tryPromise({

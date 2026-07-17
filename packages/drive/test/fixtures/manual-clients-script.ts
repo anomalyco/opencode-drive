@@ -26,20 +26,22 @@ export default defineScript({
         [clients.launch("alice"), clients.launch("bob")],
         { concurrency: "unbounded" },
       )
-      yield* alice.submit("from alice")
-      yield* bob.submit("from bob")
-      const [aliceMatches, bobMatches, aliceScreenshot, bobScreenshot] =
+      yield* alice.ui.submit("from alice")
+      yield* bob.ui.submit("from bob")
+      const [aliceMatches, bobMatches, aliceScreenshot, bobScreenshot, aliceFrame] =
         yield* Effect.all([
-        alice.matches("client-alice"),
-        bob.matches("client-bob"),
-        alice.screenshot("alice"),
-        bob.screenshot("bob"),
+        alice.ui.matches("client-alice"),
+        bob.ui.matches("client-bob"),
+        alice.ui.screenshot("alice"),
+        bob.ui.screenshot("bob"),
+        alice.ui.capture(),
         ], { concurrency: "unbounded" })
       yield* Effect.tryPromise(() =>
         Bun.write(
           `${artifacts}/manual-clients.json`,
           JSON.stringify({
             aliceMatches,
+            aliceFrame: { cols: aliceFrame.cols, rows: aliceFrame.rows },
             bobMatches,
             apiHealthy: health.healthy,
             clientBeforeServer,

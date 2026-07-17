@@ -2,37 +2,30 @@ import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
-import * as Stream from "effect/Stream"
 import * as OpenCodeDriver from "../driver/index.js"
 import type * as OpenCodeClient from "../driver/client.js"
-import type * as OpenCodeUi from "../driver/ui.js"
+import * as OpenCodeUi from "../driver/ui.js"
 import * as PreparedDriver from "../driver/prepared.js"
 import type * as OpenCodeInstance from "../instance/runtime.js"
-import { UiPredicateError } from "../script/errors.js"
 import { createScriptFileSystem } from "../script/filesystem.js"
 import { hasGitMetadata } from "../script/project.js"
 import type {
-  ScriptClientOptions,
+  AutomaticScriptDefinition,
   ScriptDefinition,
-  ScriptLlm,
-  ScriptUi,
-  ScriptUiWaitError,
-  UiElementQuery,
-  UiMatcher,
-  UiPredicate,
-  UiState,
-  UiWaitOptions,
 } from "../script/types.js"
 
 export const loadScript = Effect.fn("DriveCli.loadScript")((file: string) =>
   Effect.tryPromise({
-    try: () => import(pathToFileURL(resolve(file)).href) as Promise<{ readonly default?: unknown }>,
+    try: async () => {
+      const module: unknown = await import(pathToFileURL(resolve(file)).href)
+      return isRecord(module) ? { default: module.default } : {}
+    },
     catch: (cause) => cause,
   }).pipe(
     Effect.flatMap((module) =>
       isScriptDefinition(module.default)
         ? Effect.succeed(module.default)
-        : Effect.fail(new Error("script must default-export defineScript({ project?, setup?, run })")),
+        : Effect.fail(new Error("script must default-export defineScript(...)")),
     ),
   ),
 )
@@ -48,7 +41,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     visible: false,
     launch: "launch" in script ? "manual" : "automatic",
     clientName: "default",
-    client: { viewport: script.viewport },
+    client: script.client,
   })
   const protectGit = yield* Effect.promise(() =>
     hasGitMetadata(join(instance.artifacts, "files")),
@@ -68,60 +61,53 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     recordings.add(path)
     onRecording?.(path)
   }
-  const adaptUi = (client: OpenCodeClient.Client): ScriptUi => {
-    const ui = client.ui
-    function waitFor(
-      matcher: UiMatcher,
-      options?: UiWaitOptions,
-    ): Effect.Effect<UiState, ScriptUiWaitError>
-    function waitFor(
-      predicate: UiPredicate,
-      options?: UiWaitOptions,
-    ): Effect.Effect<UiState, ScriptUiWaitError | UiPredicateError>
-    function waitFor(
-      target: UiMatcher | UiPredicate,
-      options?: UiWaitOptions,
-    ) {
-      if (typeof target === "string") return runUi(ui.waitFor(target, options))
-      return runUi(ui.waitFor(adaptPredicate(target), options))
-    }
+  const adaptUi = (ui: OpenCodeUi.Ui): OpenCodeUi.Ui => {
+    const transformed = OpenCodeUi.transform(ui, runUi)
     return {
-      kill: () =>
-        runUi(Effect.gen(function* () {
-          const output = client.recording === undefined
-            ? undefined
-            : yield* client.recording.finish()
-          if (output !== undefined) reportRecording(output)
-          yield* client.close()
-          return output
-        })),
-      state: () => runUi(ui.state()),
-      matches: (matcher) => runUi(ui.matches(matcher)),
-      screenshot: (name) => runUi(ui.screenshot(name)).pipe(Effect.tap((path) => Effect.sync(() => onScreenshot?.(path)))),
-      type: (text) => runUi(ui.type(text)),
-      press: (key, modifiers) => runUi(ui.press(key, modifiers)),
-      enter: () => runUi(ui.enter()),
-      arrow: (direction) => runUi(ui.arrow(direction)),
-      focus: (target) => runUi(ui.focus(target)),
-      click: (target, position) => runUi(ui.click(target, position)),
-      resize: (viewport) => runUi(ui.resize(viewport)),
-      submit: (text) => runUi(ui.submit(text)),
-      waitFor,
-      getElement: (
-        target: number | string | UiElementQuery,
-        options?: UiWaitOptions,
-      ) => runUi(ui.getElement(target, options)),
+      ...transformed,
+      screenshot: (name) =>
+        transformed.screenshot(name).pipe(
+          Effect.tap((path) =>
+            Effect.sync(() => onScreenshot?.(path)),
+          ),
+        ),
     }
   }
-  const llm = adaptLlm(prepared.llm)
-  const clients = {
-    launch: (name: string, options?: ScriptClientOptions) =>
-      prepared.clients.launch(name, {
-        recording: options?.record,
-        viewport: options?.viewport ?? script.viewport,
-      }).pipe(
+  const adaptClient = (client: OpenCodeClient.Client): OpenCodeClient.Client => {
+    const recording = client.recording
+    return {
+      ui: adaptUi(client.ui),
+      close: client.close,
+      ...(recording === undefined
+        ? {}
+        : {
+            recording: {
+              path: recording.path,
+              timeline: recording.timeline,
+              finish: () =>
+                runUi(recording.finish()).pipe(
+                  Effect.tap((path) =>
+                    Effect.sync(() => reportRecording(path)),
+                  ),
+                ),
+            },
+          }),
+    }
+  }
+  const clientOptions = (options?: OpenCodeClient.Options) => ({
+    ...script.client,
+    ...options,
+  })
+  const clients: OpenCodeClient.Clients = {
+    make: (options) =>
+      prepared.clients.make(clientOptions(options)).pipe(
         Effect.tap(() => Effect.sync(() => onReady?.())),
-        Effect.map(adaptUi),
+        Effect.map(adaptClient),
+      ),
+    launch: (name, options) =>
+      prepared.clients.launch(name, clientOptions(options)).pipe(
+        Effect.tap(() => Effect.sync(() => onReady?.())),
+        Effect.map(adaptClient),
       ),
   }
   const context = {
@@ -133,18 +119,27 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       launch: prepared.server.launch,
       kill: prepared.server.kill,
     },
-    llm,
+    llm: prepared.llm,
     artifacts: instance.artifacts,
   }
   const primaryClient = prepared.primary
+  const automatic = (definition: AutomaticScriptDefinition) => {
+    if (primaryClient === undefined || prepared.driver === undefined)
+      return Effect.fail(
+        new Error("automatic script did not launch its primary client"),
+      )
+    const client = adaptClient(primaryClient)
+    return definition.run({
+      ...context,
+      api: prepared.driver.api,
+      client,
+      ui: client.ui,
+    })
+  }
   const execution =
     "launch" in script
       ? script.run({ ...context, ui: null })
-      : script.run({
-          ...context,
-          api: prepared.driver!.api,
-          ui: adaptUi(primaryClient!),
-        })
+      : automatic(script)
   if (!Effect.isEffect(execution))
     return yield* Effect.fail(new Error("script run must return an Effect"))
   if (primaryClient !== undefined) onReady?.()
@@ -155,75 +150,10 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       Effect.catchIf(isZeroStatusClientExit, () => Effect.void),
     ),
   ])
-  const settlement = yield* prepared.settle()
-  for (const path of settlement.recordings) reportRecording(path)
+  const report = yield* prepared.settle()
+  for (const path of report.recordings) reportRecording(path)
+  return undefined
 })
-
-function adaptLlm(
-  controller: OpenCodeDriver.Llm,
-): ScriptLlm {
-  return {
-    queue: controller.queue,
-    send: controller.send,
-    serve: (handler) =>
-      controller.serve((request, index) =>
-        handler(request, index).pipe(
-          Stream.mapError((cause) => llmError("serve", cause, request.id)),
-        ),
-      ),
-    title: (handler) =>
-      controller.title((request, index) =>
-        handler(request, index).pipe(
-          Effect.mapError((cause) => llmError("title", cause, request.id)),
-        ),
-      ),
-  }
-}
-
-function llmError(operation: string, cause: unknown, requestId?: string) {
-  return new OpenCodeDriver.LlmControllerError({
-    operation,
-    requestId,
-    message: cause instanceof Error ? cause.message : String(cause),
-  })
-}
-
-function predicateError(cause: unknown) {
-  if (cause instanceof UiPredicateError) return cause
-  return new UiPredicateError({
-    cause,
-    message: `ui.waitFor ${cause instanceof Error ? cause.message : String(cause)}`,
-  })
-}
-
-function adaptPredicate(
-  predicate: UiPredicate,
-): OpenCodeUi.EffectPredicate<UiPredicateError> {
-  return (state) =>
-    Effect.try({
-      try: (): unknown => predicate(state),
-      catch: predicateError,
-    }).pipe(
-      Effect.flatMap((result) => {
-        if (isEffect(result))
-          return result.pipe(
-            Effect.mapError(predicateError),
-            Effect.flatMap((value) =>
-              typeof value === "boolean"
-                ? Effect.succeed(value)
-                : Effect.fail(predicateError("predicate Effect must produce a boolean")),
-            ),
-          )
-        return typeof result === "boolean"
-          ? Effect.succeed(result)
-          : Effect.fail(predicateError("predicate must return a boolean or Effect"))
-      }),
-    )
-}
-
-function isEffect(value: unknown): value is Effect.Effect<unknown, unknown> {
-  return Effect.isEffect(value)
-}
 
 function isZeroStatusClientExit(cause: unknown) {
   return (
@@ -240,13 +170,29 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function isScriptDefinition(value: unknown): value is ScriptDefinition {
   if (!isRecord(value)) return false
   return (
+    value.kind === "opencode-drive/script" &&
     typeof value.run === "function" &&
     (value.project === undefined || isScriptProject(value.project)) &&
     (value.config === undefined || isJsonObject(value.config)) &&
     (value.tui === undefined || isJsonObject(value.tui)) &&
     (value.setup === undefined || typeof value.setup === "function") &&
     (value.tools === undefined || typeof value.tools === "function") &&
+    (value.client === undefined || isClientOptions(value.client)) &&
     (!("launch" in value) || value.launch === "manual")
+  )
+}
+
+function isClientOptions(value: unknown) {
+  if (!isRecord(value)) return false
+  if (value.recording !== undefined && typeof value.recording !== "boolean")
+    return false
+  if (value.viewport === undefined) return true
+  if (!isRecord(value.viewport)) return false
+  return (
+    typeof value.viewport.cols === "number" &&
+    Number.isFinite(value.viewport.cols) &&
+    typeof value.viewport.rows === "number" &&
+    Number.isFinite(value.viewport.rows)
   )
 }
 

@@ -38,22 +38,17 @@ export const commandInfo = {
     value: false,
     description: "Finish recording and return the timeline path",
   },
-} as const
+} as const satisfies Record<
+  Frontend.Capability,
+  { readonly value: boolean | "optional"; readonly description: string }
+>
 
-export function commandAcceptsValue(operation: string) {
-  if (operation === "ui.type") return commandInfo[operation].value
-  if (operation === "ui.press") return commandInfo[operation].value
-  if (operation === "ui.enter") return commandInfo[operation].value
-  if (operation === "ui.arrow") return commandInfo[operation].value
-  if (operation === "ui.focus") return commandInfo[operation].value
-  if (operation === "ui.click") return commandInfo[operation].value
-  if (operation === "ui.resize") return commandInfo[operation].value
-  if (operation === "ui.screenshot") return commandInfo[operation].value
-  if (operation === "ui.capture") return commandInfo[operation].value
-  if (operation === "ui.state") return commandInfo[operation].value
-  if (operation === "ui.matches") return commandInfo[operation].value
-  if (operation === "ui.recording.finish") return commandInfo[operation].value
-  throw new Error(`unknown drive command "${operation}"`)
+export function isCommandName(operation: string): operation is Frontend.Capability {
+  return Object.hasOwn(commandInfo, operation)
+}
+
+export function commandAcceptsValue(operation: Frontend.Capability) {
+  return commandInfo[operation].value
 }
 
 export function commandNames() {
@@ -107,7 +102,7 @@ async function execute(
       })
       if (request.method !== "ui.type")
         throw new Error("invalid ui.type params")
-      return ui.typeText(request.params.text)
+      return ui.type(request.params.text)
     }
     case "ui.press": {
       const request = Frontend.decodeRequest({
@@ -117,10 +112,10 @@ async function execute(
       })
       if (request.method !== "ui.press")
         throw new Error("invalid ui.press params")
-      return ui.pressKey(request.params.key, request.params.modifiers)
+      return ui.press(request.params.key, request.params.modifiers)
     }
     case "ui.enter":
-      return ui.pressEnter()
+      return ui.enter()
     case "ui.arrow": {
       const request = Frontend.decodeRequest({
         jsonrpc: "2.0",
@@ -129,7 +124,7 @@ async function execute(
       })
       if (request.method !== "ui.arrow")
         throw new Error("invalid ui.arrow params")
-      return ui.pressArrow(request.params.direction)
+      return ui.arrow(request.params.direction)
     }
     case "ui.focus": {
       const request = Frontend.decodeRequest({
@@ -188,7 +183,11 @@ async function execute(
     case "ui.recording.finish":
       return ui.finishRecording()
   }
-  throw new Error(`unknown drive command "${command.operation}"`)
+  return assertNever(command.operation)
+}
+
+function assertNever(_value: never): never {
+  throw new Error("unreachable drive command")
 }
 
 function required(command: DriveCommand) {

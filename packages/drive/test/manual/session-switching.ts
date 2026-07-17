@@ -1,4 +1,4 @@
-import { defineScript, Llm, type ScriptUi } from "../../src/index.js"
+import { defineScript, Llm, type Ui } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
@@ -95,7 +95,7 @@ export default defineScript({
 })
 
 const leader = Effect.fn("leader")(function* (
-  ui: ScriptUi,
+  ui: Ui,
   key: string,
 ) {
   yield* ui.press("x", { ctrl: true })

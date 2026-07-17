@@ -13,18 +13,11 @@ export class FileSystemError extends Schema.TaggedErrorClass<FileSystemError>()(
   },
 ) {}
 
-export class UiPredicateError extends Schema.TaggedErrorClass<UiPredicateError>()(
-  "UiPredicateError",
-  {
-    cause: Schema.Defect(),
-    message: Schema.String,
-  },
-) {}
-
 export { OpenCodeDriverError } from "../driver/error.js"
 export { LlmControllerError, LlmModeError } from "../driver/llm-controller.js"
 export {
   UiElementAmbiguousError,
+  UiPredicateError,
   UiTimeoutError,
   UiWaitOptionsError,
 } from "../driver/ui.js"

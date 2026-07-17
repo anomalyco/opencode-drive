@@ -2,4 +2,4 @@
 "opencode-drive": major
 ---
 
-Give script capabilities precise typed errors, unify UI predicates under `ui.waitFor`, expose concrete failures through `ScriptError`, and keep pure response constructors exclusively under `Llm`.
+Give capabilities precise typed errors, validate UI predicates in canonical `ui.waitFor`, expose concrete failures through `Errors`, and keep pure response constructors exclusively under `Llm`.

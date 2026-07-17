@@ -1,5 +1,7 @@
+import type { Frontend } from "../client/index.js"
+
 export interface DriveCommand {
-  readonly operation: string
+  readonly operation: Frontend.Capability
   readonly value?: string
 }
 

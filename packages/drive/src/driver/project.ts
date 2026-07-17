@@ -7,16 +7,16 @@ import {
 import type {
   OpenCodeConfig,
   OpenCodeTuiConfig,
-  ScriptProject,
-  ScriptSetup,
+  Project as ProjectDefinition,
+  Setup,
 } from "../script/types.js"
 import { error } from "./error.js"
 
 export interface Options {
-  readonly project?: ScriptProject
+  readonly project?: ProjectDefinition
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
-  readonly setup?: ScriptSetup
+  readonly setup?: Setup
   /** Retain the isolated artifact directory after the scope closes. */
   readonly keepArtifacts?: boolean
 }

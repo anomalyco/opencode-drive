@@ -10,7 +10,6 @@ import { init } from "./init.js"
 import { list } from "./list.js"
 import { prune } from "./prune.js"
 import { restart } from "./restart.js"
-import { responses } from "./responses.js"
 import { runProgram } from "./run.js"
 import { send } from "./send.js"
 import { initScript } from "./script-init.js"
@@ -161,16 +160,6 @@ const sendCommand = Command.make("send", { name }, (config) =>
   ]),
 )
 
-const screenshotCommand = Command.make("screenshot", { name }, (config) =>
-  execute(() =>
-    send({
-      kind: "send",
-      name: Option.getOrUndefined(config.name),
-      commands: [{ operation: "ui.screenshot" }],
-    }),
-  ),
-).pipe(Command.withDescription("Take a screenshot and print its path"))
-
 const restartCommand = Command.make("restart", { name }, (config) =>
   execute(() => restart(Option.getOrUndefined(config.name))),
 ).pipe(Command.withDescription("Restart a named OpenCode instance and rerun its script"))
@@ -203,29 +192,6 @@ const pruneCommand = Command.make(
   Command.withDescription("Delete artifact directories for inactive OpenCode instances"),
 )
 
-const responsesCommand = Command.make(
-  "responses",
-  {
-    name,
-    types: Flag.string("types").pipe(
-      Flag.optional,
-      Flag.withDescription("Comma-delimited response types"),
-    ),
-    tools: Flag.string("tools").pipe(
-      Flag.optional,
-      Flag.withDescription("Comma-delimited tool names, or * for all tools"),
-    ),
-  },
-  (config) =>
-    execute(() =>
-      responses({
-        name: Option.getOrUndefined(config.name),
-        types: Option.getOrUndefined(config.types),
-        tools: Option.getOrUndefined(config.tools),
-      }),
-    ),
-).pipe(Command.withDescription("Configure simulated LLM response generation"))
-
 const root = Command.make("opencode-drive").pipe(
   Command.withDescription("Drive real and simulated OpenCode instances"),
   Command.withSubcommands([
@@ -235,10 +201,8 @@ const root = Command.make("opencode-drive").pipe(
     runCommand,
     startCommand,
     sendCommand,
-    screenshotCommand,
     listCommand,
     pruneCommand,
-    responsesCommand,
     dirCommand,
     restartCommand,
     stopCommand,

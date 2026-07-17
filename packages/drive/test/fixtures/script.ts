@@ -42,10 +42,11 @@ export default defineScript({
       yield* ui.waitFor("script-text")
       yield* ui.screenshot("script-shot")
       const state = yield* ui.state()
+      const frame = yield* ui.capture()
       yield* Effect.tryPromise(() =>
         Bun.write(
           join(artifacts, "script-result.json"),
-          `${JSON.stringify({ focused: state.focused, gitWriteError, matches }, undefined, 2)}\n`,
+          `${JSON.stringify({ focused: state.focused, frame: { cols: frame.cols, rows: frame.rows }, gitWriteError, matches }, undefined, 2)}\n`,
         ),
       )
     }),

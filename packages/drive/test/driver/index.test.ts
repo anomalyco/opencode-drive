@@ -26,16 +26,17 @@ it.live("runs and settles a complete scoped driver", () =>
           items: ["declared"],
         },
         tui: { theme: { declared: true } },
-        setup({ config, tui }) {
-          config.nested = {
-            ...config.nested as Record<string, boolean | string>,
-            winner: "setup",
-          }
-          tui.theme = {
-            ...tui.theme as Record<string, boolean>,
-            setup: true,
-          }
-        },
+        setup: ({ config, tui }) =>
+          Effect.sync(() => {
+            config.nested = {
+              ...config.nested as Record<string, boolean | string>,
+              winner: "setup",
+            }
+            tui.theme = {
+              ...tui.theme as Record<string, boolean>,
+              setup: true,
+            }
+          }),
         client: {
           recording: true,
           viewport: { cols: 96, rows: 32 },
@@ -61,7 +62,7 @@ it.live("runs and settles a complete scoped driver", () =>
           yield* secondary.ui.waitFor("hello from secondary")
           return {
             artifacts: driver.artifacts,
-            recording: driver.recording?.path,
+            recording: driver.client.recording?.path,
           }
         }),
     )
@@ -127,6 +128,24 @@ it.live("runs and settles a complete scoped driver", () =>
   }),
 )
 
+it.live("rejects a setup callback that does not return an Effect", () =>
+  Effect.gen(function* () {
+    const failure = yield* OpenCodeDriver.use(
+      {
+        setup() {},
+        opencode: { command: fakeOpenCode },
+      },
+      () => Effect.void,
+    ).pipe(Effect.flip)
+
+    expect(failure).toMatchObject({
+      _tag: "OpenCodeDriverError",
+      operation: "project.prepare",
+      message: "setup must return an Effect",
+    })
+  }),
+)
+
 it.live("supports explicit terminal settlement with make", () =>
   Effect.gen(function* () {
     let artifacts = ""
@@ -140,7 +159,7 @@ it.live("supports explicit terminal settlement with make", () =>
           Llm.text("explicit settlement", { delay: 0, chunkSize: 100 }),
         )
         const settlement = yield* driver.settle()
-        expect(settlement.report).toMatchObject({
+        expect(settlement).toMatchObject({
           artifacts: driver.artifacts,
           retained: false,
           compatibility: [
@@ -226,7 +245,7 @@ it.live("settles and exports recordings when the user program fails", () =>
         },
         (driver) => {
           artifacts = driver.artifacts
-          recording = driver.recording?.path ?? ""
+          recording = driver.client.recording?.path ?? ""
           return Effect.fail("user program failed")
         },
       ),
@@ -359,7 +378,7 @@ it.live("closes clients and exports recordings after LLM settlement fails", () =
           opencode: { command: fakeOpenCode },
         })
         artifacts = driver.artifacts
-        recording = driver.recording?.path ?? ""
+        recording = driver.client.recording?.path ?? ""
         yield* driver.llm.queue(
           Llm.finish(),
           Llm.text("too late", { delay: 0 }),

@@ -2,7 +2,7 @@ import { lstat, mkdir, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import * as Effect from "effect/Effect"
 import { FileSystemError } from "./errors.js"
-import type { ScriptFileSystem } from "./types.js"
+import type { ProjectFileSystem } from "./types.js"
 
 interface FileSystemOptions {
   readonly git?: boolean
@@ -11,7 +11,7 @@ interface FileSystemOptions {
 export function createScriptFileSystem(
   directory: string,
   options: FileSystemOptions = {},
-): ScriptFileSystem {
+): ProjectFileSystem {
   const root = resolve(directory)
   return {
     writeFile: (path, contents) =>

@@ -31,7 +31,7 @@ export at runtime, and runs it in the CLI's Effect runtime:
 // drive.ts
 import { OpenCodeDriver } from "opencode-drive"
 
-export default OpenCodeDriver.use({}, ({ ui }) =>
+export default OpenCodeDriver.use(({ ui }) =>
   ui.screenshot("home"),
 )
 ```
@@ -93,7 +93,7 @@ Additional clients share the same server and LLM controller:
 import { Effect } from "effect"
 import { OpenCodeDriver } from "opencode-drive"
 
-export default OpenCodeDriver.use({}, (oc) =>
+export default OpenCodeDriver.use((oc) =>
   Effect.gen(function* () {
     const secondary = yield* oc.clients.make({
       viewport: { cols: 120, rows: 40 },
@@ -116,7 +116,9 @@ export default OpenCodeDriver.use(
   (oc) =>
     Effect.gen(function* () {
       yield* oc.ui.screenshot("recorded-home")
-      yield* Effect.log(`recording will be exported to ${oc.recording?.path}`)
+      yield* Effect.log(
+        `recording will be exported to ${oc.client.recording?.path}`,
+      )
     }),
 )
 ```
@@ -129,7 +131,7 @@ export:
 import { Effect } from "effect"
 import { Llm, OpenCodeDriver } from "opencode-drive"
 
-export default OpenCodeDriver.use({}, ({ ui, llm }) =>
+export default OpenCodeDriver.use(({ ui, llm }) =>
   Effect.gen(function* () {
     yield* llm.queue(Llm.finish(), Llm.text("too late"))
     yield* ui.submit("trigger a response")
@@ -325,12 +327,14 @@ opencode-drive check ./drive.ts
 Drive temporarily exposes its script API and `tsgo` beside the script while
 checking, then removes only the links it created. When it detects an old
 Promise-style `setup`, `run`, or `ui.waitFor` callback, it prints the equivalent
-Effect shape after the TypeScript diagnostics. `wait(milliseconds)` is available
+Effect shape after the TypeScript diagnostics. Use `Effect.sleep(milliseconds)`
 for unconditional delays.
 
 The `fs`, `ui`, `llm`, `server`, and `clients` capabilities expose
 Effect-returning operations. Compose them with `yield*`, `Effect.flatMap`, or
-other Effect operators. Predicates passed to `ui.waitFor` may return a boolean
+other Effect operators. Scripts receive the same `Ui`, `Client`, `Clients`, and
+client options as `OpenCodeDriver`; `defineScript` does not define a second
+programmatic interface. Predicates passed to `ui.waitFor` may return a boolean
 or an Effect. Set `launch: "manual"` to launch the shared OpenCode server and
 every TUI explicitly:
 
@@ -346,8 +350,8 @@ export default defineScript({
       yield* server.launch()
       const alice = yield* clients.launch("alice")
       const bob = yield* clients.launch("bob")
-      yield* alice.submit("Hello from Alice")
-      yield* bob.screenshot("bob-view")
+      yield* alice.ui.submit("Hello from Alice")
+      yield* bob.ui.screenshot("bob-view")
     }),
 })
 ```
@@ -356,18 +360,18 @@ Only one server may be launched per script. All clients share its LLM backend. C
 script links are cleaned up when the script ends.
 
 `yield* server.kill()` stops the server so it can be launched again later.
-Every client handle also has `yield* ui.kill()`, and its name may be reused
-after the TUI exits.
+`yield* client.close()` closes a client, after which its name may be reused.
 
-Pass `{ record: true }` to record an individual client:
+Pass `{ recording: true }` to record an individual client:
 
 ```ts
-const ui = yield* clients.launch("alice", { record: true })
-const video = yield* ui.kill()
+const alice = yield* clients.launch("alice", { recording: true })
+yield* alice.ui.submit("Hello")
+yield* alice.close()
 ```
 
-`ui.kill()` exports the recording before terminating the TUI. Clients still
-running when the script ends are recorded and terminated automatically.
+Recordings are exported when the script settles. Call
+`alice.recording.finish()` only when the video is needed before settlement.
 
 Background title requests receive `OpenCode Drive` by default and do not
 consume `llm.queue`, `llm.send`, or `llm.serve` responses. Manual-launch
@@ -428,8 +432,8 @@ Finish a tool-calling response with `Llm.finish("tool-calls")`. Streamed calls
 drive OpenCode's normal tool-input start, delta, and end lifecycle; `Llm.raw()`
 remains available for provider-wire scenarios not covered by these helpers.
 
-Script capability errors are typed and the concrete classes are grouped under
-`ScriptError`. UI timeouts remain owner-fatal even when caught; recover locally
+Capability errors are typed and the concrete classes are grouped under
+`Errors`. UI timeouts remain owner-fatal even when caught; recover locally
 from errors for which the script has a truthful fallback:
 
 Polling timeouts from `ui.waitFor` and `ui.getElement` make one best-effort,
@@ -440,7 +444,7 @@ screenshot file. RPC-level timeouts and failed diagnostic captures leave
 
 ```ts
 import { Effect } from "effect"
-import { ScriptError } from "opencode-drive"
+import { Errors } from "opencode-drive"
 
 yield* ui.getElement({ editor: true }).pipe(
   Effect.catchTag("UiElementAmbiguousError", (error) =>
@@ -449,7 +453,7 @@ yield* ui.getElement({ editor: true }).pipe(
 )
 
 const isFileSystemError = (error: unknown) =>
-  error instanceof ScriptError.FileSystemError
+  error instanceof Errors.FileSystemError
 ```
 
 ## Release validation

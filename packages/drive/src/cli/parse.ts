@@ -1,4 +1,4 @@
-import { commandAcceptsValue } from "./commands.js"
+import { commandAcceptsValue, isCommandName } from "./commands.js"
 import type { DriveCommand } from "./types.js"
 
 export function extractCommands(args: ReadonlyArray<string>) {
@@ -15,6 +15,8 @@ export function extractCommands(args: ReadonlyArray<string>) {
       continue
     }
     const operation = flag.slice("--command.".length)
+    if (!isCommandName(operation))
+      throw new Error(`unknown drive command "${operation}"`)
     const valueMode = commandAcceptsValue(operation)
     const next = cli[index + 1]
     const takesValue = valueMode === true || (valueMode === "optional" && next !== undefined && !next.startsWith("--"))

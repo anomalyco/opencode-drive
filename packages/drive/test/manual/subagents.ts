@@ -1,4 +1,4 @@
-import { defineScript, Llm, type JsonValue, type ScriptUi } from "../../src/index.js"
+import { defineScript, Llm, type JsonValue, type Ui } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 
@@ -98,7 +98,7 @@ export default defineScript({
     }),
 })
 
-const openSubagents = Effect.fn("openSubagents")(function* (ui: ScriptUi) {
+const openSubagents = Effect.fn("openSubagents")(function* (ui: Ui) {
   yield* ui.press("x", { ctrl: true })
   yield* ui.arrow("down")
 })

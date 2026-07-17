@@ -6,5 +6,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "examples", "test/manual"]
+  "include": ["src", "examples", "compile", "test/manual"]
 }

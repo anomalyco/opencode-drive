@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 import * as Stream from "effect/Stream"
 import type { BackendConnection } from "../simulation/connector.js"
-import type { Backend } from "../simulation/protocol.js"
+import type { Backend } from "../client/protocol.js"
 import * as Llm from "../llm/index.js"
 import { chunkText, isTitleRequest } from "../llm/internal.js"
 

@@ -1,4 +1,4 @@
-import { defineScript, wait } from "../../src/index.js"
+import { defineScript } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 
 export default defineScript({
@@ -7,7 +7,7 @@ export default defineScript({
       yield* Effect.matchEffect(
         ui.waitFor("this text never appears", { timeout: 50 }),
         {
-          onFailure: () => wait(30_000),
+          onFailure: () => Effect.sleep(30_000),
           onSuccess: Effect.succeed,
         },
       )

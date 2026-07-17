@@ -5,9 +5,9 @@ import { NodeServices } from "@effect/platform-node"
 import * as Effect from "effect/Effect"
 import * as Process from "../instance/process.js"
 import { writeScriptFiles } from "./filesystem.js"
-import type { ScriptProject } from "./types.js"
+import type { Project } from "./types.js"
 
-export async function initializeScriptProject(root: string, project: ScriptProject) {
+export async function initializeScriptProject(root: string, project: Project) {
   if (project.git) await assertGitPlaceholder(root)
   await writeScriptFiles(root, project.files ?? {}, { git: true })
 }

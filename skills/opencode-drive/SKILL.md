@@ -176,7 +176,7 @@ yield* secondary.ui.screenshot("secondary")
 
 `driver.settle()` returns the report with its recording paths. Use `OpenCodeDriver.useReport(options, run)` when a safe lifecycle program also needs the report alongside its result.
 
-Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. OpenCode client simulation and additional built-in tool adapters remain follow-ups.
+Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. Additional built-in tool adapters remain follow-ups.
 
 ### Simulated Shell Execution
 
@@ -253,7 +253,7 @@ callbacks.
 
 The script DSL applies `project`, `config`, `tui`, and `setup` with the same deterministic ordering described above. Automatic scripts run again after `opencode-drive restart --name demo`.
 
-Use `launch: "manual"` only when the workflow must control server and client restarts itself. In manual mode `ui` is `null`; run `server.launch()` before `clients.launch(name)`. Only one server may run at a time, `server.kill()` permits relaunch, and a killed client name may be reused.
+Use `launch: "manual"` only when the workflow must control server and client restarts itself. In manual mode `ui` is `null`; run `server.launch()` before `clients.launch(name)`. Only one server may run at a time, `server.kill()` permits relaunch, and a closed client name may be reused.
 
 ```ts
 export default defineScript({
@@ -261,9 +261,9 @@ export default defineScript({
   run: ({ server, clients }) =>
     Effect.gen(function* () {
       yield* server.launch()
-      const alice = yield* clients.launch("alice", { record: true })
-      yield* alice.screenshot("alice")
-      yield* alice.kill()
+      const alice = yield* clients.launch("alice", { recording: true })
+      yield* alice.ui.screenshot("alice")
+      yield* alice.close()
     }),
 })
 ```
@@ -298,7 +298,7 @@ opencode-drive send --name demo \
 
 opencode-drive send --name demo --command.ui.state
 opencode-drive send --name demo --command.ui.capture
-opencode-drive screenshot --name demo
+opencode-drive send --name demo --command.ui.screenshot
 opencode-drive stop --name demo
 ```
 
@@ -315,14 +315,7 @@ opencode-drive stop --name demo
 - `--command.ui.state`
 - `--command.ui.capture`
 - `--command.ui.matches '{"text":"OpenCode"}'`
-
-Configure generated live LLM responses only when exact scripted responses are unnecessary:
-
-```bash
-opencode-drive responses --name demo \
-  --types tool \
-  --tools read,glob,grep
-```
+- `--command.ui.recording.finish`
 
 Start with `--record` to record a headless live instance. `stop` finishes the recording, exports the MP4, performs owner cleanup, and prints the path.
 

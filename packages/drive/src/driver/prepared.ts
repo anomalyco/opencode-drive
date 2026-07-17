@@ -8,7 +8,6 @@ import { error, type OpenCodeDriverError } from "./error.js"
 import type {
   Driver,
   Llm,
-  Settlement,
 } from "./index.js"
 import type {
   LlmControllerError,
@@ -35,7 +34,6 @@ export interface Prepared {
   readonly clients: OpenCodeClient.Clients
   readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
   readonly artifacts: string
-  readonly finish: Driver["finish"]
   readonly settle: Driver["settle"]
   readonly failure: Effect.Effect<never, LlmControllerError | OpenCodeDriverError>
   readonly unexpectedClientExit: OpenCodeClient.Control["unexpectedExit"]
@@ -100,11 +98,8 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
         }).pipe(
           Effect.mapError((cause) => error("report.make", cause)),
         )
-        return { recordings, report } satisfies Settlement
+        return report
       })
-    const finish = yield* SharedEffect.make(
-      complete(server.clients.finish().pipe(Effect.as([]))),
-    )
     const settle = yield* SharedEffect.make(complete(server.clients.settle()))
     yield* Effect.addFinalizer(() => server.llm.shutdown())
     const llm: Llm = server.llm
@@ -112,15 +107,12 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       ? undefined
       : {
           api,
+          client: primary,
           ui: primary.ui,
           llm,
           clients: server.clients,
           artifacts: instance.artifacts,
-          finish: () => finish.pipe(Effect.asVoid),
           settle: () => settle,
-          ...(primary.recording === undefined
-            ? {}
-            : { recording: primary.recording }),
         }
     return {
       driver,
@@ -129,7 +121,6 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       clients: server.clients,
       server,
       artifacts: instance.artifacts,
-      finish: () => finish.pipe(Effect.asVoid),
       settle: () => settle,
       failure: Effect.raceFirst(
         server.failure,

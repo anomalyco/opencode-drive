@@ -123,28 +123,11 @@ describe("opencode-drive", () => {
     expect(await literal.exited).toBe(0)
     expect(await new Response(literal.stdout).text()).toBe("false\n")
 
-    const screenshot = spawn(["screenshot", "--name", name], root)
+    const screenshot = spawn(["send", "--name", name, "--command.ui.screenshot"], root)
     expect(await screenshot.exited).toBe(0)
     const screenshotPath = (await new Response(screenshot.stdout).text()).trim()
     expect(screenshotPath.startsWith(`${join(root, "output")}/screenshot-`)).toBe(true)
     expect(screenshotPath.endsWith(".png")).toBe(true)
-
-    const defaults = spawn(["responses", "--name", name], root)
-    expect(await defaults.exited).toBe(0)
-    expect(await new Response(defaults.stdout).text()).toBe(
-      "Types: text,reasoning,diff,tool\nTools: write,apply_patch\n",
-    )
-
-    const configured = spawn(
-      ["responses", "--name", name, "--types", "reasoning,tool,reasoning", "--tools", "read,grep,read"],
-      root,
-    )
-    expect(await configured.exited).toBe(0)
-    expect(await new Response(configured.stdout).text()).toBe("Types: reasoning,tool\nTools: read,grep\n")
-
-    const invalid = spawn(["responses", "--name", name, "--types", "unknown"], root)
-    expect(await invalid.exited).toBe(1)
-    expect(await new Response(invalid.stderr).text()).toContain("unknown response types: unknown")
 
     const listed = spawn(["dir", "--name", name], root)
     expect(await listed.exited).toBe(0)
@@ -165,9 +148,6 @@ describe("opencode-drive", () => {
     expect(restartedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
     expect(await Bun.file(restartedRecording).exists()).toBe(true)
     await waitForLines(join(manifest.artifacts, "launches.txt"), 2)
-    const persisted = spawn(["responses", "--name", name], root)
-    expect(await persisted.exited).toBe(0)
-    expect(await new Response(persisted.stdout).text()).toBe("Types: reasoning,tool\nTools: read,grep\n")
     expect(await spawn(["send", "--name", name, "--command.ui.state"], root).exited).toBe(0)
 
     const stopped = spawn(["stop", "--name", name], root)
@@ -615,6 +595,7 @@ describe("opencode-drive", () => {
     const artifacts = artifactPath(stderr)
     roots.push(artifacts)
     expect(await Bun.file(join(artifacts, "script-result.json")).json()).toMatchObject({
+      frame: { cols: 80, rows: 24 },
       gitWriteError: expect.stringContaining("must not modify Git metadata"),
       matches: true,
     })
@@ -761,7 +742,7 @@ describe("opencode-drive", () => {
     await mkdir(directory, { recursive: true })
     await Bun.write(
       join(directory, "valid.ts"),
-      'import { defineScript, wait } from "opencode-drive"\nexport default defineScript({ project: { git: true, files: { "src/index.ts": "export {}\\n" } }, run: () => wait(1) })\n',
+      'import { Effect } from "effect"\nimport { defineScript } from "opencode-drive"\nexport default defineScript({ project: { git: true, files: { "src/index.ts": "export {}\\n" } }, run: () => Effect.sleep(1) })\n',
     )
     const checked = spawn(["check", join(directory, "valid.ts")], root)
     expect(await checked.exited).toBe(0)
@@ -769,11 +750,21 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(directory, "node_modules", ".bin", "tsgo")).exists()).toBe(false)
     expect(await Bun.file(join(directory, "node_modules")).exists()).toBe(false)
 
-    await Bun.write(join(directory, "invalid.ts"), 'import { wait } from "opencode-drive"\nwait("wrong")\n')
+    await Bun.write(join(directory, "invalid.ts"), 'import { Effect } from "effect"\nEffect.sleep("wrong")\n')
     const invalid = spawn(["check", join(directory, "invalid.ts")], root)
     const invalidError = new Response(invalid.stderr).text()
     expect(await invalid.exited).toBe(1)
     expect(await invalidError).toContain("is not assignable to parameter of type")
+
+    await Bun.write(
+      join(directory, "plain-object.ts"),
+      'import { Effect } from "effect"\nexport default { run: () => Effect.void }\n',
+    )
+    const plainObject = spawn(["check", join(directory, "plain-object.ts")], root)
+    expect(await plainObject.exited).toBe(1)
+    expect(await new Response(plainObject.stderr).text()).toContain(
+      'kind',
+    )
 
     await Bun.write(
       join(directory, "promise.ts"),
@@ -832,6 +823,7 @@ describe("opencode-drive", () => {
     roots.push(artifacts)
     expect(await Bun.file(join(artifacts, "manual-clients.json")).json()).toEqual({
       apiHealthy: true,
+      aliceFrame: { cols: 80, rows: 24 },
       aliceMatches: true,
       bobMatches: true,
       clientBeforeServer: "launch the script server before launching clients",
@@ -842,7 +834,7 @@ describe("opencode-drive", () => {
     expect((await Bun.file(join(artifacts, "launches.txt")).text()).trim().split("\n")).toHaveLength(2)
   }, 60_000)
 
-  test("kills the automatic script's primary client", async () => {
+  test("closes the automatic script's primary client", async () => {
     const root = await temporary()
     const child = spawn(
       [
@@ -899,7 +891,7 @@ describe("opencode-drive", () => {
     const child = spawn(["start", "--name", "callback-script-test", "--script", fixture("callback-script.ts")], root)
     expect(await child.exited).toBe(1)
     expect(await new Response(child.stderr).text()).toContain(
-      "script must default-export defineScript({ project?, setup?, run })",
+      "script must default-export defineScript(...)",
     )
   })
 
@@ -927,7 +919,11 @@ describe("opencode-drive", () => {
       root,
     )
     expect(await child.exited).toBe(1)
-    expect(await new Response(child.stderr).text()).toContain(`script ${callback} must return an Effect`)
+    expect(await new Response(child.stderr).text()).toContain(
+      callback === "setup"
+        ? "setup must return an Effect"
+        : "script run must return an Effect",
+    )
   })
 
   test("rejects a Promise-returning UI predicate", async () => {

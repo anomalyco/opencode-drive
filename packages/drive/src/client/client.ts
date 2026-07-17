@@ -194,19 +194,19 @@ export class SimulationClient {
     return this.call("ui.recording.finish")
   }
 
-  typeText(text: string) {
+  type(text: string) {
     return this.call("ui.type", { text })
   }
 
-  pressKey(key: string, modifiers?: Frontend.KeyModifiers) {
+  press(key: string, modifiers?: Frontend.KeyModifiers) {
     return this.call("ui.press", Frontend.pressParams(key, modifiers))
   }
 
-  pressEnter() {
+  enter() {
     return this.call("ui.enter")
   }
 
-  pressArrow(direction: Frontend.ArrowParams["direction"]) {
+  arrow(direction: Frontend.ArrowParams["direction"]) {
     return this.call("ui.arrow", { direction })
   }
 

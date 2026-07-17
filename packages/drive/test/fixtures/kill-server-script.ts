@@ -1,4 +1,4 @@
-import { defineScript, wait } from "../../src/index.js"
+import { defineScript } from "../../src/index.js"
 import * as Effect from "effect/Effect"
 
 export default defineScript({
@@ -13,15 +13,15 @@ export default defineScript({
       )
       const [alice] = yield* Effect.all(
         [
-          clients.launch("alice", { record: true }),
-          clients.launch("bob", { record: true }),
+          clients.launch("alice", { recording: true }),
+          clients.launch("bob", { recording: true }),
         ],
         { concurrency: "unbounded" },
       )
 
       yield* server.kill()
       for (let attempt = 0; attempt < 100 && running(firstServer); attempt++)
-        yield* wait(10)
+        yield* Effect.sleep(10)
       if (running(firstServer))
         return yield* Effect.fail(new Error("the first server is still running"))
 
@@ -34,9 +34,13 @@ export default defineScript({
       if (secondServer === firstServer)
         return yield* Effect.fail(new Error("the server was not relaunched"))
 
-      const aliceRecording = yield* alice.kill()
+      const recording = alice.recording
+      if (recording === undefined)
+        return yield* Effect.fail(new Error("alice recording was not configured"))
+      const aliceRecording = yield* recording.finish()
+      yield* alice.close()
       const relaunchedAlice = yield* clients.launch("alice")
-      yield* relaunchedAlice.kill()
+      yield* relaunchedAlice.close()
       yield* server.kill()
 
       yield* Effect.tryPromise(() =>

@@ -19,3 +19,14 @@ export type ManagedRequiresScope = Assert<
   Equal<Effect.Services<Managed>, Scope.Scope>
 >
 export type ScopedIsRunnable = Assert<Equal<Effect.Services<Scoped>, never>>
+
+declare const driver: OpenCodeDriver.Driver
+export type PrimaryUiIsCanonical = Assert<
+  Equal<typeof driver.ui, typeof driver.client.ui>
+>
+export type AdditionalUiIsCanonical = Assert<
+  Equal<
+    Effect.Success<ReturnType<typeof driver.clients.launch>>["ui"],
+    OpenCodeDriver.Ui
+  >
+>

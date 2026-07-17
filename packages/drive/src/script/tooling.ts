@@ -138,7 +138,19 @@ function isPackageMetadata(
 }
 
 export async function checkScript(artifacts: string, script: string) {
-  const tooling = await prepareScriptTooling(artifacts, script)
+  const file = resolve(script)
+  const contract = join(artifacts, "script-contract.ts")
+  await Bun.write(
+    contract,
+    [
+      'import type { ScriptDefinition } from "opencode-drive/script"',
+      `import script from ${JSON.stringify(file)}`,
+      "const contract: ScriptDefinition = script",
+      "void contract",
+      "",
+    ].join("\n"),
+  )
+  const tooling = await prepareScriptTooling(artifacts, contract, file)
   try {
     await typecheckPreparedTooling(tooling, artifacts, "script", true)
   } finally {

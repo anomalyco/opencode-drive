@@ -1,2 +1,2 @@
-export { Backend, Frontend, JsonRpc } from "../simulation/protocol.js"
-export * as SimulationProtocol from "./index.js"
+export { Backend, Frontend, Handshake, JsonRpc } from "../simulation/protocol.js"
+export * as SimulationProtocol from "../simulation/protocol.js"

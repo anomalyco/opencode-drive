@@ -52,7 +52,7 @@ Library Effect / Drive script
   -> ui + llm + clients
   -> owns the complete lifecycle
 
-CLI send / screenshot
+CLI send
   -> resolve an existing UI endpoint
   -> ui
   -> owns only its connection
@@ -64,7 +64,7 @@ Future MCP adapter
 
 UI and LLM control remain small interfaces even when returned together by the driver. A future protocol capability such as tool-result control can become another interface on the aggregate when its behavior is understood; it does not require a separate package or a larger driver constructor.
 
-Connecting to an already-running OpenCode instance is an explicit compatibility requirement. `opencode-drive send` and `opencode-drive screenshot` must continue to target a named or visible Drive instance and fall back to `ws://127.0.0.1:40900` when no such instance is registered. Migrating the connection implementation to Effect RPC must not require the CLI to create a project or process owner, and closing the CLI connection must never terminate the externally owned OpenCode process.
+Connecting to an already-running OpenCode instance is an explicit compatibility requirement. `opencode-drive send` targets a named or visible Drive instance and falls back to `ws://127.0.0.1:40900` when no such instance is registered. Migrating the connection implementation to Effect RPC must not require the CLI to create a project or process owner, and closing the CLI connection must never terminate the externally owned OpenCode process.
 
 ## The project is only the workspace
 
@@ -200,7 +200,9 @@ export const make = Effect.fn("OpenCodeClient.make")(
 )
 ```
 
-Client identity is generated internally for process maps, launch descriptors, logs, and artifact paths. It is not caller configuration.
+`clients.make` generates an identity. `clients.launch` accepts a stable identity
+for workflows that close and relaunch clients or need recognizable logs and
+artifact names. Both return the same canonical `Client` interface.
 
 ## The connector is an internal transport adapter
 

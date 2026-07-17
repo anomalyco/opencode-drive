@@ -42,17 +42,9 @@ describe("OpenCode simulation transport lifecycle", () => {
       expect(defaultBackendPort).toBe(40950)
       expect(Object.keys(SimulationProtocol).sort()).toEqual([
         "Backend",
-        "BackendSimulationClient",
-        "BackendSimulationError",
         "Frontend",
+        "Handshake",
         "JsonRpc",
-        "SimulationClient",
-        "SimulationError",
-        "SimulationProtocol",
-        "connectBackendSimulation",
-        "connectSimulation",
-        "defaultBackendPort",
-        "defaultPort",
       ])
 
       const clients = await Promise.all([

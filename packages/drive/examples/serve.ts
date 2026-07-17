@@ -16,10 +16,8 @@ export default defineScript({
     Effect.gen(function* () {
       let turn = 0
 
-      yield* llm.serve((request) => {
-        if (isTitleRequest(request.body))
-          return Stream.make(Llm.text("Understanding the greeting"))
-
+      yield* llm.title(() => Effect.succeed("Understanding the greeting"))
+      yield* llm.serve(() => {
         if (turn++ === 0)
           return Stream.make(
             Llm.reasoning(
@@ -49,20 +47,3 @@ export default defineScript({
       yield* ui.waitFor("adds an exclamation mark")
     }),
 })
-
-function isTitleRequest(body: unknown) {
-  if (typeof body !== "object" || body === null || !("messages" in body))
-    return false
-  const messages = body.messages
-  return (
-    Array.isArray(messages) &&
-    messages.some(
-      (message) =>
-        typeof message === "object" &&
-        message !== null &&
-        "content" in message &&
-        typeof message.content === "string" &&
-        message.content.includes("You are a title generator"),
-    )
-  )
-}

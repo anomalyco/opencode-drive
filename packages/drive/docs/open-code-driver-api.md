@@ -18,7 +18,7 @@ There is no nested runtime or detached owner.
 ```ts
 import { OpenCodeDriver } from "opencode-drive"
 
-export default OpenCodeDriver.use({}, ({ ui }) => ui.screenshot("home"))
+export default OpenCodeDriver.use(({ ui }) => ui.screenshot("home"))
 ```
 
 ```sh
@@ -31,9 +31,13 @@ the module for simulation control. `opencode-drive check` validates Effect-only
 
 ## `use` settles one scoped driver
 
-`OpenCodeDriver.use(options, run)` is the safe top-level interface. It acquires the same driver returned by `make`, runs the program, validates queued LLM work, finishes recordings, closes clients, exports videos, and then releases the server and project scope.
+`OpenCodeDriver.use(run)` is the zero-configuration top-level interface;
+`OpenCodeDriver.use(options, run)` configures the same lifecycle. Both acquire
+the driver returned by `make`, run the program, validate queued LLM work,
+finish recordings, close clients, export videos, and then release the server
+and project scope.
 
-`OpenCodeDriver.useReport(options, run)` has the same lifecycle semantics and
+`OpenCodeDriver.useReport(run)` and `useReport(options, run)` have the same lifecycle semantics and
 returns both the user value and a compact `RunReport`. The report contains
 validated artifact and recording paths, retention, and endpoint compatibility.
 Set `opencode.compatibility` to `"required"` or `"preferred"`;
@@ -125,7 +129,9 @@ const program = Effect.scoped(
 )
 ```
 
-Client identity is generated internally. Callers do not supply names or labels because those values currently affect only process maps, logs, and filenames.
+`clients.make(options)` generates an identity. Use `clients.launch(name,
+options)` when a stable name is useful for logs, recordings, or closing and
+relaunching the same client.
 
 ```text
                      ╭────────────────╮
@@ -332,7 +338,7 @@ yield* llm.serve((_request, index) =>
 
 Predicates passed to `ui.waitFor` may return a boolean or an Effect.
 Capability methods expose typed error channels. Concrete tagged errors are
-available from the `ScriptError` namespace.
+available from the `Errors` namespace.
 
 ### Additional client
 
@@ -341,17 +347,19 @@ yield* server.launch()
 const alice = yield* clients.launch("alice")
 const bob = yield* clients.launch("bob")
 
-yield* alice.submit("Hello from Alice")
-yield* bob.screenshot("bob-view")
+yield* alice.ui.submit("Hello from Alice")
+yield* bob.ui.screenshot("bob-view")
 ```
 
 ### Client configuration
 
 ```ts
 export default defineScript({
-  viewport: {
-    cols: 118,
-    rows: 34,
+  client: {
+    viewport: {
+      cols: 118,
+      rows: 34,
+    },
   },
   run: ({ ui }) => ui.screenshot("home").pipe(Effect.asVoid),
 })
@@ -364,7 +372,7 @@ shim.
 
 ## Settled interface
 
-- `OpenCodeDriver.use(options, run)` is the safe top-level bracket and performs typed settlement.
+- `OpenCodeDriver.use(run)` and `use(options, run)` are the safe top-level brackets and perform typed settlement.
 - `OpenCodeDriver.make(options)` is the primary scoped constructor.
 - Programs that call `make` directly call terminal `driver.settle()` before leaving the scope.
 - Direct library programs run the same Effect without any export convention.
@@ -372,8 +380,9 @@ shim.
 - The primary client's UI is exposed as `ui` and `oc.ui`.
 - The common case destructures `{ ui, llm }`.
 - `oc.clients.make(options?)` creates additional clients on the same server.
+- `oc.clients.launch(name, options?)` creates a client with a stable identity.
 - Additional clients expose their UI as `client.ui`.
-- Client identity is generated internally rather than supplied by callers.
+- Driver and script clients share the same `Client`, `Ui`, and option types.
 - `Llm` exposes pure constructors over manually composed Effect Schemas.
 - Raw schema-compatible LLM output objects remain accepted.
 - One `llm.queue(...)` call describes one future model response.

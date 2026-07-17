@@ -3,7 +3,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import type { RpcClientError } from "effect/unstable/rpc"
 import type { UiConnection } from "../simulation/connector.js"
-import { Frontend } from "../simulation/protocol.js"
+import { Frontend } from "../client/protocol.js"
 import type { SimulationRequestError } from "../simulation/rpc.js"
 
 export interface WaitOptions {
@@ -59,6 +59,14 @@ export class UiWaitOptionsError extends Schema.TaggedErrorClass<UiWaitOptionsErr
   },
 ) {}
 
+export class UiPredicateError extends Schema.TaggedErrorClass<UiPredicateError>()(
+  "UiPredicateError",
+  {
+    cause: Schema.Defect(),
+    message: Schema.String,
+  },
+) {}
+
 export interface Options {
   /** Per-RPC timeout in milliseconds. Defaults to 30,000. */
   readonly requestTimeout?: number
@@ -77,7 +85,6 @@ export interface Ui {
   readonly screenshot: (
     name?: string,
   ) => Effect.Effect<string, OperationError>
-  readonly finishRecording: () => Effect.Effect<string, OperationError>
   readonly type: (text: string) => Effect.Effect<Frontend.State, OperationError>
   readonly press: (
     key: string,
@@ -103,16 +110,13 @@ export interface Ui {
   readonly submit: (
     text: string,
   ) => Effect.Effect<Frontend.State, OperationError>
-  readonly waitFor: {
-    (
-      target: string | Predicate,
-      options?: WaitOptions,
-    ): Effect.Effect<Frontend.State, OperationError | WaitError>
-    <E>(
-      target: EffectPredicate<E>,
-      options?: WaitOptions,
-    ): Effect.Effect<Frontend.State, OperationError | WaitError | E>
-  }
+  readonly waitFor: <E = never>(
+    target: string | Predicate | EffectPredicate<E>,
+    options?: WaitOptions,
+  ) => Effect.Effect<
+    Frontend.State,
+    OperationError | WaitError | UiPredicateError | E
+  >
   readonly getElement: (
     target: number | string | ElementQuery,
     options?: WaitOptions,
@@ -122,7 +126,33 @@ export interface Ui {
   >
 }
 
-export const make = (connection: UiConnection, options?: Options): Ui => {
+interface Control extends Ui {
+  readonly finishRecording: () => Effect.Effect<string, OperationError>
+}
+
+export interface Transform {
+  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E>
+}
+
+/** Applies one Effect transformation to every operation without changing the UI interface. */
+export const transform = (ui: Ui, apply: Transform): Ui => ({
+  state: () => apply(ui.state()),
+  capture: () => apply(ui.capture()),
+  matches: (text) => apply(ui.matches(text)),
+  screenshot: (name) => apply(ui.screenshot(name)),
+  type: (text) => apply(ui.type(text)),
+  press: (key, modifiers) => apply(ui.press(key, modifiers)),
+  enter: () => apply(ui.enter()),
+  arrow: (direction) => apply(ui.arrow(direction)),
+  focus: (target) => apply(ui.focus(target)),
+  click: (target, position) => apply(ui.click(target, position)),
+  resize: (viewport) => apply(ui.resize(viewport)),
+  submit: (text) => apply(ui.submit(text)),
+  waitFor: (target, options) => apply(ui.waitFor(target, options)),
+  getElement: (target, options) => apply(ui.getElement(target, options)),
+})
+
+export const make = (connection: UiConnection, options?: Options): Control => {
   const requestTimeout = RequestTimeout.make(options?.requestTimeout ?? 30_000)
   const evidenceTimeout = Math.min(requestTimeout, 1_000)
   const { rpc } = connection
@@ -336,9 +366,25 @@ export const make = (connection: UiConnection, options?: Options): Ui => {
 function predicateEffect<E>(
   predicate: Predicate | EffectPredicate<E>,
   state: Frontend.State,
-): Effect.Effect<boolean, E> {
-  const result = predicate(state)
-  return Effect.isEffect(result) ? result : Effect.succeed(result)
+): Effect.Effect<boolean, E | UiPredicateError> {
+  return Effect.gen(function* () {
+    const result = yield* Effect.try({
+      try: () => predicate(state),
+      catch: (cause) =>
+        new UiPredicateError({
+          cause,
+          message: `ui.waitFor predicate failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
+    })
+    if (Effect.isEffect(result)) return yield* result
+    if (typeof result === "boolean") return result
+    return yield* Effect.fail(
+      new UiPredicateError({
+        cause: result,
+        message: "ui.waitFor predicate must return a boolean or Effect",
+      }),
+    )
+  })
 }
 
 function matchesElement(element: Frontend.Element, query: ElementQuery) {

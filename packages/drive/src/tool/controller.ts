@@ -4,7 +4,11 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import type { JsonValue, OpenCodeConfig, ScriptSetup } from "../script/types.js"
+import type {
+  JsonValue,
+  OpenCodeConfig,
+  Setup as ProjectSetup,
+} from "../script/types.js"
 import {
   Failure,
   ShellInput,
@@ -62,14 +66,16 @@ export interface Controller {
 export function composeSetup(
   controller: Controller,
   tools: Setup | undefined,
-  setup: ScriptSetup | undefined,
-): ScriptSetup | undefined {
+  setup: ProjectSetup | undefined,
+): ProjectSetup | undefined {
   if (tools === undefined && setup === undefined) return undefined
   return (context) =>
     Effect.suspend(() => {
-      const configured: unknown = setup?.(context) ?? Effect.void
+      const configured: unknown = setup === undefined
+        ? Effect.void
+        : setup(context)
       if (!isEffect(configured))
-        return Effect.fail(new Error("script setup must return an Effect"))
+        return Effect.fail(new Error("setup must return an Effect"))
       return configured.pipe(
         Effect.asVoid,
         Effect.andThen(Effect.sync(() => controller.configure(context.config))),

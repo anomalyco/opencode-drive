@@ -7,6 +7,7 @@ import * as Scope from "effect/Scope"
 import * as Deferred from "effect/Deferred"
 import type * as OpenCodeInstance from "../instance/runtime.js"
 import type * as SimulationConnector from "../simulation/connector.js"
+import type { Frontend } from "../client/protocol.js"
 import { finalizeRecording } from "../recording/finalize.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import * as OpenCodeUi from "./ui.js"
@@ -14,12 +15,11 @@ import * as SharedEffect from "./shared.js"
 
 export interface Options {
   readonly recording?: boolean
-  readonly viewport?: import("../script/types.js").UiViewport
+  readonly viewport?: Frontend.ResizeParams
 }
 
 export interface Client {
   readonly ui: OpenCodeUi.Ui
-  readonly compatibility: SimulationConnector.EndpointCompatibility
   readonly recording?: Recording
   readonly close: () => Effect.Effect<void>
 }
@@ -34,6 +34,7 @@ export interface Recording {
 }
 
 interface ManagedClient extends Client {
+  readonly compatibility: SimulationConnector.EndpointCompatibility
   readonly _exitCode: Effect.Effect<number, OpenCodeDriverError>
   readonly _recording?: {
     readonly finishTimeline: Effect.Effect<
@@ -149,6 +150,7 @@ export interface Clients {
     | OpenCodeDriverError
     | SimulationConnector.SimulationCompatibilityError
     | OpenCodeUi.OperationError
+    | OpenCodeUi.UiPredicateError
     | OpenCodeUi.UiWaitOptionsError
   >
   /** Launches a named client. The name is released when that client closes. */
@@ -160,6 +162,7 @@ export interface Clients {
     | OpenCodeDriverError
     | SimulationConnector.SimulationCompatibilityError
     | OpenCodeUi.OperationError
+    | OpenCodeUi.UiPredicateError
     | OpenCodeUi.UiWaitOptionsError
   >
 }
@@ -174,10 +177,6 @@ export interface Control extends Clients {
     ReadonlyArray<SimulationConnector.EndpointCompatibility>
   >
   readonly unexpectedExit: Effect.Effect<UnexpectedExit>
-  readonly finish: () => Effect.Effect<
-    void,
-    OpenCodeDriverError | OpenCodeUi.OperationError
-  >
   readonly settle: () => Effect.Effect<
     ReadonlyArray<string>,
     OpenCodeDriverError | OpenCodeUi.OperationError
@@ -274,7 +273,6 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
         )
         const publicClient: Client = {
           ui: client.ui,
-          compatibility: client.compatibility,
           ...(client.recording === undefined
             ? {}
             : { recording: client.recording }),
@@ -308,21 +306,6 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
       return { active, finished }
     }),
   )
-
-  const finish = Effect.fn("OpenCodeClients.finish")(function* () {
-    const { finished } = yield* finishTimelines
-    let failure: Cause.Cause<
-      OpenCodeDriverError | OpenCodeUi.OperationError
-    > | undefined
-    for (const result of finished) {
-      if (!Exit.isFailure(result)) continue
-      failure = failure === undefined
-        ? result.cause
-        : Cause.combine(failure, result.cause)
-    }
-    if (failure !== undefined) return yield* Effect.failCause(failure)
-    return undefined
-  })
 
   const settle = Effect.fn("OpenCodeClients.settle")(function* () {
     const { active, finished } = yield* finishTimelines
@@ -360,7 +343,6 @@ export const makeClients = Effect.fn("OpenCodeClients.make")(function* (
     launch,
     unexpectedExit: Deferred.await(unexpectedExit),
     compatibility: Effect.sync(() => compatibility),
-    finish,
     settle,
   } satisfies Control
 })

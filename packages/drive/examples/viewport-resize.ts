@@ -1,8 +1,8 @@
 import { Effect } from "effect"
-import { defineScript, Llm, wait } from "opencode-drive"
+import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
-  viewport: { cols: 120, rows: 36 },
+  client: { viewport: { cols: 120, rows: 36 } },
 
   setup: ({ fs }) => fs.writeFile(
     "src/viewport.ts",
@@ -19,10 +19,10 @@ export default defineScript({
           "Viewport demo: starting wide at 120 columns by 36 rows. The file src/viewport.ts lists the planned sequence. This first response should have plenty of horizontal room before the terminal narrows.",
         ),
       )
-      yield* wait(900)
+      yield* Effect.sleep(900)
 
       yield* ui.resize({ cols: 80, rows: 24 })
-      yield* wait(900)
+      yield* Effect.sleep(900)
 
       yield* ui.submit("Now describe the medium viewport.")
       yield* llm.send(
@@ -31,10 +31,10 @@ export default defineScript({
         ),
       )
       yield* ui.waitFor("resized to 80 columns")
-      yield* wait(900)
+      yield* Effect.sleep(900)
 
       yield* ui.resize({ cols: 50, rows: 18 })
-      yield* wait(900)
+      yield* Effect.sleep(900)
 
       yield* ui.submit("Finish with the narrow viewport summary.")
       yield* llm.send(
@@ -43,6 +43,6 @@ export default defineScript({
         ),
       )
       yield* ui.waitFor("now 50 columns")
-      yield* wait(1200)
+      yield* Effect.sleep(1200)
     }),
 })

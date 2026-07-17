@@ -1,18 +1,20 @@
-import * as Effect from "effect/Effect"
 import type {
   AutomaticScriptDefinition,
   ManualScriptDefinition,
   ScriptDefinition,
+  ScriptDefinitionInput,
 } from "./types.js"
 
-export function defineScript(script: ManualScriptDefinition): ManualScriptDefinition
-export function defineScript(
-  script: AutomaticScriptDefinition,
-): AutomaticScriptDefinition
-export function defineScript(script: ScriptDefinition): ScriptDefinition {
-  return script
+type Defined<Definition> = Definition & {
+  readonly kind: "opencode-drive/script"
 }
 
-export const wait = (milliseconds: number) => Effect.sleep(milliseconds)
+export function defineScript(script: ManualScriptDefinition): Defined<ManualScriptDefinition>
+export function defineScript(
+  script: AutomaticScriptDefinition,
+): Defined<AutomaticScriptDefinition>
+export function defineScript(script: ScriptDefinitionInput): ScriptDefinition {
+  return { ...script, kind: "opencode-drive/script" }
+}
 
 export type * from "./types.js"
