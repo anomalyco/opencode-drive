@@ -10,6 +10,11 @@ interface TerminalFrameProps {
 const CellWidth = 10
 const CellHeight = 20
 const FontSize = 16
+const FontFamily = "Commit Mono"
+const SymbolFontFamily = "Noto Sans Symbols"
+const SymbolFontFamily2 = "Noto Sans Symbols 2"
+const MathFontFamily = "Noto Sans Math"
+const FontStack = `"${FontFamily}", "${SymbolFontFamily}", "${SymbolFontFamily2}", "${MathFontFamily}"`
 const Bold = 1
 const Dim = 2
 const Italic = 4
@@ -18,6 +23,7 @@ const Inverse = 32
 const Hidden = 64
 const Strikethrough = 128
 const cache = new Map<string, Promise<FrameArtifact>>()
+const baselineCache = new Map<string, number>()
 
 export function TerminalFrame({ frame, label, lazy = false }: TerminalFrameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -29,7 +35,14 @@ export function TerminalFrame({ frame, label, lazy = false }: TerminalFrameProps
     const render = async () => {
       if (lazy && !isNearViewport(canvas)) return
       const artifact = await loadFrame(frame.src)
-      await document.fonts.load(`${FontSize}px "Commit Mono"`)
+      await Promise.all([
+        document.fonts.load(`400 ${FontSize}px "${FontFamily}"`),
+        document.fonts.load(`700 ${FontSize}px "${FontFamily}"`),
+        document.fonts.load(`400 ${FontSize}px "${SymbolFontFamily}"`, "⚙"),
+        document.fonts.load(`700 ${FontSize}px "${SymbolFontFamily}"`, "⚙"),
+        document.fonts.load(`400 ${FontSize}px "${SymbolFontFamily2}"`, "△✱⬝"),
+        document.fonts.load(`400 ${FontSize}px "${MathFontFamily}"`, "⇆↳⟳"),
+      ])
       if (!cancelled) drawFrame(canvas, artifact)
     }
     let observer: IntersectionObserver | undefined
@@ -75,7 +88,8 @@ function drawFrame(canvas: HTMLCanvasElement, frame: FrameArtifact) {
   if (!context) return
   context.fillStyle = "#080808"
   context.fillRect(0, 0, canvas.width, canvas.height)
-  context.textBaseline = "top"
+  context.textBaseline = "alphabetic"
+  context.textAlign = "center"
 
   frame.lines.forEach((line, row) => {
     let column = 0
@@ -99,8 +113,14 @@ function drawFrame(canvas: HTMLCanvasElement, frame: FrameArtifact) {
         if (!hidden && char.codePointAt(0) !== 0x0a00) {
           context.fillStyle = color(foreground, attributes & Dim ? 0.55 : 1)
           if (!drawBlockElement(context, char, x, y, cells)) {
-            context.font = `${attributes & Italic ? "italic " : ""}${attributes & Bold ? "bold " : ""}${FontSize}px "Commit Mono"`
-            context.fillText(char, x, y + 1)
+            const font = `${attributes & Italic ? "italic " : ""}${attributes & Bold ? "700 " : "400 "}${FontSize}px ${FontStack}`
+            context.font = font
+            context.fillText(
+              char,
+              x + (cells * CellWidth) / 2,
+              y + baselineOffset(context, font),
+              cells * CellWidth,
+            )
           }
           if (attributes & Underline) context.fillRect(x, y + 17, cells * CellWidth, 1)
           if (attributes & Strikethrough) context.fillRect(x, y + 10, cells * CellWidth, 1)
@@ -128,6 +148,17 @@ function drawBlockElement(context: CanvasRenderingContext2D, char: string, x: nu
   else if (char === "╹") context.fillRect(x + CellWidth / 2 - 1, y, 2, CellHeight / 2)
   else return false
   return true
+}
+
+function baselineOffset(context: CanvasRenderingContext2D, font: string) {
+  const cached = baselineCache.get(font)
+  if (cached !== undefined) return cached
+  const metrics = context.measureText("Mg")
+  const ascent = metrics.fontBoundingBoxAscent || FontSize * 0.8
+  const descent = metrics.fontBoundingBoxDescent || FontSize * 0.2
+  const offset = (CellHeight - (ascent + descent)) / 2 + ascent
+  baselineCache.set(font, offset)
+  return offset
 }
 
 function color([red, green, blue, alpha]: FrameArtifact["lines"][number]["spans"][number]["fg"], opacity = 1) {

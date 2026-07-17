@@ -7,6 +7,9 @@ export const CellHeight = 20
 const FontSize = 16
 const FontFamily = "OpenCode Mono"
 const SymbolFontFamily = "OpenCode Symbols"
+const SymbolFontFamily2 = "OpenCode Symbols 2"
+const MathFontFamily = "OpenCode Math"
+const FontStack = `"${FontFamily}", "${SymbolFontFamily}", "${SymbolFontFamily2}", "${MathFontFamily}"`
 
 const fontOverride = process.env["OPENCODE_DRIVE_FONT"]
 const fontFiles = fontOverride
@@ -27,12 +30,13 @@ for (const file of fontFiles) {
   if (!GlobalFonts.registerFromPath(file, FontFamily))
     throw new Error(`Failed to register capture font: ${file}`)
 }
-for (const file of [
-  "noto-sans-symbols-2-symbols-400-normal.woff2",
-  "noto-sans-symbols-2-braille-400-normal.woff2",
-]) {
-  const path = fileURLToPath(import.meta.resolve(`@fontsource/noto-sans-symbols-2/files/${file}`))
-  if (!GlobalFonts.registerFromPath(path, SymbolFontFamily))
+for (const [file, family] of [
+  ["NotoSansSymbols.ttf", SymbolFontFamily],
+  ["NotoSansSymbols2-Regular.ttf", SymbolFontFamily2],
+  ["NotoSansMath-Regular.ttf", MathFontFamily],
+] as const) {
+  const path = fileURLToPath(new URL(`../../assets/fonts/noto/${file}`, import.meta.url))
+  if (!GlobalFonts.registerFromPath(path, family))
     throw new Error(`Failed to register capture symbol font: ${path}`)
 }
 
@@ -65,16 +69,6 @@ function drawFixedGlyph(context: SKRSContext2D, char: string, x: number, y: numb
   if (char === "█") context.fillRect(x, y, CellWidth, CellHeight)
   else if (char === "▀") context.fillRect(x, y, CellWidth, CellHeight / 2)
   else if (char === "▄") context.fillRect(x, y + CellHeight / 2, CellWidth, CellHeight / 2)
-  else if (char === "■") context.fillRect(x + 1, y + 6, 8, 8)
-  else if (char === "⬝") context.fillRect(x + 4, y + 9, 2, 2)
-  else if (char === "↳") {
-    context.fillRect(x + 1, y + 4, 1, 10)
-    context.fillRect(x + 1, y + 13, 8, 1)
-    context.fillRect(x + 6, y + 11, 1, 1)
-    context.fillRect(x + 7, y + 12, 1, 1)
-    context.fillRect(x + 7, y + 14, 1, 1)
-    context.fillRect(x + 6, y + 15, 1, 1)
-  }
   else return false
   return true
 }
@@ -96,7 +90,7 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
   if (options.header) {
     context.fillStyle = "#151515"
     context.fillRect(0, 0, canvas.width, headerHeight)
-    context.font = `700 ${FontSize}px "${FontFamily}", "${SymbolFontFamily}"`
+    context.font = `700 ${FontSize}px ${FontStack}`
     context.fillStyle = "#d8d8d8"
     context.textBaseline = "middle"
     context.textAlign = "left"
@@ -121,7 +115,7 @@ export function renderFrame(frame: CapturedFrame, options: RenderFrameOptions = 
       }
       const italic = span.attributes & TextStyle.italic ? "italic " : ""
       const weight = span.attributes & TextStyle.bold ? "700 " : "400 "
-      const font = `${italic}${weight}${FontSize}px "${FontFamily}", "${SymbolFontFamily}"`
+      const font = `${italic}${weight}${FontSize}px ${FontStack}`
       context.font = font
       context.fillStyle = color(foreground, span.attributes & TextStyle.dim ? 0.55 : 1)
       const baseline = baselineOffset(context, font)

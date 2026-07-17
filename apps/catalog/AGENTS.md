@@ -53,7 +53,7 @@ Protocol changes originate in OpenCode, then are copied directly into Drive. Do 
 
 PNG is not authoritative. Do not reintroduce routine checked-in PNG capture.
 
-The browser renderer must preserve the canonical 10 by 20 pixel cell geometry and Commit Mono metrics. Render solid and partial blocks geometrically. Current geometric glyphs are `█`, `▀`, `▄`, `┃`, and `╹`; keep the browser and OpenCode PNG implementations synchronized when extending this list.
+The browser renderer must preserve the canonical 10 by 20 pixel cell geometry and use the bundled Commit Mono and Noto symbol/math fallback stack. Ordinary Unicode symbols belong in fallback fonts, not hand-drawn code. Render only terminal cell primitives such as solid blocks and structural bars geometrically, and keep those primitives synchronized with the Drive PNG renderer.
 
 The frame format is renderer-neutral. An SVG exporter should consume the same frame artifacts rather than changing capture.
 
