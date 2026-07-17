@@ -94,6 +94,7 @@ describe("replayRecording", () => {
     expect(frames[1]!.atMs).toBeCloseTo(1_000 / 60)
     expect(frames.at(-1)!.atMs).toBe(1_000)
     expect(frames.every((frame) => lineText(frame.frame) === "ready")).toBe(true)
+    expect(new Set(frames.map((frame) => frame.frame)).size).toBe(1)
   })
 
   test("trims blank startup time and rebases the first visible frame", async () => {

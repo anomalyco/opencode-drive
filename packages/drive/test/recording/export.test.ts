@@ -264,13 +264,13 @@ if (Bun.which("ffmpeg") && Bun.which("ffprobe")) {
       "-select_streams",
       "v:0",
       "-show_entries",
-      "stream=avg_frame_rate",
+      "stream=avg_frame_rate,duration,nb_frames",
       "-of",
       "default=noprint_wrappers=1:nokey=1",
       output,
     ])
     expect(probe.exitCode).toBe(0)
-    expect(probe.stdout.toString().trim()).toBe("60/1")
+    expect(probe.stdout.toString().trim().split("\n")).toEqual(["60/1", "0.466667", "28"])
 
     const finalFrame = join(directory, "final.png")
     const decoded = Bun.spawnSync([

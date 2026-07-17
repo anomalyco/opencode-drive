@@ -42,16 +42,12 @@ export async function encodeFrames(
       await linkOrCopy(rendered, join(directory, `frame-${String(index).padStart(8, "0")}.png`))
       progress(((index + 1) / frames.length) * 90)
     }
-    const frameDurationMs = 1000 / fps
     const concat = join(directory, "frames.ffconcat")
     const entries = frames.flatMap((frame, index) => {
       const next = frames[index + 1]
-      return [
-        `file frame-${String(index).padStart(8, "0")}.png`,
-        `duration ${(next ? next.atMs - frame.atMs : frameDurationMs) / 1000}`,
-      ]
+      const file = `file frame-${String(index).padStart(8, "0")}.png`
+      return next ? [file, `duration ${(next.atMs - frame.atMs) / 1000}`] : [file]
     })
-    entries.push(`file frame-${String(frames.length - 1).padStart(8, "0")}.png`)
     await writeFile(concat, `ffconcat version 1.0\n${entries.join("\n")}\n`, {
       signal: options.signal,
     })
