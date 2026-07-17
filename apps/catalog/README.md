@@ -21,11 +21,13 @@ bun install
 
 The OpenCode checkout can live anywhere. Capture commands receive its path explicitly; no sibling-directory layout is required.
 
-## Capture One Checkout
+## Capture Revision Sets
 
 ```bash
 bun run capture -- \
-  --variant baseline=$HOME/code/opencode
+  --opencode $HOME/code/opencode \
+  --revision v2~1 \
+  --revision v2
 
 bun run generate
 bun run dev
@@ -33,7 +35,7 @@ bun run dev
 
 Open the URL printed by `bun run dev`.
 
-`baseline` is the variant ID shown in the catalog. Variant IDs must be lowercase slugs such as `baseline`, `rosepine`, or `theme-redesign`.
+Each revision is resolved to an immutable commit and captured from an isolated detached worktree. Set IDs are derived from the commit SHA, prior sets remain in the manifest, and rerunning the same commit/theme replaces only that set. Sets are ordered by commit time, so the newest commit is selected when the catalog opens.
 
 ## Compare Themes
 
@@ -41,20 +43,21 @@ Variants can use the same OpenCode checkout with different configured themes:
 
 ```bash
 bun run capture -- \
-  --variant opencode=$HOME/code/opencode \
-  --theme opencode=opencode \
-  --variant rosepine=$HOME/code/opencode \
-  --theme rosepine=rosepine
+  --opencode $HOME/code/opencode \
+  --revision v2 \
+  --theme opencode \
+  --theme rosepine
 
 bun run generate
 bun run dev
 ```
 
-`--theme` uses `variant-id=theme-name`, so each theme is attached to one declared variant. Built-in names include `opencode`, `nord`, `one-dark`, `gruvbox`, `rosepine`, `solarized`, `monokai`, and `palenight`.
+Repeated revisions and themes form a cross-product. Use `--theme default` to include OpenCode's configured default alongside named themes. Built-in names include `opencode`, `nord`, `one-dark`, `gruvbox`, `rosepine`, `solarized`, `monokai`, and `palenight`.
 
 In the catalog:
 
-- In the viewer, press left or right to move through flow steps and up or down to switch variants.
+- Use the capture-set picker or press up/down to compare revisions and themes without losing the current screen.
+- In the viewer, press left/right to move through flow steps and up/down to switch capture sets.
 - Use **Copy ID** to copy the active flow state address, or the capture ID when browsing screens directly.
 
 Reproduce a registered executable state against an OpenCode checkout:
@@ -72,12 +75,13 @@ The command prints the path to a normalized terminal frame. Only states from flo
 
 ## Compare Branches
 
-Create two OpenCode worktrees or clones, then capture both:
+Capture any refs available in one OpenCode checkout:
 
 ```bash
 bun run capture -- \
-  --variant before=$HOME/code/opencode-main \
-  --variant after=$HOME/code/opencode-redesign
+  --opencode $HOME/code/opencode \
+  --revision main \
+  --revision v2
 
 bun run generate
 bun run dev
@@ -87,13 +91,14 @@ Themes and checkout comparisons can be combined:
 
 ```bash
 bun run capture -- \
-  --variant main-nord=$HOME/code/opencode-main \
-  --theme main-nord=nord \
-  --variant redesign-nord=$HOME/code/opencode-redesign \
-  --theme redesign-nord=nord
+  --opencode $HOME/code/opencode \
+  --revision main \
+  --revision v2 \
+  --theme nord \
+  --theme rosepine
 ```
 
-Each variant runs in an isolated OpenCode Drive instance. Independent variants capture concurrently, while the states inside one variant remain sequential so session-dependent states stay deterministic.
+Each capture set runs in an isolated OpenCode Drive instance. Independent sets capture concurrently, while states inside one set remain sequential so session-dependent states stay deterministic.
 
 ## Agent Workflow
 
@@ -117,10 +122,11 @@ The equivalent commands are:
 ```bash
 bun install
 bun run capture -- \
-  --variant baseline=$HOME/code/opencode-main \
-  --theme baseline=opencode \
-  --variant redesign=$HOME/code/opencode-redesign \
-  --theme redesign=rosepine
+  --opencode $HOME/code/opencode \
+  --revision v2~1 \
+  --revision v2 \
+  --theme opencode \
+  --theme rosepine
 bun run generate
 bun run typecheck
 bun run test
@@ -182,7 +188,7 @@ The application deploys as a Cloudflare Worker with static assets:
 bun run deploy
 ```
 
-Current deployment: https://opencode-terminal-catalog.kit-langton.workers.dev
+Current deployment: https://catalog.kitlangton.dev
 
 ## Troubleshooting
 

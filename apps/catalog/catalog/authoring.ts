@@ -70,6 +70,7 @@ export const compileCatalog = Effect.fn("Catalog.compile")(function*(
         title: flow.title,
         group: group.label,
         description: flow.description,
+        replayable: flow.replayable ?? false,
         steps,
       }
     }),

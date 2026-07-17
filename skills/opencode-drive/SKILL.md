@@ -12,6 +12,30 @@ restartable, or manual-launch workflows; it is also Effect-only. Use live
 commands only for interactive development against a persistent or visible
 instance.
 
+## Catalog State IDs
+
+Browse and copy OpenCode terminal state IDs from:
+
+```text
+https://catalog.kitlangton.dev
+```
+
+Replayable flow states expose canonical `<flow-id>/<state-id>` addresses, for example:
+
+```text
+patch-success-lifecycle/permission-prompt
+```
+
+Reproduce one from an `opencode-drive` source checkout:
+
+```bash
+bun run catalog:reproduce -- patch-success-lifecycle/permission-prompt \
+  --opencode /path/to/opencode \
+  --output /tmp/permission-prompt.frame.json
+```
+
+The command executes the registered recipe only through that checkpoint and writes an `opencode-terminal-frame-v1` artifact. Only flows in `apps/catalog/scenarios/index.ts` are replayable. Browse-only flows and screen cards copy standalone capture IDs instead; do not invent a flow prefix. Use a protocol-compatible OpenCode checkout, ideally the source revision shown by the selected capture set.
+
 ## Effect Programs
 
 Write `drive.ts` as a default-exported, fully provided Effect, then run it directly:

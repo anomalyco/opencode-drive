@@ -81,6 +81,17 @@ a {
   outline-offset: -1px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 kbd {
   padding: 0.1rem 0.35rem;
   border: 1px solid var(--kit-line-strong);
@@ -505,7 +516,7 @@ kbd {
   color: var(--kit-fg-strong);
 }
 
-.variant-switcher > span {
+.variant-switcher > label {
   display: flex;
   min-width: 5.5rem;
   flex-direction: column;
@@ -513,6 +524,24 @@ kbd {
   align-items: center;
   gap: 0.15rem;
   font-size: 0.62rem;
+}
+
+.variant-switcher select {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--kit-fg-muted);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: center;
+  outline: 0;
+  cursor: pointer;
+}
+
+.variant-switcher select:hover,
+.variant-switcher select:focus-visible {
+  color: var(--kit-fg-strong);
 }
 
 .variant-switcher small {
@@ -580,10 +609,6 @@ kbd {
   color: var(--kit-fg-strong);
 }
 
-.id-chip[data-copied] {
-  color: var(--catalog-accent);
-}
-
 .id-chip-glyph {
   width: 0.7rem;
   height: 0.7rem;
@@ -592,6 +617,7 @@ kbd {
 }
 
 .id-chip-text {
+  position: relative;
   display: grid;
   min-width: 0;
 }
@@ -603,20 +629,17 @@ kbd {
   white-space: nowrap;
 }
 
-.id-chip-copied {
-  visibility: hidden;
-}
-
 .id-chip-end .id-chip-text {
   justify-items: end;
 }
 
-.id-chip[data-copied] .id-chip-value {
+.id-chip-measure {
   visibility: hidden;
 }
 
-.id-chip[data-copied] .id-chip-copied {
-  visibility: visible;
+.id-chip-value {
+  position: absolute;
+  inset: 0;
 }
 
 .empty-state {
@@ -742,6 +765,15 @@ kbd {
 .flow-heading > div p,
 .flow-heading > p {
   margin: 0;
+}
+
+.flow-browse-only {
+  width: fit-content;
+  grid-column: 1 / -1;
+  padding-top: 0.25rem;
+  color: var(--kit-fg-faint);
+  font-family: var(--kit-mono);
+  font-size: 0.58rem;
 }
 
 .flow-heading > div p {

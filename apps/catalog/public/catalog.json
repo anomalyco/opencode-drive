@@ -6,13 +6,17 @@
       "id": "baseline",
       "label": "baseline",
       "source": "opencode-effect-beta-98",
-      "revision": "801f019fef49"
+      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
+      "ref": "801f019fef49",
+      "committedAt": "2026-07-17T10:17:51-04:00"
     },
     {
       "id": "rosepine",
       "label": "rosepine",
       "source": "opencode-effect-beta-98",
-      "revision": "801f019fef49",
+      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
+      "ref": "801f019fef49",
+      "committedAt": "2026-07-17T10:17:51-04:00",
       "theme": "rosepine"
     }
   ],
@@ -1752,6 +1756,7 @@
       "title": "Starting a session",
       "group": "Getting started",
       "description": "Begin from the OpenCode start screen and prepare a new conversation.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "home",
@@ -1775,6 +1780,7 @@
       "title": "Switching sessions",
       "group": "Session management",
       "description": "Find an existing conversation and resume it from the session picker.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "command-palette",
@@ -1798,6 +1804,7 @@
       "title": "Renaming a session",
       "group": "Session management",
       "description": "Give the current conversation a recognizable name.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "session-picker-populated",
@@ -1815,6 +1822,7 @@
       "title": "Forking a session",
       "group": "Session management",
       "description": "Branch an existing conversation from a selected message.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "session-picker-populated",
@@ -1832,6 +1840,7 @@
       "title": "Exporting a session",
       "group": "Session management",
       "description": "Choose an export format and confirm the transcript was copied.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "session-export",
@@ -1850,6 +1859,7 @@
       "title": "Patch succeeds",
       "group": "Tool use",
       "description": "Watch a patch stream its input, request permission, and complete successfully.",
+      "replayable": true,
       "steps": [
         {
           "screenId": "patch-input-streaming",
@@ -1870,6 +1880,7 @@
       "title": "Approving a tool call",
       "group": "Tool use",
       "description": "Review a requested operation and choose its permission scope.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "permission-prompt",
@@ -1883,6 +1894,7 @@
       "title": "Answering an agent question",
       "group": "Tool use",
       "description": "Respond to a structured question without leaving the conversation.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "question-prompt",
@@ -1896,6 +1908,7 @@
       "title": "Connecting an integration",
       "group": "Configuration",
       "description": "Choose an integration and verify its connection state.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "integration-picker",
@@ -1912,6 +1925,7 @@
       "title": "Managing MCP servers",
       "group": "Configuration",
       "description": "Inspect configured MCP servers and their runtime status.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "mcp-list",
@@ -1928,6 +1942,7 @@
       "title": "Pairing a device",
       "group": "Configuration",
       "description": "Open the pairing code used to connect another device.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "pair",
@@ -1940,6 +1955,7 @@
       "title": "Reviewing a diff",
       "group": "Review",
       "description": "Inspect the working tree and verify whether files have changed.",
+      "replayable": false,
       "steps": [
         {
           "screenId": "diff-viewer",

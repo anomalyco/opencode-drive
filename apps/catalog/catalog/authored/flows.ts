@@ -62,6 +62,7 @@ export const flowGroups = defineFlows(screens, {
       "patch-success-lifecycle": {
         title: patchSuccessFlow.title,
         description: patchSuccessFlow.description,
+        replayable: true,
         steps: stepsFromFlow(patchSuccessFlow),
       },
       "approving-a-tool-call": {

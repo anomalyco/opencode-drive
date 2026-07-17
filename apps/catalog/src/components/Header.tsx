@@ -2,6 +2,7 @@ import type { Ref } from "react"
 import type { BrowseMode, Catalog, Facet, FacetSelections, TaxonomyGroup, Variant } from "../catalog"
 import { label } from "../catalog"
 import { FilterMenu } from "./FilterMenu"
+import { CaptureSetSwitcher } from "./CaptureSetSwitcher"
 
 interface HeaderProps {
   readonly catalog: Catalog
@@ -23,6 +24,7 @@ interface HeaderProps {
   readonly onClearSearch: () => void
   readonly onOpenPalette: () => void
   readonly onVariant: (direction: 1 | -1) => void
+  readonly onVariantSelect: (id: string) => void
 }
 
 const modes: ReadonlyArray<readonly [BrowseMode, string]> = [
@@ -51,6 +53,7 @@ export function Header({
   onClearSearch,
   onOpenPalette,
   onVariant,
+  onVariantSelect,
 }: HeaderProps) {
   const taxonomy = mode === "screens" ? catalog.screenTaxonomy : catalog.uiElementTaxonomy
   const facetGroups: ReadonlyArray<TaxonomyGroup> = [
@@ -84,11 +87,13 @@ export function Header({
         ))}
       </nav>
       <div className="catalog-tools">
-        <div className="variant-switcher" aria-label="Capture variant">
-          <button type="button" onClick={() => onVariant(-1)} aria-label="Previous variant">←</button>
-          <span><strong>{variant.label}</strong><small>{variantPosition}/{catalog.variants.length}</small></span>
-          <button type="button" onClick={() => onVariant(1)} aria-label="Next variant">→</button>
-        </div>
+        <CaptureSetSwitcher
+          sets={catalog.variants}
+          active={variant}
+          position={variantPosition}
+          onNavigate={onVariant}
+          onSelect={onVariantSelect}
+        />
         {mode !== "flows" ? (
           <FilterMenu
             label={mode === "screens" ? "Screens" : "UI Elements"}

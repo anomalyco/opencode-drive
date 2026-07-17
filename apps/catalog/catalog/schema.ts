@@ -16,6 +16,8 @@ export const Variant = Schema.Struct({
   label: Schema.NonEmptyString,
   source: Schema.NonEmptyString,
   revision: Schema.NonEmptyString,
+  ref: Schema.NonEmptyString,
+  committedAt: Schema.NonEmptyString,
   theme: Schema.optionalKey(Schema.NonEmptyString),
 })
 
@@ -77,6 +79,7 @@ export const Flow = Schema.Struct({
   title: Schema.NonEmptyString,
   group: Schema.NonEmptyString,
   description: Schema.NonEmptyString,
+  replayable: Schema.Boolean,
   steps: Schema.NonEmptyArray(FlowStep),
 })
 

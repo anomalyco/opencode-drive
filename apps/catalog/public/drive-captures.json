@@ -6,13 +6,17 @@
       "id": "baseline",
       "label": "baseline",
       "source": "opencode-effect-beta-98",
-      "revision": "801f019fef49"
+      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
+      "ref": "801f019fef49",
+      "committedAt": "2026-07-17T10:17:51-04:00"
     },
     {
       "id": "rosepine",
       "label": "rosepine",
       "source": "opencode-effect-beta-98",
-      "revision": "801f019fef49",
+      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
+      "ref": "801f019fef49",
+      "committedAt": "2026-07-17T10:17:51-04:00",
       "theme": "rosepine"
     }
   ],
