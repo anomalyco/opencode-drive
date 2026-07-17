@@ -188,7 +188,7 @@ The application deploys as a Cloudflare Worker with static assets:
 bun run deploy
 ```
 
-Current deployment: https://opencode-terminal-catalog.kit-langton.workers.dev
+Current deployment: https://catalog.kitlangton.dev
 
 ## Troubleshooting
 
