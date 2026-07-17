@@ -83,9 +83,9 @@ export function Viewer({
           Close <kbd>Esc</kbd>
         </button>
         <span className="viewer-position">
-          <button type="button" className="viewer-button" onClick={() => onNavigate(-1)} aria-label="Previous checkpoint">←</button>
+          <button type="button" className="viewer-button" onClick={() => onNavigate(-1)} aria-label="Previous flow step">←</button>
           {String(position).padStart(2, "0")} / {String(total).padStart(2, "0")}
-          <button type="button" className="viewer-button" onClick={() => onNavigate(1)} aria-label="Next checkpoint">→</button>
+          <button type="button" className="viewer-button" onClick={() => onNavigate(1)} aria-label="Next flow step">→</button>
         </span>
         <div className="viewer-actions">
           <button type="button" className="viewer-button" onClick={() => onVariant(-1)} aria-label="Previous variant">←</button>

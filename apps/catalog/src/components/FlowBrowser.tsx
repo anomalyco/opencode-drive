@@ -19,7 +19,7 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
     else groupedFlows.set(flow.group, [flow])
   }
   const navigation = (
-    <nav className="flow-navigation" aria-label="Specimen catalog">
+    <nav className="flow-navigation" aria-label="Flow catalog">
       {Array.from(groupedFlows, ([group, groupFlows]) => (
         <section key={group}>
           <h2>{group}</h2>
@@ -48,7 +48,7 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
     <section className="flow-browser">
       <aside className="flow-sidebar">
         <div className="flow-sidebar-heading">
-          <span>Specimen catalog</span>
+          <span>Flow catalog</span>
           <small>{flows.length}</small>
         </div>
         {navigation}
@@ -56,7 +56,7 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
       <details className="flow-mobile-nav">
         <summary>
           <span>{activeFlow.title}</span>
-          <small>Browse specimens ↓</small>
+          <small>Browse flows ↓</small>
         </summary>
         {navigation}
       </details>
@@ -66,7 +66,7 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
             <p>{activeFlow.group}</p>
             <h1>{activeFlow.title}</h1>
           </div>
-          <span>{activeFlow.steps.length} {activeFlow.steps.length === 1 ? "checkpoint" : "checkpoints"}</span>
+          <span>{activeFlow.steps.length} {activeFlow.steps.length === 1 ? "step" : "steps"}</span>
           <p>{activeFlow.description}</p>
         </header>
         <ol className="flow-rail" role="list">

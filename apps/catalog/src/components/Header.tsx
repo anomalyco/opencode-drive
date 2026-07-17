@@ -28,7 +28,7 @@ interface HeaderProps {
 const modes: ReadonlyArray<readonly [BrowseMode, string]> = [
   ["screens", "Screens"],
   ["ui-elements", "UI Elements"],
-  ["flows", "Specimens"],
+  ["flows", "Flows"],
 ]
 
 export function Header({
@@ -62,7 +62,7 @@ export function Header({
   const selectedFacets = (Object.keys(facets) as ReadonlyArray<Facet>).flatMap((facet) =>
     facets[facet].map((value) => `${facet}:${value}`),
   )
-  const noun = mode === "flows" ? "specimens" : "screens"
+  const noun = mode === "flows" ? "flows" : "screens"
 
   return (
     <header className="catalog-header">

@@ -3,7 +3,7 @@
 This monorepo contains the public `opencode-drive` package and its private OpenCode UI catalog.
 
 - [`packages/drive`](packages/drive): drive isolated OpenCode instances and simulated LLMs.
-- [`apps/catalog`](apps/catalog): capture and browse deterministic OpenCode UI specimens.
+- [`apps/catalog`](apps/catalog): capture and browse deterministic OpenCode UI flows.
 
 ```bash
 bun install

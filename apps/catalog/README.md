@@ -52,7 +52,7 @@ bun run dev
 
 In the catalog:
 
-- In the viewer, press left or right to move through specimen checkpoints and up or down to switch variants.
+- In the viewer, press left or right to move through flow steps and up or down to switch variants.
 - Click a card to open its full-screen viewer.
 - Press up or down in the viewer to move between screens.
 - Press `Escape` to close the viewer.
@@ -96,7 +96,7 @@ Capture the OpenCode terminal catalog with these variants:
 - redesign: ~/code/opencode-redesign using the rosepine theme
 
 Run generation, typecheck, tests, and the production build. Start the local
-catalog and verify that left/right moves through checkpoints while up/down changes variants.
+catalog and verify that left/right moves through flow steps while up/down changes variants.
 Do not hand-edit generated frame files.
 ```
 

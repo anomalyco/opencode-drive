@@ -78,7 +78,7 @@ Each variant must have:
 
 Variants run concurrently with separate `OpenCodeDriver` instances. Steps inside a variant are sequential because later permission, question, subagent, and session states depend on earlier actions. Preserve deterministic manifest ordering regardless of execution concurrency.
 
-The MVP displays one active variant at a time. In the viewer, left/right moves through specimen checkpoints and up/down changes the active variant. Do not add split comparison unless explicitly requested.
+The MVP displays one active variant at a time. In the viewer, left/right moves through flow steps and up/down changes the active variant. Do not add split comparison unless explicitly requested.
 
 ## Authored And Generated Files
 
@@ -120,7 +120,7 @@ For UI changes, verify in a real browser at desktop and mobile widths:
 
 - Every expected canvas loads without console errors.
 - Intrinsic dimensions equal `cols * 10` by `rows * 20`.
-- Left/right moves through specimen checkpoints; up/down switches variants.
+- Left/right moves through flow steps; up/down switches variants.
 - Up/down moves screens only inside the viewer.
 - The page has no horizontal overflow on mobile.
 
