@@ -13,6 +13,7 @@
     "test": "bun run --cwd packages/drive test && bun run --cwd apps/catalog test",
     "catalog": "bun run --cwd apps/catalog dev",
     "catalog:capture": "bun run --cwd apps/catalog capture",
+    "catalog:reproduce": "bun run --cwd apps/catalog reproduce",
     "release:version": "changeset version",
     "release:validate": "bun run --cwd packages/drive release:validate",
     "release": "bun run release:validate && changeset publish"

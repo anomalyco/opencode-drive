@@ -6,6 +6,7 @@
   "scripts": {
     "generate": "bun ./scripts/generate-catalog.ts",
     "capture": "bun ./scripts/capture-opencode-drive.ts",
+    "reproduce": "bun ./scripts/reproduce-state.ts",
     "dev": "bun ./server.ts",
     "lint": "oxlint src catalog scripts scenarios server.ts worker.ts",
     "typecheck": "tsc --noEmit",

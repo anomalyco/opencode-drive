@@ -53,6 +53,16 @@ bun run dev
 In the catalog:
 
 - In the viewer, press left or right to move through flow steps and up or down to switch variants.
+- Use **Copy ID** to copy the active flow state address, or the capture ID when browsing screens directly.
+
+Reproduce a registered executable state against an OpenCode checkout:
+
+```bash
+bun run reproduce -- patch-success-lifecycle/permission-prompt \
+  --opencode /path/to/opencode
+```
+
+The command prints the path to a normalized terminal frame. Only states from flows registered in `scenarios/index.ts` are currently reproducible; other catalog flows remain browse-only until their recipes are migrated.
 - Click a card to open its full-screen viewer.
 - Press up or down in the viewer to move between screens.
 - Press `Escape` to close the viewer.
