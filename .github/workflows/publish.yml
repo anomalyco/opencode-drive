@@ -29,7 +29,7 @@ jobs:
 
       - name: Verify tag matches package version
         run: |
-          version="$(bun -e 'console.log(require("./package.json").version)')"
+          version="$(bun -e 'console.log(require("./packages/drive/package.json").version)')"
           test "$GITHUB_REF_NAME" = "v$version"
 
       - run: bun run release

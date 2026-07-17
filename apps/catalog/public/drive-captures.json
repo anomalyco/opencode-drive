@@ -1,0 +1,458 @@
+{
+  "format": "opencode-terminal-frame-captures-v1",
+  "generatedBy": "scripts/capture-opencode-drive.ts",
+  "variants": [
+    {
+      "id": "baseline",
+      "label": "baseline",
+      "source": "opencode-effect-beta-98",
+      "revision": "801f019fef49"
+    },
+    {
+      "id": "rosepine",
+      "label": "rosepine",
+      "source": "opencode-effect-beta-98",
+      "revision": "801f019fef49",
+      "theme": "rosepine"
+    }
+  ],
+  "captures": [
+    {
+      "id": "home",
+      "title": "Home",
+      "category": "system",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/home.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/home.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "command-palette",
+      "title": "Command palette",
+      "category": "navigation",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/command-palette.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/command-palette.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "model-picker",
+      "title": "Model picker",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/model-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/model-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "agent-picker",
+      "title": "Agent picker",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/agent-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/agent-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "integration-picker",
+      "title": "Integrations",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/integration-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/integration-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "theme-picker",
+      "title": "Theme picker",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/theme-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/theme-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "mcp-list",
+      "title": "MCPs",
+      "category": "status",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/mcp-list.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/mcp-list.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "title": "Status",
+      "category": "status",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/status.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/status.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "debug",
+      "title": "Debug",
+      "category": "information",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/debug.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/debug.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "title": "Help",
+      "category": "information",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/help.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/help.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "pair",
+      "title": "Pair device",
+      "category": "information",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/pair.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/pair.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-picker",
+      "title": "Session picker",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/session-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/session-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "skill-picker",
+      "title": "Skill picker",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/skill-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/skill-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-input-streaming",
+      "title": "Patch input streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/patch-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/patch-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-prompt",
+      "title": "Permission prompt",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/permission-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/permission-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-success",
+      "title": "Patch succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-rename",
+      "title": "Rename session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/session-rename.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/session-rename.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-fork",
+      "title": "Fork session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/session-fork.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/session-fork.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-export",
+      "title": "Export session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/session-export.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/session-export.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-prompt",
+      "title": "Question prompt",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/question-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/question-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-picker-populated",
+      "title": "Session picker (populated)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/session-picker-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/session-picker-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "toast-success",
+      "title": "Success toast",
+      "category": "system",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/toast-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/toast-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "diff-viewer",
+      "title": "Diff viewer",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "baseline",
+          "src": "captures/baseline/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "rosepine",
+          "src": "captures/rosepine/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    }
+  ]
+}

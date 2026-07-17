@@ -1,0 +1,98 @@
+import type { Catalog, Flow } from "../catalog"
+import { frameFor } from "../catalog"
+import { TerminalFrame } from "./TerminalFrame"
+
+interface FlowBrowserProps {
+  readonly catalog: Catalog
+  readonly flows: ReadonlyArray<Flow>
+  readonly activeFlow: Flow | undefined
+  readonly variantId: string
+  readonly onFlow: (id: string) => void
+  readonly onOpen: (screenId: string) => void
+}
+
+export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onOpen }: FlowBrowserProps) {
+  const groupedFlows = new Map<string, Array<Flow>>()
+  for (const flow of flows) {
+    const grouped = groupedFlows.get(flow.group)
+    if (grouped) grouped.push(flow)
+    else groupedFlows.set(flow.group, [flow])
+  }
+  const navigation = (
+    <nav className="flow-navigation" aria-label="Specimen catalog">
+      {Array.from(groupedFlows, ([group, groupFlows]) => (
+        <section key={group}>
+          <h2>{group}</h2>
+          {groupFlows.map((flow) => (
+            <button
+              type="button"
+              key={flow.id}
+              className={flow.id === activeFlow?.id ? "active" : ""}
+              aria-current={flow.id === activeFlow?.id ? "true" : undefined}
+              onClick={() => onFlow(flow.id)}
+            >
+              <span>{flow.title}</span>
+              <small>{flow.steps.length}</small>
+            </button>
+          ))}
+        </section>
+      ))}
+    </nav>
+  )
+
+  if (!activeFlow) {
+    return <p className="empty-state">No flows match.</p>
+  }
+
+  return (
+    <section className="flow-browser">
+      <aside className="flow-sidebar">
+        <div className="flow-sidebar-heading">
+          <span>Specimen catalog</span>
+          <small>{flows.length}</small>
+        </div>
+        {navigation}
+      </aside>
+      <details className="flow-mobile-nav">
+        <summary>
+          <span>{activeFlow.title}</span>
+          <small>Browse specimens ↓</small>
+        </summary>
+        {navigation}
+      </details>
+      <article className="flow-content">
+        <header className="flow-heading">
+          <div>
+            <p>{activeFlow.group}</p>
+            <h1>{activeFlow.title}</h1>
+          </div>
+          <span>{activeFlow.steps.length} {activeFlow.steps.length === 1 ? "checkpoint" : "checkpoints"}</span>
+          <p>{activeFlow.description}</p>
+        </header>
+        <ol className="flow-rail" role="list">
+          {activeFlow.steps.map((step, index) => {
+            const screen = catalog.screens.find((candidate) => candidate.id === step.screenId)
+            if (!screen) return undefined
+            const frame = frameFor(screen, variantId)
+            return (
+              <li key={`${activeFlow.id}:${index}:${step.screenId}`} className="flow-step">
+                <button type="button" onClick={() => onOpen(screen.id)}>
+                  <span className="flow-frame">
+                    <TerminalFrame frame={frame} label={screen.title} lazy />
+                  </span>
+                  <span className="flow-step-meta">
+                    <span className="flow-step-number">{String(index + 1).padStart(2, "0")}</span>
+                    <span>
+                      <strong>{step.title}</strong>
+                      {step.trigger ? <small>{step.trigger}</small> : undefined}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      </article>
+    </section>
+  )
+}

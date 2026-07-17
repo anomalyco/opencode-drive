@@ -1,4 +1,8 @@
 node_modules/
+**/node_modules/
 dist/
+**/dist/
+.tmp/
+**/.tmp/
 .build/
 .sst/
