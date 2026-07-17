@@ -24,7 +24,7 @@ export async function replayRecording(path: string, options: ReplayOptions = {})
 
 export async function replay(path: string, options: InternalReplayOptions = {}): Promise<SampledFrame[]> {
   options.signal?.throwIfAborted()
-  const interval = sampleInterval(options.fps ?? 20)
+  const interval = sampleInterval(options.fps ?? 60)
   if (options.startAtMs !== undefined && (!Number.isFinite(options.startAtMs) || options.startAtMs < 0))
     throw new Error("startAtMs must be a non-negative finite number")
   if (options.durationMs !== undefined && (!Number.isFinite(options.durationMs) || options.durationMs < 0))
@@ -67,7 +67,10 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
     frames.push({ atMs: nextSample, frame: terminal.snapshot() })
     nextSample += interval
   }
-  if (frames.length === 0 || frames.at(-1)!.atMs !== targetFinal) {
+  const final = frames.at(-1)
+  if (final && Math.abs(final.atMs - targetFinal) < 0.000_001) {
+    frames[frames.length - 1] = { ...final, atMs: targetFinal }
+  } else {
     frames.push({ atMs: targetFinal, frame: terminal.snapshot() })
   }
   if (options.startAtMs !== undefined) {

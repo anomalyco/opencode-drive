@@ -24,6 +24,7 @@ export async function encodeFrames(
 ) {
   const final = frames.at(-1)
   if (!final) throw new Error("recording has no frames")
+  const fps = options.fps ?? 60
   await mkdir(dirname(output), { recursive: true })
   const directory = await mkdtemp(join(tmpdir(), "opencode-drive-recording-"))
   const progress = progressReporter(options.onProgress)
@@ -41,7 +42,7 @@ export async function encodeFrames(
       await linkOrCopy(rendered, join(directory, `frame-${String(index).padStart(8, "0")}.png`))
       progress(((index + 1) / frames.length) * 90)
     }
-    const frameDurationMs = 1000 / (options.fps ?? 20)
+    const frameDurationMs = 1000 / fps
     const concat = join(directory, "frames.ffconcat")
     const entries = frames.flatMap((frame, index) => {
       const next = frames[index + 1]
@@ -58,6 +59,8 @@ export async function encodeFrames(
       options.ffmpegPath ?? "ffmpeg",
       [
         "-y",
+        "-r",
+        String(fps),
         "-safe",
         "0",
         "-f",
