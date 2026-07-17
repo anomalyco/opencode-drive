@@ -313,6 +313,7 @@ export function App({ catalog }: AppProps) {
         <Viewer
           key={selectedScreen.id}
           screen={selectedScreen}
+          identifier={ui.mode === "flows" && activeFlow ? `${activeFlow.id}/${selectedScreen.id}` : selectedScreen.id}
           variant={activeVariant}
           variantPosition={variantIndex + 1}
           variantTotal={catalog.variants.length}

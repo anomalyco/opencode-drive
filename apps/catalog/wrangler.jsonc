@@ -5,5 +5,11 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "catalog.kitlangton.dev",
+      "custom_domain": true
+    }
+  ]
 }

@@ -83,12 +83,12 @@ export const patchSuccessFlow = defineExecutableFlow(
           ),
           Llm.finish("tool-calls"),
         )
-        yield* driver.llm.queue(Llm.text("The fixture was updated."))
         yield* driver.ui.submit("Change fixture.txt from before to after.")
         yield* Effect.sleep(450)
         yield* checkpoint(inputStreaming)
         yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
         yield* checkpoint(permissionPrompt)
+        yield* driver.llm.queue(Llm.text("The fixture was updated."))
         yield* driver.ui.enter()
         yield* driver.ui.waitFor("The fixture was updated.", { timeout: 15_000 })
         yield* checkpoint(success)

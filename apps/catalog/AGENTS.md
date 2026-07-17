@@ -33,6 +33,19 @@ The module seams are:
 - `src/components/TerminalFrame.tsx`: derives canvas pixels from normalized frames.
 - `src/App.tsx`: owns active variant and selected screen state.
 
+## State Addresses
+
+Executable states have canonical `<flow-id>/<state-id>` addresses. The catalog viewer's **Copy ID** action copies that address in flow mode. In screen and UI-element modes it copies the standalone capture ID.
+
+Resolve and reproduce an executable state with:
+
+```bash
+bun run catalog:reproduce -- patch-success-lifecycle/permission-prompt \
+  --opencode /path/to/opencode
+```
+
+The command executes the recipe only through the selected state and prints the path to a normalized `opencode-terminal-frame-v1` artifact. `apps/catalog/scenarios/index.ts` is the executable-flow registry used for string resolution. An address is agent-replayable only after its flow is registered there; narrative catalog flows that have not migrated to executable recipes are browse-only.
+
 ## Protocol Convention
 
 Keep Drive `--command.ui.*` names and parameter shapes identical to the frontend portion of the canonical OpenCode simulation protocol. The raw-frame command is `ui.capture` with no parameters.
