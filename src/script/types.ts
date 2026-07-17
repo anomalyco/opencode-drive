@@ -7,6 +7,7 @@ import type * as OpenCodeUi from "../driver/ui.js"
 import type * as OpenCodeClient from "../driver/client.js"
 import type * as LlmController from "../driver/llm-controller.js"
 import type * as OpenCodeServer from "../driver/server.js"
+import type * as OpenCodeApi from "../driver/api.js"
 import type { FileSystemError, UiPredicateError } from "./errors.js"
 
 export type JsonValue =
@@ -210,12 +211,14 @@ export interface ScriptClientOptions {
 
 export interface ScriptServer {
   /** Launches the one shared OpenCode server for this script. */
-  launch(): Effect.Effect<void, ScriptServerLaunchError>
+  launch(): Effect.Effect<OpenCodeApi.Api, ScriptServerLaunchError>
   /** Stops the shared server. It may be launched again afterward. */
   kill(): Effect.Effect<void, ScriptServerKillError>
 }
 
 export interface ScriptContext {
+  /** Typed client connected to this script's private OpenCode service. */
+  readonly api: OpenCodeApi.Api
   readonly fs: ScriptFileSystem
   readonly ui: ScriptUi
   readonly clients: ScriptClients
@@ -224,7 +227,7 @@ export interface ScriptContext {
   readonly artifacts: string
 }
 
-export interface ManualScriptContext extends Omit<ScriptContext, "ui"> {
+export interface ManualScriptContext extends Omit<ScriptContext, "ui" | "api"> {
   readonly ui: null
 }
 

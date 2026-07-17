@@ -16,7 +16,8 @@ export default defineScript({
           onSuccess: () => Effect.succeed("unexpected success"),
         },
       )
-      yield* server.launch()
+      const api = yield* server.launch()
+      const health = yield* api.health.get()
       const duplicateServer = yield* Effect.matchEffect(server.launch(), {
         onFailure: (error) => Effect.succeed(errorMessage(error)),
         onSuccess: () => Effect.succeed("unexpected success"),
@@ -40,6 +41,7 @@ export default defineScript({
           JSON.stringify({
             aliceMatches,
             bobMatches,
+            apiHealthy: health.healthy,
             clientBeforeServer,
             duplicateServer,
             aliceScreenshot,

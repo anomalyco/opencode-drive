@@ -7,6 +7,7 @@ import * as Exit from "effect/Exit"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import * as OpenCodeClients from "./client.js"
+import * as OpenCodeApi from "./api.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import * as LlmController from "./llm-controller.js"
 
@@ -27,7 +28,7 @@ export interface Server {
   readonly llm: LlmController.Controller
   readonly clients: OpenCodeClients.Control
   readonly launch: () => Effect.Effect<
-    void,
+    OpenCodeApi.Api,
     | OpenCodeDriverError
     | LlmController.LlmControllerError
     | SimulationConnector.SimulationCompatibilityError
@@ -96,6 +97,14 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
         ),
       ),
     )
+    const api = yield* OpenCodeApi.make(instance.artifacts).pipe(
+      Effect.onError(() =>
+        instance.killServer.pipe(
+          Effect.ignore,
+          Effect.andThen(Scope.close(scope, Exit.void)),
+        ),
+      ),
+    )
     const process = yield* instance.primary.pipe(
       Effect.mapError((cause) => error("server.launch", cause)),
     )
@@ -118,7 +127,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
       Effect.catchCause(() => Effect.void),
       Effect.forkIn(scope),
     )
-    return undefined
+    return api
   })
 
   const killGeneration = Effect.fn("OpenCodeServer.kill")(function* () {

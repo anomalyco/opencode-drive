@@ -140,7 +140,11 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
   const execution =
     "launch" in script
       ? script.run({ ...context, ui: null })
-      : script.run({ ...context, ui: adaptUi(primaryClient!) })
+      : script.run({
+          ...context,
+          api: prepared.driver!.api,
+          ui: adaptUi(primaryClient!),
+        })
   if (!Effect.isEffect(execution))
     return yield* Effect.fail(new Error("script run must return an Effect"))
   if (primaryClient !== undefined) onReady?.()

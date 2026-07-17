@@ -11,6 +11,7 @@ import type {
   ScriptSetup,
 } from "../script/types.js"
 import * as OpenCodeClient from "./client.js"
+import type * as OpenCodeApi from "./api.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import type {
   LlmControllerError,
@@ -36,6 +37,8 @@ export interface Options {
 }
 
 export interface Driver {
+  /** Typed client connected to this driver's private OpenCode service. */
+  readonly api: OpenCodeApi.Api
   readonly ui: OpenCodeUi.Ui
   readonly llm: Llm
   readonly clients: OpenCodeClient.Clients
@@ -162,5 +165,6 @@ export {
 export { SimulationRequestError } from "../simulation/rpc.js"
 export { SimulationConnectionError } from "../simulation/connector.js"
 export type { Client, Clients, Recording } from "./client.js"
+export type { Api } from "./api.js"
 export type { Ui } from "./ui.js"
 export * from "./report.js"

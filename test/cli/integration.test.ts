@@ -831,6 +831,7 @@ describe("opencode-drive", () => {
     const artifacts = artifactPath(error)
     roots.push(artifacts)
     expect(await Bun.file(join(artifacts, "manual-clients.json")).json()).toEqual({
+      apiHealthy: true,
       aliceMatches: true,
       bobMatches: true,
       clientBeforeServer: "launch the script server before launching clients",

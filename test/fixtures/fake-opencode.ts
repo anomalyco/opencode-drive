@@ -1,3 +1,6 @@
+import { mkdir } from "node:fs/promises"
+import { resolve } from "node:path"
+
 const serviceMode = process.env.OPENCODE_DRIVE_SCRIPTED === "1"
 const role = serviceMode
   ? process.argv.at(-2) === "serve" && process.argv.at(-1) === "--service"
@@ -14,6 +17,46 @@ const screen = { value: `Fake OpenCode${role === "client" ? ` ${process.env.OPEN
 const drive = await resolveDrive()
 const recordingStarted = performance.now()
 const endpoints = drive.endpoints
+const servicePassword = "drive-test-password"
+const api = role === "service"
+  ? Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch(request) {
+        if (
+          request.headers.get("authorization") !==
+          `Basic ${btoa(`opencode:${servicePassword}`)}`
+        )
+          return Response.json({ _tag: "UnauthorizedError", message: "Unauthorized" }, { status: 401 })
+        const url = new URL(request.url)
+        if (url.pathname === "/api/health")
+          return Response.json({ healthy: true, version: "test", pid: process.pid })
+        if (url.pathname === "/api/server") {
+          const directory = process.env.XDG_STATE_HOME
+            ? resolve(process.env.XDG_STATE_HOME, "../../..", "files")
+            : undefined
+          if (request.headers.get("x-opencode-directory") !== encodeURIComponent(directory ?? ""))
+            return Response.json({ _tag: "InvalidRequestError", message: "Wrong directory" }, { status: 400 })
+          return Response.json({ urls: [] })
+        }
+        return Response.json({ _tag: "InvalidRequestError", message: "Not found" }, { status: 404 })
+      },
+    })
+  : undefined
+if (api !== undefined && process.env.XDG_STATE_HOME) {
+  const directory = `${process.env.XDG_STATE_HOME}/opencode`
+  await mkdir(directory, { recursive: true })
+  await Bun.write(
+    `${directory}/service-testchannel.json`,
+    JSON.stringify({
+      id: crypto.randomUUID(),
+      version: "test",
+      url: `http://127.0.0.1:${api.port}`,
+      pid: process.pid,
+      password: servicePassword,
+    }),
+  )
+}
 if (drive.recording && role !== "service")
   await Bun.write(
     drive.recording.timeline,

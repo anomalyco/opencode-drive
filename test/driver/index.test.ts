@@ -44,6 +44,11 @@ it.live("runs and settles a complete scoped driver", () =>
       },
       (driver) =>
         Effect.gen(function* () {
+          expect(yield* driver.api.health.get()).toMatchObject({
+            healthy: true,
+            version: "test",
+          })
+          expect(yield* driver.api.server.get()).toEqual({ urls: [] })
           yield* driver.llm.queue(
             Llm.text("library response", { delay: 0, chunkSize: 100 }),
           )

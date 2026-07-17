@@ -53,7 +53,9 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
         compatibility: options.compatibility,
       },
     })
-    if ((options.launch ?? "automatic") === "automatic") yield* server.launch()
+    const api = (options.launch ?? "automatic") === "automatic"
+      ? yield* server.launch()
+      : undefined
     const primary = (options.launch ?? "automatic") === "automatic"
       ? options.clientName === undefined
         ? yield* server.clients.make(options.client)
@@ -106,9 +108,10 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
     const settle = yield* SharedEffect.make(complete(server.clients.settle()))
     yield* Effect.addFinalizer(() => server.llm.shutdown())
     const llm: Llm = server.llm
-    const driver: Driver | undefined = primary === undefined
+    const driver: Driver | undefined = primary === undefined || api === undefined
       ? undefined
       : {
+          api,
           ui: primary.ui,
           llm,
           clients: server.clients,
