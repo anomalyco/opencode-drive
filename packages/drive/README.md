@@ -207,6 +207,16 @@ opencode-drive start --name demo --visible --dev ~/projects/opencode
 
 `start` reuses the prepared artifacts for that name. If `init` was not run, `start` initializes them automatically.
 
+Drive uses an in-memory OpenCode database by default. Set
+`OPENCODE_DRIVE_DB` when a test restarts the OpenCode service and needs sessions
+to survive the replacement process. Relative paths resolve inside the isolated
+run's OpenCode data directory:
+
+```sh
+OPENCODE_DRIVE_DB=restart.sqlite \
+  opencode-drive start --name restart-demo --script ./restart.ts
+```
+
 Remove artifact directories left by sessions that are no longer active:
 
 ```sh
@@ -467,7 +477,8 @@ const isFileSystemError = (error: unknown) =>
 
 ## Release validation
 
-Version `0.5.0` is not ready to publish until the driver consolidation is complete. Before publishing a release, run the non-publishing validation command to check, test, and inspect the packed artifact:
+Before publishing a release, run the non-publishing validation command to
+check, test, and inspect the packed artifact:
 
 ```sh
 bun run release:validate

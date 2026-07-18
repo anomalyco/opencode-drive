@@ -289,6 +289,16 @@ opencode-drive start --name demo --dev ~/projects/opencode
 
 The simulated project is under `$artifacts/files`. A later `start --name demo` reuses the prepared artifacts; otherwise `start` initializes them automatically.
 
+Drive uses an in-memory OpenCode database by default. For a script that restarts
+the OpenCode service and must recover the same sessions, set
+`OPENCODE_DRIVE_DB` to a file-backed path. Relative paths resolve inside the
+isolated run's OpenCode data directory:
+
+```bash
+OPENCODE_DRIVE_DB=restart.sqlite \
+  opencode-drive start --name restart-demo --script ./restart.ts
+```
+
 ## Live Interaction
 
 Use live commands to inspect or iterate on a persistent instance. Headless `start` requires a unique `--name`; visible instances may omit it. Headless `start` detaches after the instance is ready, so do not add `&`. Always stop the instance when finished.
