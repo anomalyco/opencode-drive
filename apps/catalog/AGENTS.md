@@ -114,7 +114,7 @@ If OpenCode UI copy drifts, inspect the current target checkout and update exact
 ## Scope
 
 - The annotation system was deliberately removed. Do not restore annotation routes, storage, KV bindings, or markup UI without an explicit product decision.
-- OpenCode Drive remains a separate public package, not a monorepo package in this application.
+- OpenCode Drive is the generic published package in this monorepo (`packages/drive`); this app owns everything OpenCode-catalog-specific, and the package must not import the app.
 - The catalog repository is private because its state suite and review workflow are Anomaly application concerns.
 
 ## Verification
@@ -141,4 +141,4 @@ For protocol changes, also run the OpenCode simulation tests and the full OpenCo
 
 ## Dependencies
 
-The catalog temporarily pins OpenCode Drive by Git commit because the published `0.4.0` package predates `ui.capture`. Replace the Git dependency with a released semver version after a Drive release containing commit `8b49657` is published.
+The catalog consumes OpenCode Drive as a Bun workspace dependency (`"opencode-drive": "workspace:*"`) and imports only its published entry points (`opencode-drive`, `opencode-drive/driver`). Never import package-internal `src/` paths.
