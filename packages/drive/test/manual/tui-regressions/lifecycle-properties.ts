@@ -1,12 +1,13 @@
 import { defineScript, Llm } from "../../../src/index.js"
 import type { OpenCode } from "../../../src/index.js"
-import { Effect, Queue, Stream } from "effect"
+import { Deferred, Effect, Queue, Stream } from "effect"
 import { run } from "./state-machine.js"
 
 const seed = readInteger("OPENCODE_DRIVE_SEED", 1, Number.MAX_SAFE_INTEGER)
 const steps = readInteger("OPENCODE_DRIVE_STEPS", 12, 1_000)
 
 interface RecordedEvent {
+  readonly index: number
   readonly type: string
   readonly sessionID?: unknown
   readonly data: unknown
@@ -18,7 +19,13 @@ type Model =
       readonly sessionID?: SessionID
       readonly prompt?: string
       readonly output?: string
-      readonly pendingPrompt?: string
+    }
+  | {
+      readonly phase: "pending"
+      readonly sessionID: SessionID
+      readonly prompt: string
+      readonly output?: string
+      readonly pendingPrompt: string
     }
   | {
       readonly phase: "streaming"
@@ -32,23 +39,36 @@ type SessionID = Effect.Success<
   ReturnType<OpenCode["session"]["list"]>
 >["data"][number]["id"]
 
+interface ResponseControl {
+  readonly id: string
+  readonly output: Queue.Queue<Llm.Output>
+  readonly ended: Deferred.Deferred<void>
+}
+
 export default defineScript({
   run: ({ ui, llm, opencode, artifacts }) =>
     Effect.scoped(Effect.gen(function* () {
-      const output = yield* Queue.unbounded<Llm.Output>()
-      const responseEnded = yield* Queue.unbounded<void>()
+      const responses = yield* Queue.unbounded<ResponseControl>()
       const eventQueue = yield* Queue.unbounded<RecordedEvent>()
       const events: Array<RecordedEvent> = []
+      let activeResponse: ResponseControl | undefined
+      let eventSequence = 0
 
-      yield* llm.serve(() =>
-        Stream.fromQueue(output).pipe(
-          Stream.takeUntil((item) => item.type === "finish" || item.type === "disconnect"),
-          Stream.ensuring(Queue.offer(responseEnded, undefined)),
-        ),
+      yield* llm.serve((request) =>
+        Stream.unwrap(Effect.gen(function* () {
+          const output = yield* Queue.unbounded<Llm.Output>()
+          const ended = yield* Deferred.make<void>()
+          yield* Queue.offer(responses, { id: request.id, output, ended })
+          return Stream.fromQueue(output).pipe(
+            Stream.takeUntil((item) => item.type === "finish" || item.type === "disconnect"),
+            Stream.ensuring(Deferred.succeed(ended, undefined).pipe(Effect.asVoid)),
+          )
+        })),
       )
       yield* opencode.event.subscribe().pipe(
         Stream.runForEach((event) => {
           const recorded: RecordedEvent = {
+            index: eventSequence++,
             type: event.type,
             ...(event.data !== null &&
             typeof event.data === "object" &&
@@ -74,10 +94,15 @@ export default defineScript({
       const waitForEvent = Effect.fn("LifecycleProperties.waitForEvent")(function* (
         type: string,
         sessionID: SessionID | undefined,
+        after: number,
       ) {
         while (true) {
           const event = yield* Queue.take(eventQueue)
-          if (event.type === type && (sessionID === undefined || event.sessionID === sessionID)) return event
+          if (
+            event.index > after &&
+            event.type === type &&
+            (sessionID === undefined || event.sessionID === sessionID)
+          ) return event
         }
       }, (effect, type) =>
         effect.pipe(
@@ -87,11 +112,37 @@ export default defineScript({
           }),
         ))
 
-      const endResponse = Effect.fn("LifecycleProperties.endResponse")(function* (
+      const waitForResponse = Effect.fn("LifecycleProperties.waitForResponse")(function* () {
+        if (activeResponse !== undefined)
+          return yield* Effect.fail(new Error(`LLM response ${activeResponse.id} is already active`))
+        while (true) {
+          const response = yield* Queue.take(responses)
+          if (yield* Deferred.isDone(response.ended)) continue
+          activeResponse = response
+          return
+        }
+      }, (effect) =>
+        effect.pipe(
+          Effect.timeoutOrElse({
+            duration: 10_000,
+            orElse: () => Effect.fail(new Error("timed out waiting for an LLM response")),
+          }),
+        ))
+
+      const sendOutput = Effect.fn("LifecycleProperties.sendOutput")(function* (
         item: Llm.Output,
       ) {
-        yield* Queue.offer(output, item)
-        yield* Queue.take(responseEnded)
+        const response = activeResponse
+        if (response === undefined) return yield* Effect.fail(new Error("no active LLM response"))
+        yield* Queue.offer(response.output, item)
+      })
+
+      const endResponse = Effect.fn("LifecycleProperties.endResponse")(function* (item: Llm.Output) {
+        const response = activeResponse
+        if (response === undefined) return yield* Effect.fail(new Error("no active LLM response"))
+        yield* Queue.offer(response.output, item)
+        yield* Deferred.await(response.ended)
+        activeResponse = undefined
       }, (effect) =>
         effect.pipe(
           Effect.timeoutOrElse({
@@ -104,8 +155,10 @@ export default defineScript({
         sessionID: SessionID,
         prompt: string,
       ) {
-        const messages = yield* opencode.message.list({ sessionID, limit: 20, order: "desc" })
-        const pending = yield* opencode.session.pending.list({ sessionID })
+        const [messages, pending] = yield* Effect.all([
+          opencode.message.list({ sessionID, limit: 20, order: "desc" }),
+          opencode.session.pending.list({ sessionID }),
+        ], { concurrency: "unbounded" })
         return {
           projected: messages.data.filter(
             (message) => message.type === "user" && message.text === prompt,
@@ -116,38 +169,55 @@ export default defineScript({
         }
       })
 
-      const afterTerminal = Effect.fn("LifecycleProperties.afterTerminal")(function* (
+      const idleAfter = (
+        state: Extract<Model, { phase: "streaming" }>,
+      ): Model => ({
+        phase: "idle",
+        sessionID: state.sessionID,
+        prompt: state.prompt,
+        output: state.output,
+      })
+
+      const afterInterrupted = Effect.fn("LifecycleProperties.afterInterrupted")(function* (
         state: Extract<Model, { phase: "streaming" }>,
       ) {
-        if (state.queuedPrompt === undefined)
-          return {
-            phase: "idle",
-            sessionID: state.sessionID,
-            prompt: state.prompt,
-            output: state.output,
-          } satisfies Model
+        if (state.queuedPrompt === undefined) return idleAfter(state)
         const owners = yield* promptOwners(state.sessionID, state.queuedPrompt)
         if (owners.pending === 1 && owners.projected === 0)
           return {
-            phase: "idle",
+            phase: "pending",
             sessionID: state.sessionID,
             prompt: state.prompt,
             output: state.output,
             pendingPrompt: state.queuedPrompt,
           } satisfies Model
-        if (owners.pending === 0 && owners.projected === 1) {
-          yield* waitForEvent("session.execution.started", state.sessionID)
-          return {
-            phase: "streaming",
-            sessionID: state.sessionID,
-            prompt: state.queuedPrompt,
-          } satisfies Model
-        }
         return yield* Effect.fail(
           new Error(
-            `queued prompt has ${owners.projected} projected and ${owners.pending} pending owners after terminal execution`,
+            `interrupted prompt has ${owners.projected} projected and ${owners.pending} pending owners`,
           ),
         )
+      })
+
+      const afterProviderFailure = Effect.fn("LifecycleProperties.afterProviderFailure")(function* (
+        state: Extract<Model, { phase: "streaming" }>,
+        after: number,
+      ) {
+        if (state.queuedPrompt === undefined) return idleAfter(state)
+        const started = yield* waitForEvent("session.execution.started", state.sessionID, after)
+        yield* waitForEvent("session.input.promoted", state.sessionID, started.index)
+        const owners = yield* promptOwners(state.sessionID, state.queuedPrompt)
+        if (owners.pending !== 0 || owners.projected !== 1)
+          return yield* Effect.fail(
+            new Error(
+              `recovered prompt has ${owners.projected} projected and ${owners.pending} pending owners`,
+            ),
+          )
+        yield* waitForResponse()
+        return {
+          phase: "streaming",
+          sessionID: state.sessionID,
+          prompt: state.queuedPrompt,
+        } satisfies Model
       })
 
       const final = yield* run<Model>({
@@ -162,26 +232,31 @@ export default defineScript({
         transitions: [
           {
             name: "submit",
-            enabled: (state) => state.phase === "idle",
+            enabled: (state) => state.phase !== "streaming",
             run: (state, step) =>
               Effect.gen(function* () {
-                if (state.phase !== "idle") return state
+                if (state.phase === "streaming") return state
                 const prompt = `lifecycle-prompt-${step}`
+                const after = eventSequence - 1
                 yield* ui.submit(prompt)
-                if (state.pendingPrompt !== undefined)
-                  yield* waitForEvent("session.input.admitted", state.sessionID)
+                const admitted = state.phase === "pending"
+                  ? yield* waitForEvent("session.input.admitted", state.sessionID, after)
+                  : undefined
                 const started = yield* waitForEvent(
                   "session.execution.started",
-                  state.sessionID,
+                  state.phase === "pending" ? state.sessionID : undefined,
+                  admitted?.index ?? after,
                 )
-                const sessionID = yield* currentSession()
+                const sessionID = state.phase === "pending" ? state.sessionID : yield* currentSession()
                 if (started.sessionID !== sessionID)
                   return yield* Effect.fail(new Error("execution started for an unexpected session"))
-                if (state.pendingPrompt !== undefined) {
-                  yield* waitForEvent("session.input.promoted", sessionID)
-                  yield* waitForEvent("session.input.promoted", sessionID)
-                  const previous = yield* promptOwners(sessionID, state.pendingPrompt)
-                  const current = yield* promptOwners(sessionID, prompt)
+                if (state.phase === "pending") {
+                  const first = yield* waitForEvent("session.input.promoted", sessionID, started.index)
+                  yield* waitForEvent("session.input.promoted", sessionID, first.index)
+                  const [previous, current] = yield* Effect.all([
+                    promptOwners(sessionID, state.pendingPrompt),
+                    promptOwners(sessionID, prompt),
+                  ], { concurrency: "unbounded" })
                   if (
                     previous.projected !== 1 ||
                     previous.pending !== 0 ||
@@ -193,8 +268,10 @@ export default defineScript({
                         `resumed prompts have previous ${previous.projected}/${previous.pending} and current ${current.projected}/${current.pending} projected/pending owners`,
                       ),
                     )
+                  yield* waitForResponse()
                   return { phase: "streaming", sessionID, prompt }
                 }
+                yield* waitForResponse()
                 return { phase: "streaming", sessionID, prompt }
               }),
           },
@@ -205,8 +282,9 @@ export default defineScript({
               Effect.gen(function* () {
                 if (state.phase !== "streaming") return state
                 const text = `lifecycle-output-${step}`
-                yield* Queue.offer(output, Llm.text(text, { delay: 0, chunkSize: 100 }))
-                yield* waitForEvent("session.text.started", state.sessionID)
+                const after = eventSequence - 1
+                yield* sendOutput(Llm.text(text, { delay: 0, chunkSize: 100 }))
+                yield* waitForEvent("session.text.started", state.sessionID, after)
                 return { ...state, output: text }
               }),
           },
@@ -217,8 +295,9 @@ export default defineScript({
               Effect.gen(function* () {
                 if (state.phase !== "streaming") return state
                 const queuedPrompt = `queued-prompt-${step}`
+                const after = eventSequence - 1
                 yield* ui.submit(queuedPrompt)
-                yield* waitForEvent("session.input.admitted", state.sessionID)
+                yield* waitForEvent("session.input.admitted", state.sessionID, after)
                 return { ...state, queuedPrompt }
               }),
           },
@@ -228,9 +307,10 @@ export default defineScript({
             run: (state) =>
               Effect.gen(function* () {
                 if (state.phase !== "streaming") return state
+                const after = eventSequence - 1
                 yield* endResponse(Llm.finish())
                 if (state.queuedPrompt !== undefined) {
-                  yield* waitForEvent("session.input.promoted", state.sessionID)
+                  yield* waitForEvent("session.input.promoted", state.sessionID, after)
                   const owners = yield* promptOwners(state.sessionID, state.queuedPrompt)
                   if (owners.projected !== 1 || owners.pending !== 0)
                     return yield* Effect.fail(
@@ -238,14 +318,15 @@ export default defineScript({
                         `promoted prompt has ${owners.projected} projected and ${owners.pending} pending owners`,
                       ),
                     )
+                  yield* waitForResponse()
                   return {
                     phase: "streaming",
                     sessionID: state.sessionID,
                     prompt: state.queuedPrompt,
                   }
                 }
-                yield* waitForEvent("session.execution.succeeded", state.sessionID)
-                return yield* afterTerminal(state)
+                yield* waitForEvent("session.execution.succeeded", state.sessionID, after)
+                return idleAfter(state)
               }),
           },
           {
@@ -254,10 +335,11 @@ export default defineScript({
             run: (state) =>
               Effect.gen(function* () {
                 if (state.phase !== "streaming") return state
+                const after = eventSequence - 1
                 yield* opencode.session.interrupt({ sessionID: state.sessionID })
-                yield* waitForEvent("session.execution.interrupted", state.sessionID)
+                yield* waitForEvent("session.execution.interrupted", state.sessionID, after)
                 yield* endResponse(Llm.text("discarded-after-interrupt", { delay: 0, chunkSize: 100 }))
-                return yield* afterTerminal(state)
+                return yield* afterInterrupted(state)
               }),
           },
           {
@@ -266,9 +348,10 @@ export default defineScript({
             run: (state) =>
               Effect.gen(function* () {
                 if (state.phase !== "streaming") return state
+                const after = eventSequence - 1
                 yield* endResponse(Llm.disconnect())
-                yield* waitForEvent("session.execution.failed", state.sessionID)
-                return yield* afterTerminal(state)
+                const failed = yield* waitForEvent("session.execution.failed", state.sessionID, after)
+                return yield* afterProviderFailure(state, failed.index)
               }),
           },
         ],
@@ -278,7 +361,7 @@ export default defineScript({
             check: (state) =>
               state.phase === "streaming" && state.queuedPrompt !== undefined
                 ? ui.waitFor(state.queuedPrompt, { timeout: 10_000 }).pipe(Effect.asVoid)
-                : state.phase === "idle" && state.pendingPrompt !== undefined
+                : state.phase === "pending"
                 ? ui.waitFor(state.pendingPrompt, { timeout: 10_000 }).pipe(Effect.asVoid)
                 : state.prompt === undefined
                 ? Effect.void
@@ -287,14 +370,14 @@ export default defineScript({
           {
             name: "settled output remains visible",
             check: (state) =>
-              state.phase !== "idle" || state.output === undefined
+              state.phase === "streaming" || state.output === undefined
                 ? Effect.void
                 : ui.waitFor(state.output, { timeout: 10_000 }).pipe(Effect.asVoid),
           },
           {
             name: "settled composer is actionable",
             check: (state) =>
-              state.phase === "idle"
+              state.phase !== "streaming"
                 ? ui.waitFor((current) => current.focused.editor, { timeout: 10_000 }).pipe(Effect.asVoid)
                 : Effect.void,
           },
@@ -320,11 +403,19 @@ export default defineScript({
           {
             name: "queued prompt has exactly one owner",
             check: (state) =>
-              (state.phase === "streaming" ? state.queuedPrompt : state.pendingPrompt) === undefined ||
+              (state.phase === "streaming"
+                ? state.queuedPrompt
+                : state.phase === "pending"
+                ? state.pendingPrompt
+                : undefined) === undefined ||
               state.sessionID === undefined
                 ? Effect.void
                 : Effect.gen(function* () {
-                    const ownedPrompt = state.phase === "streaming" ? state.queuedPrompt : state.pendingPrompt
+                    const ownedPrompt = state.phase === "streaming"
+                      ? state.queuedPrompt
+                      : state.phase === "pending"
+                      ? state.pendingPrompt
+                      : undefined
                     const sessionID = state.sessionID
                     if (ownedPrompt === undefined || sessionID === undefined) return
                     const owners = yield* promptOwners(sessionID, ownedPrompt)
@@ -339,7 +430,7 @@ export default defineScript({
           {
             name: "settled session has no pending input",
             check: (state) =>
-              state.phase !== "idle" || state.sessionID === undefined || state.pendingPrompt !== undefined
+              state.phase !== "idle" || state.sessionID === undefined
                 ? Effect.void
                 : Effect.gen(function* () {
                     const sessionID = state.sessionID
@@ -362,14 +453,15 @@ export default defineScript({
       })
 
       if (final.phase === "streaming") {
-        yield* opencode.session.interrupt({ sessionID: final.sessionID })
-        yield* waitForEvent("session.execution.interrupted", final.sessionID)
-        yield* endResponse(Llm.text("discarded-during-cleanup", { delay: 0, chunkSize: 100 }))
-        const settled = yield* afterTerminal(final)
-        if (settled.phase === "streaming") {
-          yield* opencode.session.interrupt({ sessionID: settled.sessionID })
-          yield* waitForEvent("session.execution.interrupted", settled.sessionID)
-          yield* endResponse(Llm.text("discarded-promoted-cleanup", { delay: 0, chunkSize: 100 }))
+        const after = eventSequence - 1
+        yield* endResponse(Llm.finish())
+        if (final.queuedPrompt !== undefined) {
+          const promoted = yield* waitForEvent("session.input.promoted", final.sessionID, after)
+          yield* waitForResponse()
+          yield* endResponse(Llm.finish())
+          yield* waitForEvent("session.execution.succeeded", final.sessionID, promoted.index)
+        } else {
+          yield* waitForEvent("session.execution.succeeded", final.sessionID, after)
         }
       }
     })),
