@@ -1,4 +1,9 @@
-import { connectSimulation, Frontend } from "../client/index.js"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import { Frontend } from "../client/protocol.js"
+import { recordLog } from "../log.js"
+import * as SimulationConnector from "../simulation/connector.js"
 import type { DriveCommand } from "./types.js"
 
 export const commandInfo = {
@@ -55,24 +60,13 @@ export function commandNames() {
   return Object.keys(commandInfo).sort()
 }
 
-export async function executeCommands(
-  endpoint: string,
-  commands: ReadonlyArray<DriveCommand>,
-) {
-  const ui = await connectSimulation({ url: endpoint })
-  const results: Array<{ readonly command: string; readonly result: unknown }> =
-    []
-  try {
-    for (const command of commands)
-      results.push({
-        command: command.operation,
-        result: await execute(command, ui),
-      })
-    return { results }
-  } catch (error) {
-    throw new CommandBatchError(results, error)
-  } finally {
-    ui.close()
+export class SimulationError extends Error {
+  constructor(
+    message: string,
+    readonly method?: string,
+  ) {
+    super(message)
+    this.name = "SimulationError"
   }
 }
 
@@ -89,113 +83,127 @@ export class CommandBatchError extends Error {
   }
 }
 
-async function execute(
-  command: DriveCommand,
-  ui: Awaited<ReturnType<typeof connectSimulation>>,
+const callTimeout = 30_000
+
+export async function executeCommands(
+  endpoint: string,
+  commands: ReadonlyArray<DriveCommand>,
 ) {
-  switch (command.operation) {
-    case "ui.type": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.type",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.type")
-        throw new Error("invalid ui.type params")
-      return ui.type(request.params.text)
-    }
-    case "ui.press": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.press",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.press")
-        throw new Error("invalid ui.press params")
-      return ui.press(request.params.key, request.params.modifiers)
-    }
-    case "ui.enter":
-      return ui.enter()
-    case "ui.arrow": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.arrow",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.arrow")
-        throw new Error("invalid ui.arrow params")
-      return ui.arrow(request.params.direction)
-    }
-    case "ui.focus": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.focus",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.focus")
-        throw new Error("invalid ui.focus params")
-      return ui.focus(request.params.target)
-    }
-    case "ui.click": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.click",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.click")
-        throw new Error("invalid ui.click params")
-      return ui.click(request.params.target, request.params.x, request.params.y)
-    }
-    case "ui.resize": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.resize",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.resize")
-        throw new Error("invalid ui.resize params")
-      return ui.resize(request.params)
-    }
-    case "ui.screenshot": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.screenshot",
-        ...(command.value === undefined ? {} : { params: json(command.value) }),
-      })
-      if (request.method !== "ui.screenshot")
-        throw new Error("invalid ui.screenshot params")
-      return ui.screenshot(request.params?.name)
-    }
-    case "ui.capture":
-      return ui.capture()
-    case "ui.state":
-      return ui.state()
-    case "ui.matches": {
-      const request = Frontend.decodeRequest({
-        jsonrpc: "2.0",
-        method: "ui.matches",
-        params: json(required(command)),
-      })
-      if (request.method !== "ui.matches")
-        throw new Error("invalid ui.matches params")
-      return ui.matches(request.params.text)
-    }
-    case "ui.recording.finish":
-      return ui.finishRecording()
+  const exit = await Effect.runPromiseExit(
+    Effect.scoped(executeBatch(endpoint, commands)),
+  )
+  if (Exit.isSuccess(exit)) return exit.value
+  const reason = Cause.squash(exit.cause)
+  throw reason instanceof CommandBatchError ? reason : new CommandBatchError([], reason)
+}
+
+const executeBatch = Effect.fn("DriveCli.executeBatch")(function* (
+  endpoint: string,
+  commands: ReadonlyArray<DriveCommand>,
+) {
+  const connection = yield* SimulationConnector.ui(endpoint, {
+    connectTimeout: callTimeout,
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new SimulationError(
+          cause instanceof Error ? cause.message : `cannot connect to ${endpoint}`,
+        ),
+    ),
+  )
+  const results: Array<{ readonly command: string; readonly result: unknown }> =
+    []
+  for (const command of commands) {
+    const result = yield* execute(connection, command).pipe(
+      Effect.mapError((error) => new CommandBatchError(results, error)),
+    )
+    results.push({ command: command.operation, result })
   }
-  return assertNever(command.operation)
-}
+  return { results }
+})
 
-function assertNever(_value: never): never {
-  throw new Error("unreachable drive command")
-}
+const execute = (
+  connection: SimulationConnector.UiConnection,
+  command: DriveCommand,
+): Effect.Effect<unknown, SimulationError> =>
+  Effect.suspend(() => {
+    recordLog(
+      "INFO",
+      `ui command ${command.operation} params=${command.value ?? "undefined"}`,
+    )
+    return dispatch(connection, decodeCommand(command))
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: callTimeout,
+      orElse: () =>
+        Effect.fail(
+          new SimulationError(
+            `timed out after ${callTimeout}ms`,
+            command.operation,
+          ),
+        ),
+    }),
+    Effect.mapError((cause) =>
+      cause instanceof SimulationError
+        ? cause
+        : new SimulationError(
+            cause instanceof Error ? cause.message : String(cause),
+            command.operation,
+          ),
+    ),
+    Effect.tap(() =>
+      Effect.sync(() =>
+        recordLog("INFO", `ui command ${command.operation} completed`),
+      ),
+    ),
+    Effect.tapError((error) =>
+      Effect.sync(() =>
+        recordLog("ERROR", `ui command ${command.operation} failed: ${error.message}`),
+      ),
+    ),
+  )
 
-function required(command: DriveCommand) {
-  if (command.value === undefined)
+function decodeCommand(command: DriveCommand): Frontend.Request {
+  if (command.value === undefined && commandInfo[command.operation].value === true)
     throw new Error(`${command.operation} requires a value`)
-  return command.value
+  return Frontend.decodeRequest({
+    jsonrpc: "2.0",
+    method: command.operation,
+    ...(command.value === undefined
+      ? {}
+      : { params: JSON.parse(command.value) }),
+  })
 }
 
-function json(value: string): unknown {
-  return JSON.parse(value)
+function dispatch(
+  connection: SimulationConnector.UiConnection,
+  request: Frontend.Request,
+): Effect.Effect<unknown, unknown> {
+  switch (request.method) {
+    case "ui.type":
+      return connection.rpc["ui.type"](request.params)
+    case "ui.press":
+      return connection.rpc["ui.press"](request.params)
+    case "ui.enter":
+      return connection.rpc["ui.enter"]()
+    case "ui.arrow":
+      return connection.rpc["ui.arrow"](request.params)
+    case "ui.focus":
+      return connection.rpc["ui.focus"](request.params)
+    case "ui.click":
+      return connection.rpc["ui.click"](request.params)
+    case "ui.resize":
+      return connection.rpc["ui.resize"](request.params)
+    case "ui.screenshot":
+      return connection.rpc["ui.screenshot"](request.params)
+    case "ui.capture":
+      return connection.rpc["ui.capture"]()
+    case "ui.state":
+      return connection.rpc["ui.state"]()
+    case "ui.matches":
+      return connection.rpc["ui.matches"](request.params)
+    case "ui.recording.finish":
+      return connection.rpc["ui.recording.finish"]()
+  }
+  throw new Error(`unsupported UI method ${request.method}`)
 }

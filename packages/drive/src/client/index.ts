@@ -1,11 +1,10 @@
 import type { Backend } from "./protocol.js"
 
-export { SimulationClient, SimulationError, connectSimulation } from "./client.js"
-export { BackendSimulationClient, BackendSimulationError, connectBackendSimulation } from "./backend.js"
-export type { BackendSimulationClientOptions } from "./backend.js"
-export type { SimulationClientOptions } from "./client.js"
+/** Default port of the OpenCode UI simulation server. */
 export const defaultPort = 40900
+/** Default port of the OpenCode backend (LLM) simulation server. */
 export const defaultBackendPort = 40950
+
 export { Backend, Frontend, Handshake, JsonRpc, SimulationProtocol } from "./protocol.js"
 export type BackendFinishReason = Backend.FinishReason
 export type BackendItem = Backend.Item

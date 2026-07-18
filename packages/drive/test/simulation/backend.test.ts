@@ -1,5 +1,7 @@
-import { describe, expect, test } from "vitest"
-import { Backend, BackendSimulationClient, connectBackendSimulation } from "../../src/client/index.js"
+import { describe, expect, it } from "@effect/vitest"
+import { Effect, Option, Stream } from "effect"
+import { Backend } from "../../src/client/index.js"
+import * as SimulationConnector from "../../src/simulation/connector.js"
 import { sendResult, startTransportPeer } from "./transport-peer.js"
 
 const exchanges = {
@@ -25,38 +27,39 @@ function sendNotification(socket: Bun.ServerWebSocket<undefined>, method: string
 }
 
 describe("OpenCode backend simulation transport", () => {
-  test("preserves exact frames, sequential IDs, results, and finish defaults", async () => {
-    const peer = startTransportPeer(({ request, socket }) => {
-      sendResult(socket, request, request.method === "llm.attach" ? { attached: true } : { ok: true })
-    })
-    let client: BackendSimulationClient | undefined
-
-    try {
-      client = await connectBackendSimulation({ url: peer.url })
-
-      expect(client).toBeInstanceOf(BackendSimulationClient)
-      expect(client.url).toBe(peer.url)
+  it.live("preserves exact frames, sequential IDs, results, and finish defaults", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) => {
+        sendResult(socket, request, request.method === "llm.attach" ? { attached: true } : { ok: true })
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      })
 
       const results = [
-        await client.attach(() => {}),
-        await client.chunk("exchange-1", [
-          { type: "textDelta", text: "answer" },
-          { type: "reasoningDelta", text: "thinking" },
-          {
-            type: "toolCall",
-            index: 0,
-            id: "call-1",
-            name: "read",
-            input: { path: "README.md" },
-          },
-          { type: "raw", chunk: { usage: { outputTokens: 2 } } },
-        ]),
-        await client.finish("exchange-1"),
-        await client.finish("exchange-2", "stop"),
-        await client.finish("exchange-3", "tool-calls"),
-        await client.finish("exchange-4", "length"),
-        await client.finish("exchange-5", "content-filter"),
-        await client.disconnect("exchange-6"),
+        yield* connection.attach(),
+        yield* connection.rpc["llm.chunk"]({
+          id: "exchange-1",
+          items: [
+            { type: "textDelta", text: "answer" },
+            { type: "reasoningDelta", text: "thinking" },
+            {
+              type: "toolCall",
+              index: 0,
+              id: "call-1",
+              name: "read",
+              input: { path: "README.md" },
+            },
+            { type: "raw", chunk: { usage: { outputTokens: 2 } } },
+          ],
+        }),
+        yield* connection.rpc["llm.finish"]({ id: "exchange-1" }),
+        yield* connection.rpc["llm.finish"]({ id: "exchange-2", reason: "stop" }),
+        yield* connection.rpc["llm.finish"]({ id: "exchange-3", reason: "tool-calls" }),
+        yield* connection.rpc["llm.finish"]({ id: "exchange-4", reason: "length" }),
+        yield* connection.rpc["llm.finish"]({ id: "exchange-5", reason: "content-filter" }),
+        yield* connection.rpc["llm.disconnect"]({ id: "exchange-6" }),
       ]
 
       expect(results).toEqual([
@@ -147,57 +150,46 @@ describe("OpenCode backend simulation transport", () => {
           params: { id: "exchange-1" },
         }),
       )
-    } finally {
-      client?.close()
-      await peer.stop()
-    }
-  })
+    }),
+  )
 
-  test("delivers an llm.request sent before the attach response", async () => {
-    const peer = startTransportPeer(({ request, socket }) => {
-      sendNotification(socket, "llm.request", exchanges.early)
-      sendResult(socket, request, { attached: true })
-    })
-    let client: BackendSimulationClient | undefined
-
-    try {
-      client = await connectBackendSimulation({ url: peer.url })
-      const received: Backend.OpenedExchange[] = []
-
-      expect(await client.attach((request) => received.push(request))).toEqual({
-        attached: true,
-      })
-      expect(received).toEqual([exchanges.early])
-    } finally {
-      client?.close()
-      await peer.stop()
-    }
-  })
-
-  test("preserves notification order and ignores unknown notifications without consuming response waiters", async () => {
-    const peer = startTransportPeer(({ request, socket }) => {
-      if (request.method === "llm.attach") {
+  it.live("delivers an llm.request sent before the attach response", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) => {
+        sendNotification(socket, "llm.request", exchanges.early)
         sendResult(socket, request, { attached: true })
-        return
-      }
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
 
-      sendNotification(socket, "llm.request", exchanges.first)
-      sendNotification(socket, "server.status", { ready: true })
-      sendNotification(socket, "llm.request", exchanges.second)
-      sendResult(socket, request, { ok: true })
-    })
-    let client: BackendSimulationClient | undefined
+      const connection = yield* SimulationConnector.backend(peer.url)
+      const request = yield* Stream.runHead(connection.requests)
+      expect(request).toEqual(Option.some(exchanges.early))
+    }),
+  )
 
-    try {
-      client = await connectBackendSimulation({ url: peer.url })
-      const received: Backend.OpenedExchange[] = []
-      await client.attach((request) => received.push(request))
+  it.live("preserves notification order and ignores unknown notifications without consuming response waiters", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "llm.attach") {
+          sendResult(socket, request, { attached: true })
+          return
+        }
+        sendNotification(socket, "llm.request", exchanges.first)
+        sendNotification(socket, "server.status", { ready: true })
+        sendNotification(socket, "llm.request", exchanges.second)
+        sendResult(socket, request, { ok: true })
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
 
-      expect(await client.chunk("exchange-1", [{ type: "textDelta", text: "response" }])).toEqual({ ok: true })
-      expect(received).toEqual([exchanges.first, exchanges.second])
-    } finally {
-      client?.close()
-      await peer.stop()
-    }
-  })
+      const connection = yield* SimulationConnector.backend(peer.url)
+      expect(
+        yield* connection.rpc["llm.chunk"]({
+          id: "exchange-1",
+          items: [{ type: "textDelta", text: "response" }],
+        }),
+      ).toEqual({ ok: true })
+      const received = yield* connection.requests.pipe(Stream.take(2), Stream.runCollect)
+      expect([...received]).toEqual([exchanges.first, exchanges.second])
+    }),
+  )
 })

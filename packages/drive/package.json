@@ -22,7 +22,6 @@
     ".": "./src/index.ts",
     "./client": "./src/client/index.ts",
     "./driver": "./src/driver/index.ts",
-    "./experimental": "./src/experimental/index.ts",
     "./llm": "./src/llm/index.ts",
     "./recording": "./src/recording/index.ts",
     "./script": "./src/script/index.ts"
@@ -34,7 +33,6 @@
     "src/cli",
     "src/client",
     "src/driver",
-    "src/experimental",
     "src/instance",
     "src/llm",
     "src/log.ts",

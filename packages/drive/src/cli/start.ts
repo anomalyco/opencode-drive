@@ -7,7 +7,7 @@ import * as DriveProcess from "../instance/process.js"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
-import { connectSimulation } from "../client/index.js"
+import * as SimulationConnector from "../simulation/connector.js"
 import { connectMockBackend } from "./mock-backend.js"
 import { createResponseSettings } from "./response-generator.js"
 import { loadScript, runScript } from "./script.js"
@@ -363,15 +363,22 @@ async function finishRecording(
   if (!(await runEffect(process.isRunning))) {
     timeline = expected.timeline
   } else {
-    const ui = await connectSimulation({
-      url: instance.endpoints.ui,
-      timeout: 60_000,
-    })
-    try {
-      timeline = await ui.finishRecording()
-    } finally {
-      ui.close()
-    }
+    timeline = await runEffect(
+      Effect.scoped(
+        SimulationConnector.ui(instance.endpoints.ui, {
+          connectTimeout: 60_000,
+        }).pipe(
+          Effect.flatMap((connection) =>
+            connection.rpc["ui.recording.finish"](),
+          ),
+          Effect.timeoutOrElse({
+            duration: 60_000,
+            orElse: () =>
+              Effect.fail(new Error("ui.recording.finish timed out")),
+          }),
+        ),
+      ),
+    )
   }
   return finalizeRecording(timeline, expected, { onProgress })
 }

@@ -1,5 +1,7 @@
-import { describe, expect, test } from "vitest"
-import { Frontend, SimulationClient, SimulationError, connectSimulation } from "../../src/client/index.js"
+import { describe, expect, it, test } from "@effect/vitest"
+import { Effect } from "effect"
+import { Frontend } from "../../src/client/index.js"
+import * as SimulationConnector from "../../src/simulation/connector.js"
 import { sendError, sendResult, startTransportPeer } from "./transport-peer.js"
 
 const state: Frontend.State = {
@@ -8,58 +10,54 @@ const state: Frontend.State = {
 }
 
 describe("OpenCode UI simulation transport", () => {
-  test("preserves every public call's exact JSON-RPC frame", async () => {
-    const screenshots: string[] = []
-    const peer = startTransportPeer(({ request, socket }) => {
-      if (request.method === "ui.matches") {
-        sendResult(socket, request, true)
-        return
-      }
-      if (request.method === "ui.screenshot") {
-        const params = request.params as { readonly name?: string } | undefined
-        if (params?.name === "fail") {
-          sendError(socket, request, "screenshot failed")
+  it.live("preserves every UI call's exact JSON-RPC frame", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "ui.matches") {
+          sendResult(socket, request, true)
           return
         }
-        sendResult(socket, request, `/tmp/${params?.name ?? "screenshot"}.png`)
-        return
-      }
-      if (request.method === "ui.recording.finish") {
-        sendResult(socket, request, "/tmp/recording.jsonl")
-        return
-      }
-      sendResult(socket, request, state)
-    })
-    const client = await connectSimulation({
-      url: peer.url,
-      onScreenshot: (path) => screenshots.push(path),
-    })
+        if (request.method === "ui.screenshot") {
+          const params = request.params as { readonly name?: string } | undefined
+          if (params?.name === "fail") {
+            sendError(socket, request, "screenshot failed")
+            return
+          }
+          sendResult(socket, request, `/tmp/${params?.name ?? "screenshot"}.png`)
+          return
+        }
+        if (request.method === "ui.recording.finish") {
+          sendResult(socket, request, "/tmp/recording.jsonl")
+          return
+        }
+        sendResult(socket, request, state)
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const { rpc } = yield* SimulationConnector.ui(peer.url)
 
-    try {
-      expect(client).toBeInstanceOf(SimulationClient)
-      expect(client.url).toBe(peer.url)
-      expect(await client.state()).toEqual(state)
-      expect(await client.matches("needle")).toBe(true)
-      expect(await client.screenshot()).toBe("/tmp/screenshot.png")
-      expect(await client.screenshot("home")).toBe("/tmp/home.png")
-      expect(await client.finishRecording()).toBe("/tmp/recording.jsonl")
-      expect(await client.type("hello")).toEqual(state)
-      expect(await client.press("x")).toEqual(state)
-      expect(await client.press("x", { ctrl: true, shift: false })).toEqual(state)
-      expect(await client.press("escape")).toEqual(state)
-      expect(await client.enter()).toEqual(state)
-      expect(await client.arrow("left")).toEqual(state)
-      expect(await client.focus(7)).toEqual(state)
-      expect(await client.click(7, 3, 2)).toEqual(state)
-      expect(await client.resize({ cols: 120, rows: 40 })).toEqual(state)
+      expect(yield* rpc["ui.state"]()).toEqual(state)
+      expect(yield* rpc["ui.matches"]({ text: "needle" })).toBe(true)
+      expect(yield* rpc["ui.screenshot"](undefined)).toBe("/tmp/screenshot.png")
+      expect(yield* rpc["ui.screenshot"]({ name: "home" })).toBe("/tmp/home.png")
+      expect(yield* rpc["ui.recording.finish"]()).toBe("/tmp/recording.jsonl")
+      expect(yield* rpc["ui.type"]({ text: "hello" })).toEqual(state)
+      expect(yield* rpc["ui.press"]({ key: "x" })).toEqual(state)
+      expect(
+        yield* rpc["ui.press"]({ key: "x", modifiers: { ctrl: true, shift: false } }),
+      ).toEqual(state)
+      expect(yield* rpc["ui.press"]({ key: "escape" })).toEqual(state)
+      expect(yield* rpc["ui.enter"]()).toEqual(state)
+      expect(yield* rpc["ui.arrow"]({ direction: "left" })).toEqual(state)
+      expect(yield* rpc["ui.focus"]({ target: 7 })).toEqual(state)
+      expect(yield* rpc["ui.click"]({ target: 7, x: 3, y: 2 })).toEqual(state)
+      expect(yield* rpc["ui.resize"]({ cols: 120, rows: 40 })).toEqual(state)
 
-      const error = await client.screenshot("fail").catch((error) => error)
-      expect(error).toBeInstanceOf(SimulationError)
+      const error = yield* rpc["ui.screenshot"]({ name: "fail" }).pipe(Effect.flip)
       expect(error).toMatchObject({
+        _tag: "SimulationRequestError",
         message: "screenshot failed",
         method: "ui.screenshot",
       })
-      expect(screenshots).toEqual(["/tmp/screenshot.png", "/tmp/home.png"])
 
       expect(peer.received.map(({ request }) => request)).toEqual([
         { jsonrpc: "2.0", id: 1, method: "ui.state" },
@@ -135,11 +133,8 @@ describe("OpenCode UI simulation transport", () => {
       ])
 
       for (const { request } of peer.received) expect(Frontend.decodeRequest(request)).toEqual(request)
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
+    }),
+  )
 
   test("rejects schema-invalid UI requests", () => {
     expect(() => Frontend.decodeRequest({ jsonrpc: "2.0", method: "ui.type", params: {} })).toThrow()

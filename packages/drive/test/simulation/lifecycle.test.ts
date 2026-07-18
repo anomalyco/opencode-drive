@@ -1,15 +1,11 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, it, test } from "@effect/vitest"
+import { Effect, Exit, Fiber, Scope } from "effect"
 import {
-  BackendSimulationClient,
-  BackendSimulationError,
-  SimulationClient,
-  SimulationError,
   SimulationProtocol,
-  connectBackendSimulation,
-  connectSimulation,
   defaultBackendPort,
   defaultPort,
 } from "../../src/client/index.js"
+import * as SimulationConnector from "../../src/simulation/connector.js"
 import { type ReceivedRequest, sendError, sendResult, startTransportPeer } from "./transport-peer.js"
 
 function captureRequests() {
@@ -31,51 +27,29 @@ function captureRequests() {
 }
 
 describe("OpenCode simulation transport lifecycle", () => {
-  test("exports default ports and clients connected by explicit URL", async () => {
-    const uiPeer = startTransportPeer(() => {})
-    const backendPeer = startTransportPeer(() => {})
-    let ui: SimulationClient | undefined
-    let backend: BackendSimulationClient | undefined
-
-    try {
-      expect(defaultPort).toBe(40900)
-      expect(defaultBackendPort).toBe(40950)
-      expect(Object.keys(SimulationProtocol).sort()).toEqual([
-        "Backend",
-        "Frontend",
-        "Handshake",
-        "JsonRpc",
-      ])
-
-      const clients = await Promise.all([
-        connectSimulation({ url: uiPeer.url }),
-        connectBackendSimulation({ url: backendPeer.url }),
-      ])
-      ui = clients[0]
-      backend = clients[1]
-
-      expect(ui).toBeInstanceOf(SimulationClient)
-      expect(ui.url).toBe(uiPeer.url)
-      expect(backend).toBeInstanceOf(BackendSimulationClient)
-      expect(backend.url).toBe(backendPeer.url)
-    } finally {
-      ui?.close()
-      backend?.close()
-      await Promise.all([uiPeer.stop(), backendPeer.stop()])
-    }
+  test("exports default ports and the protocol namespaces", () => {
+    expect(defaultPort).toBe(40900)
+    expect(defaultBackendPort).toBe(40950)
+    expect(Object.keys(SimulationProtocol).sort()).toEqual([
+      "Backend",
+      "Frontend",
+      "Handshake",
+      "JsonRpc",
+    ])
   })
 
-  test("correlates concurrent UI responses by ID and ignores unknown IDs", async () => {
-    const capture = captureRequests()
-    const peer = startTransportPeer(capture.onRequest)
-    const client = await connectSimulation({ url: peer.url })
-    const state = { focused: { renderable: 7, editor: true }, elements: [] }
+  it.live("correlates concurrent UI responses by ID and ignores unknown IDs", () =>
+    Effect.gen(function* () {
+      const capture = captureRequests()
+      const peer = startTransportPeer(capture.onRequest)
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const { rpc } = yield* SimulationConnector.ui(peer.url)
+      const state = { focused: { renderable: 7, editor: true }, elements: [] }
 
-    try {
-      const stateResult = client.state()
-      const matchesResult = client.matches("ready")
-      const stateRequest = await capture.next()
-      const matchesRequest = await capture.next()
+      const stateResult = yield* Effect.forkChild(rpc["ui.state"]())
+      const stateRequest = yield* Effect.promise(capture.next)
+      const matchesResult = yield* Effect.forkChild(rpc["ui.matches"]({ text: "ready" }))
+      const matchesRequest = yield* Effect.promise(capture.next)
 
       expect(stateRequest.request.method).toBe("ui.state")
       expect(matchesRequest.request.method).toBe("ui.matches")
@@ -84,178 +58,78 @@ describe("OpenCode simulation transport lifecycle", () => {
       sendResult(matchesRequest.socket, matchesRequest.request, true)
       sendResult(stateRequest.socket, stateRequest.request, state)
 
-      expect(await matchesResult).toBe(true)
-      expect(await stateResult).toEqual(state)
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
+      expect(yield* Fiber.join(matchesResult)).toBe(true)
+      expect(yield* Fiber.join(stateResult)).toEqual(state)
+    }),
+  )
 
-  test("maps JSON-RPC errors to SimulationError with the originating method", async () => {
-    const capture = captureRequests()
-    const peer = startTransportPeer(capture.onRequest)
-    const client = await connectSimulation({ url: peer.url })
+  it.live("maps JSON-RPC errors to SimulationRequestError with the originating method", () =>
+    Effect.gen(function* () {
+      const capture = captureRequests()
+      const peer = startTransportPeer(capture.onRequest)
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const { rpc } = yield* SimulationConnector.ui(peer.url)
 
-    try {
-      const result = client.matches("missing").catch((error) => error)
-      const received = await capture.next()
+      const result = yield* Effect.forkChild(rpc["ui.matches"]({ text: "missing" }).pipe(Effect.flip))
+      const received = yield* Effect.promise(capture.next)
       sendError(received.socket, received.request, "renderer unavailable")
 
-      const error = await result
-      expect(error).toBeInstanceOf(SimulationError)
-      expect(error).toMatchObject({
+      expect(yield* Fiber.join(result)).toMatchObject({
+        _tag: "SimulationRequestError",
         message: "renderer unavailable",
         method: "ui.matches",
       })
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
+    }),
+  )
 
-  test("times out silently and remains usable for a subsequent UI call", async () => {
-    const capture = captureRequests()
-    const peer = startTransportPeer(capture.onRequest)
-    const client = await connectSimulation({ url: peer.url, timeout: 25 })
+  it.live("peer close rejects every pending UI request", () =>
+    Effect.gen(function* () {
+      const capture = captureRequests()
+      const peer = startTransportPeer(capture.onRequest)
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const { rpc } = yield* SimulationConnector.ui(peer.url)
 
-    try {
-      const timedOut = client.state().catch((error) => error)
-      const silentRequest = await capture.next()
-      expect(silentRequest.request.method).toBe("ui.state")
+      const stateResult = yield* Effect.forkChild(Effect.exit(rpc["ui.state"]()))
+      yield* Effect.promise(capture.next)
+      const matchesResult = yield* Effect.forkChild(Effect.exit(rpc["ui.matches"]({ text: "ready" })))
+      yield* Effect.promise(capture.next)
 
-      const error = await timedOut
-      expect(error).toBeInstanceOf(SimulationError)
-      expect(error).toMatchObject({
-        message: "timed out after 25ms",
-        method: "ui.state",
-      })
+      yield* Effect.promise(() => peer.stop())
 
-      const recovered = client.matches("ready")
-      const recoveredRequest = await capture.next()
-      sendResult(recoveredRequest.socket, recoveredRequest.request, true)
+      for (const exit of [yield* Fiber.join(stateResult), yield* Fiber.join(matchesResult)]) {
+        expect(Exit.isFailure(exit)).toBe(true)
+        expect(String(exit)).toContain("connection closed")
+      }
+    }),
+  )
 
-      expect(await recovered).toBe(true)
-      expect(peer.received.map(({ request }) => request.method)).toEqual(["ui.state", "ui.matches"])
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
+  it.live("backend closed resolves when its peer closes", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) =>
+        sendResult(socket, request, { attached: true }),
+      )
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.backend(peer.url)
 
-  test("peer close rejects every pending UI request", async () => {
-    const capture = captureRequests()
-    const peer = startTransportPeer(capture.onRequest)
-    const client = await connectSimulation({ url: peer.url })
+      yield* Effect.promise(() => peer.stop())
+      yield* connection.closed
+    }),
+  )
 
-    try {
-      const stateResult = client.state().catch((error) => error)
-      const matchesResult = client.matches("ready").catch((error) => error)
-      await capture.next()
-      await capture.next()
+  it.live("closing the connection scope rejects pending calls", () =>
+    Effect.gen(function* () {
+      const capture = captureRequests()
+      const peer = startTransportPeer(capture.onRequest)
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const scope = yield* Scope.make()
+      const { rpc } = yield* SimulationConnector.ui(peer.url).pipe(Scope.provide(scope))
 
-      await peer.stop()
+      const pending = yield* Effect.forkChild(Effect.exit(rpc["ui.state"]()))
+      yield* Effect.promise(capture.next)
+      yield* Scope.close(scope, Exit.void)
 
-      expect(await stateResult).toMatchObject({
-        name: "SimulationError",
-        message: "connection closed",
-      })
-      expect(await matchesResult).toMatchObject({
-        name: "SimulationError",
-        message: "connection closed",
-      })
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
-
-  test("backend closed resolves when its peer closes", async () => {
-    const capture = captureRequests()
-    const peer = startTransportPeer(capture.onRequest)
-    const client = await connectBackendSimulation({ url: peer.url })
-
-    try {
-      const attached = client.attach(() => {}).catch((error) => error)
-      await capture.next()
-      await peer.stop()
-
-      await client.closed
-      expect(await attached).toMatchObject({
-        name: "BackendSimulationError",
-        message: "connection closed",
-      })
-    } finally {
-      client.close()
-      await peer.stop()
-    }
-  })
-
-  test("calls after local close reject as not open", async () => {
-    const uiPeer = startTransportPeer(() => {})
-    const backendPeer = startTransportPeer(() => {})
-    const [ui, backend] = await Promise.all([
-      connectSimulation({ url: uiPeer.url }),
-      connectBackendSimulation({ url: backendPeer.url }),
-    ])
-
-    try {
-      ui.close()
-      backend.close()
-
-      const uiError = await ui.state().catch((error) => error)
-      expect(uiError).toBeInstanceOf(SimulationError)
-      expect(uiError).toMatchObject({
-        message: "connection is not open",
-        method: "ui.state",
-      })
-
-      const backendError = await backend.call("llm.attach").catch((error) => error)
-      expect(backendError).toBeInstanceOf(BackendSimulationError)
-      expect(backendError).toMatchObject({
-        message: "connection is not open",
-        method: "llm.attach",
-      })
-    } finally {
-      ui.close()
-      backend.close()
-      await Promise.all([uiPeer.stop(), backendPeer.stop()])
-    }
-  })
-
-  test("local close rejects pending UI and backend calls as connection closed", async () => {
-    const uiCapture = captureRequests()
-    const backendCapture = captureRequests()
-    const uiPeer = startTransportPeer(uiCapture.onRequest)
-    const backendPeer = startTransportPeer(backendCapture.onRequest)
-    const [ui, backend] = await Promise.all([
-      connectSimulation({ url: uiPeer.url }),
-      connectBackendSimulation({ url: backendPeer.url }),
-    ])
-
-    try {
-      const uiResult = ui.state().catch((error) => error)
-      const backendResult = backend.call("llm.attach").catch((error) => error)
-      await Promise.all([uiCapture.next(), backendCapture.next()])
-
-      ui.close()
-      backend.close()
-
-      expect(await uiResult).toMatchObject({
-        name: "SimulationError",
-        message: "connection closed",
-        method: "ui.state",
-      })
-      expect(await backendResult).toMatchObject({
-        name: "BackendSimulationError",
-        message: "connection closed",
-        method: "llm.attach",
-      })
-      await backend.closed
-    } finally {
-      ui.close()
-      backend.close()
-      await Promise.all([uiPeer.stop(), backendPeer.stop()])
-    }
-  })
+      const exit = yield* Fiber.join(pending)
+      expect(Exit.isFailure(exit)).toBe(true)
+    }),
+  )
 })
