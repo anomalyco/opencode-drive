@@ -4,7 +4,7 @@ import { TestClock } from "effect/testing"
 import * as LlmController from "../../src/driver/llm-controller.js"
 import * as Llm from "../../src/llm/index.js"
 import * as SimulationConnector from "../../src/simulation/connector.js"
-import { sendResult, startTransportPeer } from "../simulation/transport-peer.js"
+import { sendError, sendResult, startTransportPeer } from "../simulation/transport-peer.js"
 
 const request = {
   id: "exchange-1",
@@ -284,6 +284,79 @@ describe("LlmController", () => {
         requestId: "exchange-1",
       })
       expect(error.message).toContain("after its terminal event")
+    })
+  })
+
+  it.live("settles when pending confirms an invocation was terminated externally", () => {
+    let chunks = 0
+    const peer = startTransportPeer(({ request: frame, socket }) => {
+      if (frame.method === "llm.attach") {
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "llm.request",
+            params: request,
+          }),
+        )
+        return sendResult(socket, frame, { attached: true })
+      }
+      if (frame.method === "llm.chunk" && ++chunks === 2)
+        return sendError(socket, frame, "Simulated provider invocation not found or already finished: exchange-1")
+      if (frame.method === "llm.pending")
+        return sendResult(socket, frame, { invocations: [] })
+      sendResult(socket, frame, { ok: true })
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend)
+      yield* llm.queue(
+        Llm.text("first", { delay: 0, chunkSize: 100 }),
+        Llm.text("second", { delay: 0, chunkSize: 100 }),
+      )
+      yield* llm.settle()
+
+      expect(peer.received.map(({ request: frame }) => frame.method)).toEqual([
+        "llm.attach",
+        "llm.chunk",
+        "llm.chunk",
+        "llm.pending",
+      ])
+    })
+  })
+
+  it.live("preserves a write failure while the invocation is still pending", () => {
+    const peer = startTransportPeer(({ request: frame, socket }) => {
+      if (frame.method === "llm.attach") {
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "llm.request",
+            params: request,
+          }),
+        )
+        return sendResult(socket, frame, { attached: true })
+      }
+      if (frame.method === "llm.chunk") return sendError(socket, frame, "chunk rejected")
+      if (frame.method === "llm.pending")
+        return sendResult(socket, frame, { invocations: [request] })
+      sendResult(socket, frame, { ok: true })
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend)
+      yield* llm.queue(Llm.text("rejected", { delay: 0, chunkSize: 100 }))
+      const error = yield* llm.settle().pipe(Effect.flip)
+
+      expect(error).toMatchObject({
+        _tag: "LlmControllerError",
+        operation: "llm.chunk",
+        requestId: "exchange-1",
+      })
+      expect(error.message).toContain("chunk rejected")
     })
   })
 

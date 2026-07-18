@@ -79,6 +79,7 @@ export const BackendRpcs = RpcGroup.make(
     success: Handshake.Response,
   }),
   request("llm.attach", { success: Backend.Attached }),
+  request("llm.pending", { success: Backend.Pending }),
   request("llm.chunk", {
     payload: Backend.ChunkParams,
     success: Backend.Ok,

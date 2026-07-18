@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Llm from "../llm/index.js"
@@ -29,14 +30,20 @@ export interface Responder {
   ) => Effect.Effect<void, LlmControllerError>
 }
 
+class InvocationTerminated extends Schema.TaggedErrorClass<InvocationTerminated>()(
+  "InvocationTerminated",
+  {},
+) {}
+
 const decodeOutput = Schema.decodeUnknownEffect(Llm.Output)
 
 export const make = ({ requestTimeout }: Options): Responder => {
   const call = <A, E>(
+    backend: BackendConnection,
     operation: string,
     requestId: string,
     effect: Effect.Effect<A, E>,
-  ): Effect.Effect<A, LlmControllerError> =>
+  ): Effect.Effect<A, LlmControllerError | InvocationTerminated> =>
     Effect.timeoutOrElse(effect, {
       duration: requestTimeout,
       orElse: () =>
@@ -48,8 +55,33 @@ export const make = ({ requestTimeout }: Options): Responder => {
           }),
         ),
     }).pipe(
-      Effect.mapError((cause) => controllerError(operation, cause, requestId)),
+      Effect.catch((error) => classifyWriteFailure(backend, requestId, error)),
+      Effect.mapError((cause) =>
+        cause instanceof InvocationTerminated
+          ? cause
+          : controllerError(operation, cause, requestId),
+      ),
     )
+
+  const classifyWriteFailure = <E>(
+    backend: BackendConnection,
+    requestId: string,
+    error: E,
+  ): Effect.Effect<never, E | InvocationTerminated> =>
+    Effect.gen(function* () {
+      if (
+        backend.compatibility._tag !== "Negotiated" ||
+        !backend.compatibility.capabilities.includes("llm.pending")
+      )
+        return yield* Effect.fail(error)
+      const pending = yield* Effect.exit(
+        backend.rpc["llm.pending"]().pipe(Effect.timeout(requestTimeout)),
+      )
+      if (Exit.isFailure(pending)) return yield* Effect.fail(error)
+      if (pending.value.invocations.some((invocation) => invocation.id === requestId))
+        return yield* Effect.fail(error)
+      return yield* Effect.fail(new InvocationTerminated())
+    })
 
   const streamDelta = Effect.fn("LlmResponder.streamDelta")(function* (
     backend: BackendConnection,
@@ -65,6 +97,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
       const chunk = chunks[index]
       if (chunk === undefined) continue
       yield* call(
+        backend,
         "llm.chunk",
         id,
         backend.rpc["llm.chunk"]({ id, items: [{ type, text: chunk }] }),
@@ -96,6 +129,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
               function: { arguments: text },
             }
       yield* call(
+        backend,
         "llm.chunk",
         requestId,
         backend.rpc["llm.chunk"]({
@@ -133,6 +167,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
           case "finish":
             terminal = true
             return call(
+              backend,
               "llm.finish",
               requestId,
               backend.rpc["llm.finish"]({
@@ -143,6 +178,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
           case "disconnect":
             terminal = true
             return call(
+              backend,
               "llm.disconnect",
               requestId,
               backend.rpc["llm.disconnect"]({ id: requestId }),
@@ -172,6 +208,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
               return streamToolCall(backend, requestId, item)
             const { options: _, ...toolCall } = item
             return call(
+              backend,
               "llm.chunk",
               requestId,
               backend.rpc["llm.chunk"]({
@@ -182,6 +219,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
           }
           case "raw":
             return call(
+              backend,
               "llm.chunk",
               requestId,
               backend.rpc["llm.chunk"]({ id: requestId, items: [item] }),
@@ -189,14 +227,19 @@ export const make = ({ requestTimeout }: Options): Responder => {
         }
         return Effect.void
       }),
+      Effect.catchTag("InvocationTerminated", () => {
+        terminal = true
+        return Effect.void
+      }),
       Effect.mapError((cause) => controllerError("respond", cause, requestId)),
     )
     if (!terminal)
       yield* call(
+        backend,
         "llm.finish",
         requestId,
         backend.rpc["llm.finish"]({ id: requestId, reason: "stop" }),
-      )
+      ).pipe(Effect.catchTag("InvocationTerminated", () => Effect.void))
   })
 
   return { respond }

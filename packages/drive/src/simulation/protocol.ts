@@ -398,7 +398,7 @@ export namespace Backend {
     }),
     Schema.Struct({
       ...JsonRpc.RequestFields,
-      method: Schema.Literal("llm.attach"),
+      method: Schema.Literals(["llm.attach", "llm.pending"]),
     }),
   ])
   export type Request = Schema.Schema.Type<typeof Request>
@@ -411,6 +411,11 @@ export namespace Backend {
   })
   export interface OpenedExchange
     extends Schema.Schema.Type<typeof OpenedExchange> {}
+
+  export const Pending = Schema.Struct({
+    invocations: Schema.Array(OpenedExchange),
+  })
+  export interface Pending extends Schema.Schema.Type<typeof Pending> {}
 
   export const NetworkLogEntry = Schema.Struct({
     time: Schema.Number,
