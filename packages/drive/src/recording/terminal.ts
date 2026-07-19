@@ -9,7 +9,7 @@ const SyncEnd = Buffer.from("\x1b[?2026l")
 
 export interface TerminalParser {
   write(data: Uint8Array): void
-  finish(): void
+  finish(): boolean
   resize(cols: number, rows: number): void
   snapshot(): CapturedFrame
 }
@@ -93,9 +93,10 @@ class GhosttyTerminal implements TerminalParser {
   }
 
   finish() {
-    if (!this.pending.length) return
+    if (!this.pending.length) return false
     this.core.writeRaw(this.pending)
     this.pending = Buffer.alloc(0)
+    return true
   }
 
   resize(cols: number, rows: number) {

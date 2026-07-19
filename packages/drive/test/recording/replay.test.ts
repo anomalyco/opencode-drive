@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { replayRecording } from "../../src/recording/index.js"
+import { replay } from "../../src/recording/replay.js"
 
 const directories: string[] = []
 
@@ -95,6 +96,42 @@ describe("replayRecording", () => {
     expect(frames.at(-1)!.atMs).toBe(1_000)
     expect(frames.every((frame) => lineText(frame.frame) === "ready")).toBe(true)
     expect(new Set(frames.map((frame) => frame.frame)).size).toBe(1)
+  })
+
+  test("captures terminal state at sample boundaries instead of every event", async () => {
+    let snapshots = 0
+    let dirty = false
+    const frames = await replay(
+      await recording(Array.from({ length: 101 }, (_, atMs) => [atMs, "x"])),
+      {
+        fps: 10,
+        terminalFactory: async (cols, rows) => ({
+          write: () => {
+            dirty = true
+          },
+          resize: () => {
+            dirty = true
+          },
+          finish: () => false,
+          snapshot: () => {
+            snapshots++
+            return {
+              cols,
+              rows,
+              cursor: { row: 0, col: 0, visible: false },
+              lines: Array.from({ length: rows }, (_, row) => ({
+                spans: row === 0 && dirty
+                  ? [{ text: "ready", width: 5, fg: 0xffffff, bg: 0x080808, attributes: 0 }]
+                  : [],
+              })),
+            }
+          },
+        }),
+      },
+    )
+
+    expect(frames.map((frame) => frame.atMs)).toEqual([0, 100])
+    expect(snapshots).toBe(2)
   })
 
   test("trims blank startup time and rebases the first visible frame", async () => {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, extname } from "node:path"
 import { encodeFrames } from "./encode.js"
@@ -47,14 +48,13 @@ export async function exportRecording(
     )
     progress(100)
   } else if (extension === ".mp4") {
-    const frameKeys = new WeakMap<object, number>()
-    let nextFrameKey = 0
+    const frameKeys = new WeakMap<object, string>()
     await encodeFrames(
       frames.map((sample) => {
         const label = header(sample.atMs)
         let frameKey = frameKeys.get(sample.frame)
         if (frameKey === undefined) {
-          frameKey = nextFrameKey++
+          frameKey = createHash("sha256").update(JSON.stringify(sample.frame)).digest("hex")
           frameKeys.set(sample.frame, frameKey)
         }
         return {

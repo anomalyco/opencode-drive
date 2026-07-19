@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createCanvas, loadImage } from "@napi-rs/canvas"
-import { exportRecording, joinFrames, renderFrame } from "../../src/recording/index.js"
+import { encodeFrames, exportRecording, joinFrames, renderFrame } from "../../src/recording/index.js"
 
 const directories: string[] = []
 
@@ -26,6 +26,16 @@ test("exports the final frame as a PNG and creates its parent", async () => {
   expect(result).toEqual({ frames: 1, durationMs: 0, width: 40, height: 40 })
   expect((await readFile(output)).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   expect((await stat(output)).size).toBeGreaterThan(100)
+})
+
+test("rejects invalid encoding frame rates", async () => {
+  await expect(
+    encodeFrames(
+      [{ atMs: 0, key: "frame", render: () => Buffer.alloc(0) }],
+      join(tmpdir(), "invalid-frame-rate.mp4"),
+      { fps: 0 },
+    ),
+  ).rejects.toThrow("fps must be a positive finite number")
 })
 
 test("renders an optional recording header", async () => {
@@ -220,6 +230,52 @@ test("rejects invalid capture font overrides", async () => {
 })
 
 if (Bun.which("ffmpeg") && Bun.which("ffprobe")) {
+  test("preserves irregular frame timing at the requested frame rate", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "drive-encode-ffmpeg-test-"))
+    directories.push(directory)
+    const image = (background: number) =>
+      renderFrame({
+        cols: 1,
+        rows: 1,
+        cursor: { row: 0, col: 0, visible: false },
+        lines: [{ spans: [{ text: " ", width: 1, fg: 0xffffff, bg: background, attributes: 0 }] }],
+      })
+    const output = join(directory, "video.mp4")
+    await encodeFrames(
+      [
+        { atMs: 0, key: "red", render: () => image(0xff0000) },
+        { atMs: 1_000, key: "green", render: () => image(0x00ff00) },
+        { atMs: 1_200, key: "blue", render: () => image(0x0000ff) },
+      ],
+      output,
+      { fps: 5 },
+    )
+
+    expect(probeVideo(output)).toEqual(["5/1", "1.400000", "7"])
+
+    const finalFrame = join(directory, "final.png")
+    const decoded = Bun.spawnSync([
+      "ffmpeg",
+      "-v",
+      "error",
+      "-i",
+      output,
+      "-vf",
+      "reverse",
+      "-frames:v",
+      "1",
+      finalFrame,
+    ])
+    expect(decoded.exitCode).toBe(0)
+    const final = await loadImage(finalFrame)
+    const canvas = createCanvas(final.width, final.height)
+    const context = canvas.getContext("2d")
+    context.drawImage(final, 0, 0)
+    const pixel = context.getImageData(5, 10, 1, 1).data
+    expect(pixel[2]).toBeGreaterThan(200)
+    expect(pixel[0]).toBeLessThan(80)
+  })
+
   test("exports a 60 FPS H.264 MP4 with the off-grid final frame", async () => {
     const directory = await mkdtemp(join(tmpdir(), "drive-export-ffmpeg-test-"))
     directories.push(directory)
@@ -241,7 +297,7 @@ if (Bun.which("ffmpeg") && Bun.which("ffprobe")) {
         }),
         JSON.stringify({
           type: "output",
-          at_ms: 450,
+          at_ms: 455,
           data: Buffer.from("\r\x1b[48;2;0;0;255mBBBB").toString("base64"),
         }),
         "",
@@ -251,26 +307,13 @@ if (Bun.which("ffmpeg") && Bun.which("ffprobe")) {
     const progress: number[] = []
     const result = await exportRecording(timeline, output, { onProgress: (percent) => progress.push(percent) })
     const data = await readFile(output)
-    expect(result.frames).toBe(28)
-    expect(result.durationMs).toBe(450)
+    expect(result.frames).toBe(29)
+    expect(result.durationMs).toBe(455)
     expect(data.subarray(4, 8).toString()).toBe("ftyp")
     expect(data.length).toBeGreaterThan(500)
     expect(progress).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
 
-    const probe = Bun.spawnSync([
-      "ffprobe",
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=avg_frame_rate,duration,nb_frames",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      output,
-    ])
-    expect(probe.exitCode).toBe(0)
-    expect(probe.stdout.toString().trim().split("\n")).toEqual(["60/1", "0.466667", "28"])
+    expect(probeVideo(output)).toEqual(["60/1", "0.483333", "29"])
 
     const finalFrame = join(directory, "final.png")
     const decoded = Bun.spawnSync([
@@ -294,6 +337,23 @@ if (Bun.which("ffmpeg") && Bun.which("ffprobe")) {
     expect(pixel[2]).toBeGreaterThan(200)
     expect(pixel[0]).toBeLessThan(80)
   })
+}
+
+function probeVideo(path: string) {
+  const probe = Bun.spawnSync([
+    "ffprobe",
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=avg_frame_rate,duration,nb_frames",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
+    path,
+  ])
+  expect(probe.exitCode).toBe(0)
+  return probe.stdout.toString().trim().split("\n")
 }
 
 function renderImport(env: Record<string, string>) {
