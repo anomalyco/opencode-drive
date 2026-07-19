@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import {
   controlPath,
   listInstances,
@@ -126,7 +126,8 @@ describe("opencode-drive", () => {
     const screenshot = spawn(["send", "--name", name, "--command.ui.screenshot"], root)
     expect(await screenshot.exited).toBe(0)
     const screenshotPath = (await new Response(screenshot.stdout).text()).trim()
-    expect(screenshotPath.startsWith(`${join(root, "output")}/screenshot-`)).toBe(true)
+    expect(dirname(screenshotPath)).toBe(runOutputDirectory(root, manifest.artifacts, 0))
+    expect(basename(screenshotPath).startsWith("screenshot-")).toBe(true)
     expect(screenshotPath.endsWith(".png")).toBe(true)
 
     const listed = spawn(["dir", "--name", name], root)
@@ -145,7 +146,8 @@ describe("opencode-drive", () => {
     const restarted = spawn(["restart", "--name", name], root)
     expect(await restarted.exited).toBe(0)
     const restartedRecording = (await new Response(restarted.stdout).text()).trim()
-    expect(restartedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
+    expect(dirname(restartedRecording)).toBe(runOutputDirectory(root, manifest.artifacts, 0))
+    expect(basename(restartedRecording)).toMatch(/^recording-.*\.mp4$/)
     expect(await Bun.file(restartedRecording).exists()).toBe(true)
     await waitForLines(join(manifest.artifacts, "launches.txt"), 2)
     expect(await spawn(["send", "--name", name, "--command.ui.state"], root).exited).toBe(0)
@@ -160,7 +162,8 @@ describe("opencode-drive", () => {
     expect(stoppedOutput).toBe("")
     const stoppedRecording = stoppedError.match(/Video successfully created: (.+\.mp4)/)?.[1]
     expect(stoppedRecording).toBeDefined()
-    expect(stoppedRecording).toMatch(/\/output\/recording-.*\.mp4$/)
+    expect(dirname(stoppedRecording!)).toBe(runOutputDirectory(root, manifest.artifacts, 1))
+    expect(basename(stoppedRecording!)).toMatch(/^recording-.*\.mp4$/)
     expect(await Bun.file(stoppedRecording!).exists()).toBe(true)
     expect(stoppedError).toContain("Rendering video: 10%")
     expect(stoppedError).toContain("Rendering video: 100%")
@@ -191,10 +194,11 @@ describe("opencode-drive", () => {
       if (Date.now() >= deadline) throw new Error("timed out waiting for exited instance cleanup")
       await Bun.sleep(25)
     }
-    const files = await readdir(join(root, "output"))
+    const directory = runOutputDirectory(root, artifacts!, 0)
+    const files = await readdir(directory)
     const video = files.find((file) => file.endsWith(".mp4"))
     expect(video).toBeDefined()
-    expect(await Bun.file(join(root, "output", video!)).size).toBeGreaterThan(500)
+    expect(await Bun.file(join(directory, video!)).size).toBeGreaterThan(500)
   }, 15_000)
 
   test("does not record unless start receives --record", async () => {
@@ -212,7 +216,7 @@ describe("opencode-drive", () => {
     const stopped = spawn(["stop", "--name", name], root)
     expect(await stopped.exited).toBe(0)
     expect(await new Response(stopped.stdout).text()).toBe("success\n")
-    expect(await readdir(join(root, "output"))).toEqual([])
+    expect(await Bun.file(join(root, "output")).exists()).toBe(false)
     expect(await Bun.file(manifest.artifacts).exists()).toBe(false)
     instances.pop()
   })
@@ -503,18 +507,36 @@ describe("opencode-drive", () => {
 
   test("runs multiple named instances concurrently", async () => {
     const root = await temporary()
-    for (const name of ["first", "second"]) {
-      expect(
-        await spawn(["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")], root).exited,
-      ).toBe(0)
-      instances.push({ root, name })
-    }
+    const names = ["first", "second"] as const
+    const starts = names.map((name) =>
+      spawn(["start", "--name", name, "--", process.execPath, fixture("fake-opencode.ts")], root),
+    )
+    expect(await Promise.all(starts.map((child) => child.exited))).toEqual([0, 0])
+    instances.push(...names.map((name) => ({ root, name })))
     const first = await Bun.file(join(root, "registry", "first.json")).json()
     const second = await Bun.file(join(root, "registry", "second.json")).json()
     roots.push(first.artifacts, second.artifacts)
     expect(first.endpoints.ui).not.toBe(second.endpoints.ui)
     expect(await spawn(["send", "--name", "first", "--command.ui.state"], root).exited).toBe(0)
     expect(await spawn(["send", "--name", "second", "--command.ui.state"], root).exited).toBe(0)
+    const screenshots = await Promise.all(
+      [first, second].map(async (manifest, index) => {
+        const name = index === 0 ? "first" : "second"
+        const screenshot = spawn([
+          "send",
+          "--name",
+          name,
+          "--command.ui.screenshot",
+          '{"name":"shared"}',
+        ], root)
+        expect(await screenshot.exited).toBe(0)
+        return (await new Response(screenshot.stdout).text()).trim()
+      }),
+    )
+    expect(screenshots).toEqual([
+      join(runOutputDirectory(root, first.artifacts, 0), "shared.png"),
+      join(runOutputDirectory(root, second.artifacts, 0), "shared.png"),
+    ])
 
     const unnamed = spawn(["dir"], root)
     const [status, stderr] = await Promise.all([unnamed.exited, new Response(unnamed.stderr).text()])
@@ -828,8 +850,8 @@ describe("opencode-drive", () => {
       bobMatches: true,
       tuiBeforeServer: "launch the script server before launching TUIs",
       duplicateServer: "the script server has already been launched",
-      aliceScreenshot: join(root, "output", "alice.png"),
-      bobScreenshot: join(root, "output", "bob.png"),
+      aliceScreenshot: join(runOutputDirectory(root, artifacts, 0), "alice.png"),
+      bobScreenshot: join(runOutputDirectory(root, artifacts, 0), "bob.png"),
     })
     expect((await Bun.file(join(artifacts, "launches.txt")).text()).trim().split("\n")).toHaveLength(2)
   }, 60_000)
@@ -907,7 +929,8 @@ describe("opencode-drive", () => {
     expect(Number.isInteger(result.firstServer)).toBe(true)
     expect(Number.isInteger(result.secondServer)).toBe(true)
     expect(result.secondServer).not.toBe(result.firstServer)
-    expect(result.aliceRecording).toMatch(/\/output\/recording-.*\.mp4$/)
+    expect(dirname(result.aliceRecording)).toBe(runOutputDirectory(root, artifacts, 0))
+    expect(basename(result.aliceRecording)).toMatch(/^recording-.*\.mp4$/)
     expect(await Bun.file(result.aliceRecording).exists()).toBe(true)
     const recordings = [...error.matchAll(/opencode-drive: recording (.+\.mp4)/g)].map((match) => match[1]!)
     expect(recordings).toHaveLength(2)
@@ -1184,6 +1207,13 @@ describe("opencode-drive", () => {
 
     expect(await spawn(["restart", "--name", name], root).exited).toBe(0)
     await waitForLines(join(manifest.artifacts, "script-runs.txt"), 2)
+    const screenshots = (await Bun.file(join(manifest.artifacts, "script-screenshots.txt")).text())
+      .trim()
+      .split("\n")
+    expect(screenshots).toEqual([
+      join(runOutputDirectory(root, manifest.artifacts, 0), "restart-shared.png"),
+      join(runOutputDirectory(root, manifest.artifacts, 1), "restart-shared.png"),
+    ])
     expect(await spawn(["stop", "--name", name], root).exited).toBe(0)
     expect(await owner.exited).toBe(0)
   })
@@ -1269,7 +1299,9 @@ describe("opencode-drive", () => {
     process.kill(child.pid, "SIGTERM")
     await child.exited
 
-    expect((await readdir(join(root, "output"))).some((file) => file.endsWith(".mp4"))).toBe(true)
+    expect(
+      (await readdir(runOutputDirectory(root, manifest.artifacts, 0))).some((file) => file.endsWith(".mp4")),
+    ).toBe(true)
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
     expect(await Bun.file(join(root, "registry", `${name}.sock`)).exists()).toBe(false)
   }, 60_000)
@@ -1474,6 +1506,10 @@ function spawn(args: ReadonlyArray<string>, root: string, options: { readonly ke
 
 function fixture(name: string) {
   return resolve("test", "fixtures", name)
+}
+
+function runOutputDirectory(root: string, artifacts: string, generation: number) {
+  return join(root, "output", basename(artifacts), `generation-${generation}`)
 }
 
 async function temporary() {

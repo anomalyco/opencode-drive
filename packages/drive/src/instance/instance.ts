@@ -21,7 +21,7 @@ export function artifactDirectory() {
 
 export async function initializeInstance(name?: string) {
   const artifacts = resolve(
-    join(artifactDirectory(), `run-${crypto.randomUUID().slice(0, 6)}`),
+    join(artifactDirectory(), `run-${crypto.randomUUID()}`),
   )
   const logs = join(artifacts, "logs")
   const drive = join(artifacts, "drive")

@@ -1,16 +1,16 @@
-import { mkdir } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { basename, join, resolve } from "node:path"
+import { artifactDirectory } from "./instance.js"
 
 export function mediaDirectory() {
   return resolve(
     process.env.OPENCODE_DRIVE_MEDIA_DIR ??
-      join(tmpdir(), "opencode-drive", "output"),
+      join(artifactDirectory(), "output"),
   )
 }
 
-export async function ensureMediaDirectory() {
-  const directory = mediaDirectory()
-  await mkdir(directory, { recursive: true })
-  return directory
-}
+export const runMediaDirectory = (artifacts: string, generation: number) =>
+  join(
+    mediaDirectory(),
+    basename(resolve(artifacts)),
+    `generation-${generation}`,
+  )

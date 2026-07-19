@@ -10,7 +10,7 @@ import * as Scope from "effect/Scope"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import { prepareDev } from "./dev.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
-import { ensureMediaDirectory } from "./media.js"
+import { runMediaDirectory } from "./media.js"
 import { prepareInstanceProject } from "./instance.js"
 import * as Process from "./process.js"
 import { freePort, waitForWebSocket } from "./readiness.js"
@@ -111,10 +111,8 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   const logs = join(artifacts, "logs")
   const drive = join(artifacts, "drive")
   const files = join(artifacts, "files")
-  const media = yield* Effect.tryPromise({
-    try: () => ensureMediaDirectory(),
-    catch: (cause) => instanceError("prepare media", cause),
-  })
+  let mediaGeneration = 0
+  let media = runMediaDirectory(artifacts, mediaGeneration)
   const endpoints = {
     ui: `ws://127.0.0.1:${yield* freePort}`,
     backend: `ws://127.0.0.1:${yield* freePort}`,
@@ -148,7 +146,6 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     OPENCODE_DRIVE_SCRIPTED: options.scripted ? "1" : undefined,
     DRIVE_REGISTRY_DIR: drive,
     OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "headless",
-    OPENCODE_DRIVE_MEDIA_DIR: media,
     OPENCODE_CONFIG_DIR: join(files, ".opencode"),
     OPENCODE_DB: database,
     OPENCODE_LOG_LEVEL: !options.visible ? "DEBUG" : process.env.OPENCODE_LOG_LEVEL,
@@ -209,7 +206,11 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     options.log?.(`launching ${logName}`)
     return yield* Process.spawn(appCommand, {
       cwd: files,
-      env: { ...environment, OPENCODE_DRIVE: driveName },
+      env: {
+        ...environment,
+        OPENCODE_DRIVE: driveName,
+        OPENCODE_DRIVE_MEDIA_DIR: media,
+      },
       stdin: visible ? "inherit" : "ignore",
       stdout: visible ? "inherit" : { path: join(logs, `${logName}.stdout.log`) },
       stderr: visible ? "inherit" : { path: join(logs, `${logName}.stderr.log`) },
@@ -484,6 +485,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
         return yield* Effect.failCause(combined.cause).pipe(
           Effect.mapError((cause) => instanceError("restart", cause)),
         )
+      media = runMediaDirectory(artifacts, ++mediaGeneration)
       const recording = options.record ? recordingPaths(media) : undefined
       yield* Ref.set(state, State.Running({
         recording,
