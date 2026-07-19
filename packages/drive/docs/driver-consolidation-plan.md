@@ -4,6 +4,10 @@
 
 Make the Effect-native driver the single owner of OpenCode Drive lifecycle behavior. Make `defineScript` Effect-only alongside ordinary Effect programs, add deterministic OpenCode TUI configuration, return structured run evidence with validated path types, and replace protocol-skew timeouts with explicit compatibility negotiation.
 
+## Status
+
+Phases 0 through 5 are complete. The consolidated Effect lifecycle, typed OpenCode SDK, structured run reports, and negotiated simulation compatibility shipped by `opencode-drive@1.0.0`; runtime tool controls and run-scoped media followed in `1.1.0` and `1.2.0`. The active work is the provider-neutral tool lifecycle and semantic UI snapshot protocol described under Follow-Ups.
+
 ## Invariants
 
 - `OpenCodeDriver.use` is the default safe lifecycle boundary.
@@ -18,14 +22,14 @@ Make the Effect-native driver the single owner of OpenCode Drive lifecycle behav
 - Protocol compatibility is reported truthfully; legacy fallback is never described as negotiated compatibility.
 - Filesystem paths crossing public boundaries are schema-validated branded values.
 
-## Phase 0: Release Correctness
+## Phase 0: Release Correctness (Completed)
 
 1. Correct the skill's targeted prune example to use the instance name.
 2. Preserve the final off-grid terminal state in MP4 output and add encoded-output regression coverage.
 3. Add the project MIT license and explicit Bun runtime metadata/documentation.
 4. Publish `0.5.0` only after the consolidation and release validation pass.
 
-## Phase 1: Deterministic Configuration
+## Phase 1: Deterministic Configuration (Completed)
 
 1. Add semantic `OpenCodeConfig` and `OpenCodeTuiConfig` JSON object types.
 2. Add `config` and `tui` to script definitions and driver options.
@@ -35,7 +39,7 @@ Make the Effect-native driver the single owner of OpenCode Drive lifecycle behav
 6. Write normalized `.opencode/opencode.jsonc` and `.opencode/tui.jsonc` before creating the optional Git baseline.
 7. Verify the same behavior through Effect scripts and the Effect driver.
 
-## Phase 2: Effect Program Runner
+## Phase 2: Effect Program Runner (Completed)
 
 1. Add `opencode-drive run <module>`.
 2. Require a default-exported, fully provided `Effect` value.
@@ -45,7 +49,7 @@ Make the Effect-native driver the single owner of OpenCode Drive lifecycle behav
 6. Make the Effect runner the README quick start.
 7. Document minimal, multi-TUI, recording, settlement-failure, and `use` versus `make` examples.
 
-## Phase 3: One Lifecycle Engine
+## Phase 3: One Lifecycle Engine (Completed)
 
 1. Make LLM response state independent of one backend connection and attach it per server generation.
 2. Introduce an Effect-native server-generation controller over one prepared `OpenCodeInstance`.
@@ -56,14 +60,14 @@ Make the Effect-native driver the single owner of OpenCode Drive lifecycle behav
 7. Delete duplicated lifecycle implementations only after all characterization tests pass.
 8. Replace interruption-sensitive cached terminal operations with shared independently owned settlement effects.
 
-## Phase 4: Structured Run Evidence
+## Phase 4: Structured Run Evidence (Completed)
 
 1. Add a schema-validated `AbsolutePath` branded type.
 2. Add a compact `RunReport` containing the artifact root, retention, recordings, and endpoint compatibility.
 3. Return reports from safe library settlement without changing ordinary CLI stdout.
 4. Publish recordings atomically through temporary files and rename on success.
 
-## Phase 5: Protocol Compatibility
+## Phase 5: Protocol Compatibility (Completed)
 
 1. Add canonical `simulation.handshake` schemas and capability identifiers to OpenCode.
 2. Implement the handshake on UI and backend endpoints.
@@ -77,7 +81,7 @@ Make the Effect-native driver the single owner of OpenCode Drive lifecycle behav
 
 ### Typed OpenCode SDK
 
-Expose the existing OpenCode SDK as `opencode` after introducing one service-registration discovery abstraction. The driver must keep registration passwords private and document compatibility between the SDK version bundled by Drive and arbitrary OpenCode command/dev targets.
+Completed. The driver exposes its generated client as `opencode`, keeps registration credentials internal, and documents that the bundled SDK may differ from arbitrary OpenCode command and development targets.
 
 ### Tool Lifecycle Simulation
 
