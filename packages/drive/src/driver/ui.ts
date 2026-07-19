@@ -2,7 +2,10 @@ import * as Effect from "effect/Effect"
 import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import type { RpcClientError } from "effect/unstable/rpc"
-import type { UiConnection } from "../simulation/connector.js"
+import {
+  supportsCapability,
+  type UiConnection,
+} from "../simulation/connector.js"
 import { Frontend } from "../client/protocol.js"
 import type { SimulationRequestError } from "../simulation/rpc.js"
 
@@ -21,6 +24,8 @@ export interface ElementQuery {
   readonly clickable?: boolean
   readonly editor?: boolean
 }
+
+export type SemanticQuery = Partial<Frontend.SemanticNode>
 
 export type Position = Pick<Frontend.ClickParams, "x" | "y">
 
@@ -50,6 +55,25 @@ export class UiElementAmbiguousError extends Schema.TaggedErrorClass<UiElementAm
   }
 }
 
+export class UiNodeAmbiguousError extends Schema.TaggedErrorClass<UiNodeAmbiguousError>()(
+  "UiNodeAmbiguousError",
+  {
+    count: Schema.Number,
+  },
+) {
+  override get message() {
+    return `ui.getNode matched ${this.count} semantic nodes`
+  }
+}
+
+export class UiCapabilityError extends Schema.TaggedErrorClass<UiCapabilityError>()(
+  "UiCapabilityError",
+  {
+    capability: Schema.Literals(["ui.snapshot", "ui.click.semantic"]),
+    message: Schema.String,
+  },
+) {}
+
 export class UiWaitOptionsError extends Schema.TaggedErrorClass<UiWaitOptionsError>()(
   "UiWaitOptionsError",
   {
@@ -77,9 +101,11 @@ const RequestTimeout = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 export type WaitError = UiTimeoutError | UiWaitOptionsError
 type RpcError = SimulationRequestError | RpcClientError.RpcClientError
 export type OperationError = RpcError | UiTimeoutError
+export type SemanticOperationError = OperationError | UiCapabilityError
 
 export interface Ui {
   readonly state: () => Effect.Effect<Frontend.State, OperationError>
+  readonly snapshot: () => Effect.Effect<Frontend.SemanticSnapshot, SemanticOperationError>
   readonly capture: () => Effect.Effect<Frontend.CapturedFrame, OperationError>
   readonly matches: (text: string) => Effect.Effect<boolean, OperationError>
   readonly screenshot: (
@@ -98,11 +124,11 @@ export interface Ui {
     target: number | Frontend.Element,
   ) => Effect.Effect<Frontend.State, OperationError>
   readonly click: (
-    target: number | Frontend.Element,
+    target: number | Frontend.Element | Frontend.SemanticNode,
     position?: Position,
   ) => Effect.Effect<
     Frontend.State,
-    OperationError | UiElementAmbiguousError | UiWaitOptionsError
+    OperationError | UiCapabilityError | UiElementAmbiguousError | UiWaitOptionsError
   >
   readonly resize: (
     viewport: Frontend.ResizeParams,
@@ -124,6 +150,13 @@ export interface Ui {
     Frontend.Element,
     OperationError | WaitError | UiElementAmbiguousError
   >
+  readonly getNode: (
+    target: string | SemanticQuery,
+    options?: WaitOptions,
+  ) => Effect.Effect<
+    Frontend.SemanticNode,
+    SemanticOperationError | WaitError | UiNodeAmbiguousError
+  >
 }
 
 interface Control extends Ui {
@@ -137,6 +170,7 @@ export interface Transform {
 /** Applies one Effect transformation to every operation without changing the UI interface. */
 export const transform = (ui: Ui, apply: Transform): Ui => ({
   state: () => apply(ui.state()),
+  snapshot: () => apply(ui.snapshot()),
   capture: () => apply(ui.capture()),
   matches: (text) => apply(ui.matches(text)),
   screenshot: (name) => apply(ui.screenshot(name)),
@@ -150,6 +184,7 @@ export const transform = (ui: Ui, apply: Transform): Ui => ({
   submit: (text) => apply(ui.submit(text)),
   waitFor: (target, options) => apply(ui.waitFor(target, options)),
   getElement: (target, options) => apply(ui.getElement(target, options)),
+  getNode: (target, options) => apply(ui.getNode(target, options)),
 })
 
 export const make = (connection: UiConnection, options?: Options): Control => {
@@ -173,6 +208,18 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     })
 
   const state = Effect.fn("Ui.state")(() => call("state", rpc["ui.state"]()))
+  const snapshot = Effect.fn("Ui.snapshot")(function* () {
+    if (
+      !supportsCapability(connection.compatibility, "ui.snapshot")
+    )
+      return yield* Effect.fail(
+        new UiCapabilityError({
+          capability: "ui.snapshot",
+          message: "ui.snapshot is not available on this OpenCode endpoint",
+        }),
+      )
+    return yield* call("snapshot", rpc["ui.snapshot"]())
+  })
   const capture = Effect.fn("Ui.capture")(() =>
     call("capture", rpc["ui.capture"]()),
   )
@@ -315,7 +362,7 @@ export const make = (connection: UiConnection, options?: Options): Control => {
               ? element.num === target
               : typeof target === "string"
                 ? element.id === target
-                : matchesElement(element, target),
+                : matchesQuery(element, target),
           )
           if (elements.length > 1)
             return Effect.fail(
@@ -328,12 +375,60 @@ export const make = (connection: UiConnection, options?: Options): Control => {
       ),
   )
 
+  const getNode = Effect.fn("Ui.getNode")(
+    (target: string | SemanticQuery, options?: WaitOptions) =>
+      poll(
+        "getNode",
+        Effect.flatMap(snapshot(), (value) => {
+          const nodes = value.nodes.filter((node) =>
+            typeof target === "string"
+              ? node.id === target
+              : matchesQuery(node, target),
+          )
+          if (nodes.length > 1)
+            return Effect.fail(
+              new UiNodeAmbiguousError({ count: nodes.length }),
+            )
+          return Effect.succeed(nodes[0])
+        }),
+        options,
+        "timed out waiting for the semantic UI node",
+      ),
+  )
+
   const click = Effect.fn("Ui.click")(function* (
-    target: number | Frontend.Element,
+    target: number | Frontend.Element | Frontend.SemanticNode,
     position?: Position,
   ) {
+    if (typeof target !== "number" && "element" in target) {
+      if (!supportsCapability(connection.compatibility, "ui.click.semantic"))
+        return yield* Effect.fail(
+          new UiCapabilityError({
+            capability: "ui.click.semantic",
+            message: "semantic ui.click is not available on this OpenCode endpoint",
+          }),
+        )
+      const element = position === undefined
+        ? (yield* state()).elements.find((candidate) => candidate.num === target.element)
+        : undefined
+      return yield* call(
+        "click",
+        rpc["ui.click"]({
+          target: target.element,
+          x: position?.x ?? (element === undefined ? 0 : Math.floor(element.width / 2)),
+          y: position?.y ?? (element === undefined ? 0 : Math.floor(element.height / 2)),
+          semantic: {
+            id: target.id,
+            ...(target.instance === undefined ? {} : { instance: target.instance }),
+            element: target.element,
+          },
+        }),
+      )
+    }
     const element =
-      typeof target === "number" ? yield* getElement(target) : target
+      typeof target === "number"
+        ? yield* getElement(target)
+        : target
     return yield* call(
       "click",
       rpc["ui.click"]({
@@ -346,6 +441,7 @@ export const make = (connection: UiConnection, options?: Options): Control => {
 
   return {
     state,
+    snapshot,
     capture,
     matches,
     screenshot,
@@ -360,6 +456,7 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     submit,
     waitFor,
     getElement,
+    getNode,
   }
 }
 
@@ -387,14 +484,9 @@ function predicateEffect<E>(
   })
 }
 
-function matchesElement(element: Frontend.Element, query: ElementQuery) {
-  return (
-    (query.id === undefined || element.id === query.id) &&
-    (query.num === undefined || element.num === query.num) &&
-    (query.focusable === undefined || element.focusable === query.focusable) &&
-    (query.focused === undefined || element.focused === query.focused) &&
-    (query.clickable === undefined || element.clickable === query.clickable) &&
-    (query.editor === undefined || element.editor === query.editor)
+function matchesQuery<Value extends object>(value: Value, query: Partial<Value>) {
+  return Object.entries(query).every(
+    ([key, expected]) => expected === undefined || Reflect.get(value, key) === expected,
   )
 }
 

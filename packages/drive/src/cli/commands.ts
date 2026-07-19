@@ -35,6 +35,10 @@ export const commandInfo = {
     value: false,
     description: "Return focus, elements, and available UI actions",
   },
+  "ui.snapshot": {
+    value: false,
+    description: "Return the semantic UI tree as JSON",
+  },
   "ui.matches": {
     value: true,
     description: "Check for literal screen text using JSON params",
@@ -44,15 +48,17 @@ export const commandInfo = {
     description: "Finish recording and return the timeline path",
   },
 } as const satisfies Record<
-  Frontend.Capability,
+  Exclude<Frontend.Capability, "ui.click.semantic">,
   { readonly value: boolean | "optional"; readonly description: string }
 >
 
-export function isCommandName(operation: string): operation is Frontend.Capability {
+type CommandName = Exclude<Frontend.Capability, "ui.click.semantic">
+
+export function isCommandName(operation: string): operation is CommandName {
   return Object.hasOwn(commandInfo, operation)
 }
 
-export function commandAcceptsValue(operation: Frontend.Capability) {
+export function commandAcceptsValue(operation: CommandName) {
   return commandInfo[operation].value
 }
 
@@ -179,6 +185,27 @@ function dispatch(
   connection: SimulationConnector.UiConnection,
   request: Frontend.Request,
 ): Effect.Effect<unknown, unknown> {
+  if (
+    request.method === "ui.snapshot" &&
+    !SimulationConnector.supportsCapability(connection.compatibility, "ui.snapshot")
+  )
+    return Effect.fail(
+      new SimulationError(
+        "ui.snapshot is not available on this OpenCode endpoint",
+        request.method,
+      ),
+    )
+  if (
+    request.method === "ui.click" &&
+    request.params.semantic !== undefined &&
+    !SimulationConnector.supportsCapability(connection.compatibility, "ui.click.semantic")
+  )
+    return Effect.fail(
+      new SimulationError(
+        "semantic ui.click is not available on this OpenCode endpoint",
+        request.method,
+      ),
+    )
   switch (request.method) {
     case "ui.type":
       return connection.rpc["ui.type"](request.params)
@@ -200,6 +227,8 @@ function dispatch(
       return connection.rpc["ui.capture"]()
     case "ui.state":
       return connection.rpc["ui.state"]()
+    case "ui.snapshot":
+      return connection.rpc["ui.snapshot"]()
     case "ui.matches":
       return connection.rpc["ui.matches"](request.params)
     case "ui.recording.finish":

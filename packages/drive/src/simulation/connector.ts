@@ -52,6 +52,14 @@ export const EndpointCompatibility = Schema.TaggedUnion({
 })
 export type EndpointCompatibility = typeof EndpointCompatibility.Type
 
+export function supportsCapability(
+  compatibility: EndpointCompatibility,
+  capability: Handshake.Capability,
+) {
+  return compatibility._tag === "Negotiated" &&
+    compatibility.capabilities.includes(capability)
+}
+
 export type CompatibilityPolicy = "required" | "preferred"
 
 export interface Options {
@@ -104,16 +112,20 @@ export const ui = Effect.fn("SimulationConnector.ui")(function* (
   const rpc = yield* RpcClient.make(UiRpcs).pipe(
     Effect.provideService(RpcClient.Protocol, protocol),
   )
+  const required = FrontendProtocol.Capabilities.filter(
+    (capability) =>
+      capability !== "ui.snapshot" && capability !== "ui.click.semantic",
+  )
   const compatibility = yield* negotiate(
     endpoint,
     "ui",
-    FrontendProtocol.Capabilities,
+    required,
     rpc["simulation.handshake"]({
       client: { name: "opencode-drive", version: packageJson.version },
       expectedRole: "ui",
       offeredVersions: [1],
-      requiredCapabilities: [...FrontendProtocol.Capabilities],
-      optionalCapabilities: [],
+      requiredCapabilities: required,
+      optionalCapabilities: ["ui.snapshot", "ui.click.semantic"],
     }),
     options?.compatibility,
   )

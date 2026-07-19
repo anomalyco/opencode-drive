@@ -232,6 +232,21 @@ function frontend(method: string, params: unknown) {
       lines: [{ spans: [{ text: screen.value, fg: [255, 255, 255, 255], bg: [0, 0, 0, 255], attributes: 0, width: screen.value.length }] }],
     }
   }
+  if (method === "ui.snapshot") {
+    return {
+      format: "opencode-ui-snapshot-v1",
+      nodes: [
+        {
+          id: "prompt",
+          role: "textbox",
+          label: "Prompt",
+          element: 1,
+          focused: true,
+          disabled: false,
+        },
+      ],
+    }
+  }
   if (method === "ui.screenshot") {
     const name = isRecord(params) && typeof params.name === "string"
       ? params.name

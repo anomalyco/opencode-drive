@@ -11,8 +11,10 @@ import {
   type InstanceManifest,
 } from "../../src/instance/registry.js"
 import { createResponseSettings, generateResponse } from "../../src/cli/response-generator.js"
+import { CommandBatchError, executeCommands } from "../../src/cli/commands.js"
 import { splitText } from "../../src/cli/mock-backend.js"
 import { resolveSendEndpoint } from "../../src/cli/send.js"
+import { sendError, sendResult, startTransportPeer } from "../simulation/transport-peer.js"
 
 const roots: string[] = []
 const instances: Array<{ root: string; name: string }> = []
@@ -29,6 +31,72 @@ afterEach(async () => {
 })
 
 describe("opencode-drive", () => {
+  test("rejects unsupported optional UI commands without sending them", async () => {
+    const peers = [
+      startTransportPeer(({ request, socket }) => {
+        if (request.method !== "simulation.handshake") return
+        const params = request.params as {
+          readonly requiredCapabilities: ReadonlyArray<string>
+        }
+        sendResult(socket, request, {
+          protocolVersion: 1,
+          role: "ui",
+          server: { name: "opencode", version: "older" },
+          capabilities: params.requiredCapabilities,
+        })
+      }, { handshake: false }),
+      startTransportPeer(({ request, socket }) => {
+        if (request.method === "simulation.handshake")
+          sendError(socket, request, "method not found", -32601)
+      }, { handshake: false }),
+    ]
+
+    try {
+      for (const peer of peers) {
+        for (const expected of [
+          {
+            command: { operation: "ui.snapshot" as const },
+            method: "ui.snapshot",
+            message: "ui.snapshot is not available on this OpenCode endpoint",
+          },
+          {
+            command: {
+              operation: "ui.click" as const,
+              value: JSON.stringify({
+                target: 3,
+                x: 1,
+                y: 0,
+                semantic: {
+                  id: "session.permission.action.once",
+                  instance: "permission-1",
+                  element: 3,
+                },
+              }),
+            },
+            method: "ui.click",
+            message: "semantic ui.click is not available on this OpenCode endpoint",
+          },
+        ]) {
+          const result = executeCommands(peer.url, [expected.command])
+          await expect(result).rejects.toMatchObject({
+            name: "CommandBatchError",
+            reason: {
+              name: "SimulationError",
+              method: expected.method,
+              message: expected.message,
+            },
+          } satisfies Partial<CommandBatchError>)
+        }
+        expect(peer.received.map(({ request }) => request.method)).toEqual([
+          "simulation.handshake",
+          "simulation.handshake",
+        ])
+      }
+    } finally {
+      await Promise.all(peers.map((peer) => peer.stop()))
+    }
+  })
+
   test("requires an explicit name to initialize or start headless", async () => {
     const root = await temporary()
     for (const command of ["init", "start"]) {
@@ -114,6 +182,13 @@ describe("opencode-drive", () => {
     const state = spawn(["send", "--name", name, "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
     expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
+
+    const snapshot = spawn(["send", "--name", name, "--command.ui.snapshot"], root)
+    expect(await snapshot.exited).toBe(0)
+    expect(JSON.parse(await new Response(snapshot.stdout).text())).toMatchObject({
+      format: "opencode-ui-snapshot-v1",
+      nodes: [{ id: "prompt", role: "textbox", element: 1 }],
+    })
 
     const matches = spawn(["send", "--name", name, "--command.ui.matches", '{"text":"Fake OpenCode"}'], root)
     expect(await matches.exited).toBe(0)

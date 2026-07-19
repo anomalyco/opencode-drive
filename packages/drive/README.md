@@ -453,15 +453,38 @@ Finish a tool-calling response with `Llm.finish("tool-calls")`. Streamed calls
 drive OpenCode's normal tool-input start, delta, and end lifecycle; `Llm.raw()`
 remains available for provider-wire scenarios not covered by these helpers.
 
+Current OpenCode simulation endpoints expose a semantic UI tree alongside
+renderer state and terminal capture. Use `ui.snapshot()` for the complete
+versioned tree or `ui.getNode()` to poll for one exact semantic match. Semantic
+nodes carry stable IDs, optional occurrence identity, role, label, hierarchy,
+component-owned state, and a transient element handle that `ui.click()` can
+resolve safely:
+
+```ts
+const allow = yield* ui.getNode({
+  role: "option",
+  label: "Allow once",
+  selected: true,
+  disabled: false,
+})
+
+yield* ui.click(allow)
+```
+
+`ui.snapshot` and atomic semantic clicks are negotiated as optional
+capabilities so ordinary operations remain compatible with older OpenCode
+checkouts. Calling `ui.snapshot()`, `ui.getNode()`, or `ui.click(node)` when its
+required capability is unavailable fails locally with `UiCapabilityError`.
+
 Capability errors are typed and the concrete classes are grouped under
 `Errors`. UI timeouts remain owner-fatal even when caught; recover locally
 from errors for which the script has a truthful fallback:
 
-Polling timeouts from `ui.waitFor` and `ui.getElement` make one best-effort,
-bounded `ui.capture` request. When it succeeds, the resulting normalized
-terminal frame is available as `error.frame` without creating or retaining a
-screenshot file. RPC-level timeouts and failed diagnostic captures leave
-`error.frame` undefined.
+Polling timeouts from `ui.waitFor`, `ui.getElement`, and `ui.getNode` make one
+best-effort, bounded `ui.capture` request. When it succeeds, the resulting
+normalized terminal frame is available as `error.frame` without creating or
+retaining a screenshot file. RPC-level timeouts and failed diagnostic captures
+leave `error.frame` undefined.
 
 ```ts
 import { Effect } from "effect"

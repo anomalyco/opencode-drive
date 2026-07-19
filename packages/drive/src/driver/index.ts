@@ -184,7 +184,9 @@ export {
   LlmSettlementError,
 } from "./llm-controller.js"
 export {
+  UiCapabilityError,
   UiElementAmbiguousError,
+  UiNodeAmbiguousError,
   UiPredicateError,
   UiTimeoutError,
   UiWaitOptionsError,

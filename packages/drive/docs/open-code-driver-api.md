@@ -401,6 +401,22 @@ Predicates passed to `ui.waitFor` may return a boolean or an Effect.
 Capability methods expose typed error channels. Concrete tagged errors are
 available from the `Errors` namespace.
 
+`ui.snapshot()` returns the endpoint's versioned semantic tree. `ui.getNode()`
+polls for one exact match and fails with `UiNodeAmbiguousError` when more than
+one node matches. Semantic snapshots and identity-checked semantic clicks are
+optional during negotiation, so older OpenCode checkouts retain ordinary UI
+control while unsupported semantic operations fail locally with
+`UiCapabilityError`.
+
+```ts
+const option = yield* ui.getNode({
+  role: "option",
+  label: "Allow once",
+  selected: true,
+})
+yield* ui.click(option)
+```
+
 ### Additional TUI
 
 ```ts

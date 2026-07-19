@@ -129,6 +129,7 @@ UI operations are Effects:
 
 - `ui.submit(text)` types and presses Enter.
 - `ui.state()`, `ui.capture()`, and `ui.matches(text)` inspect the terminal.
+- `ui.snapshot()` returns the versioned semantic tree; `ui.getNode(query, options?)` polls for one exact semantic match.
 - `ui.waitFor(textOrPredicate, options?)` polls until a match.
 - `ui.getElement(query, options?)`, `ui.focus(...)`, and `ui.click(...)` target interactive elements.
 - `ui.screenshot(name?)` exports an image and returns its absolute path.
@@ -353,6 +354,7 @@ opencode-drive stop --name demo
 - `--command.ui.resize '{"cols":120,"rows":40}'`
 - `--command.ui.screenshot` or `--command.ui.screenshot '{"name":"home"}'`
 - `--command.ui.state`
+- `--command.ui.snapshot`
 - `--command.ui.capture`
 - `--command.ui.matches '{"text":"OpenCode"}'`
 - `--command.ui.recording.finish`

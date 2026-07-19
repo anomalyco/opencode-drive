@@ -4,7 +4,10 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Llm from "../llm/index.js"
 import { chunkText } from "../llm/internal.js"
-import type { BackendConnection } from "../simulation/connector.js"
+import {
+  supportsCapability,
+  type BackendConnection,
+} from "../simulation/connector.js"
 import { controllerError, LlmControllerError } from "./llm-errors.js"
 
 /**
@@ -70,8 +73,7 @@ export const make = ({ requestTimeout }: Options): Responder => {
   ): Effect.Effect<never, E | InvocationTerminated> =>
     Effect.gen(function* () {
       if (
-        backend.compatibility._tag !== "Negotiated" ||
-        !backend.compatibility.capabilities.includes("llm.pending")
+        !supportsCapability(backend.compatibility, "llm.pending")
       )
         return yield* Effect.fail(error)
       const pending = yield* Effect.exit(

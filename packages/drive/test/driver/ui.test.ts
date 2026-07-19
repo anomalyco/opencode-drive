@@ -22,6 +22,31 @@ const state = {
   elements: [editor],
 }
 
+const snapshot = {
+  format: "opencode-ui-snapshot-v1",
+  nodes: [
+    {
+      id: "session.permission",
+      instance: "permission-1",
+      role: "dialog",
+      label: "Permission required: Edit fixture.txt",
+      element: 2,
+      expanded: false,
+    },
+    {
+      id: "session.permission.action.once",
+      instance: "permission-1",
+      parent: "session.permission",
+      role: "option",
+      label: "Allow once",
+      element: 3,
+      focused: true,
+      selected: true,
+      disabled: false,
+    },
+  ],
+}
+
 const frame = {
   cols: 2,
   rows: 1,
@@ -112,6 +137,174 @@ describe("OpenCodeUi", () => {
         { jsonrpc: "2.0", id: 9, method: "ui.state" },
         { jsonrpc: "2.0", id: 10, method: "ui.state" },
       ])
+    })
+  })
+
+  it.live("selects and clicks semantic UI nodes", () => {
+    let snapshotCalls = 0
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.snapshot") {
+        snapshotCalls++
+        sendResult(
+          socket,
+          request,
+          snapshotCalls === 2
+            ? { format: "opencode-ui-snapshot-v1", nodes: [] }
+            : snapshot,
+        )
+        return
+      }
+      sendResult(socket, request, state)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection)
+
+      expect(yield* ui.snapshot()).toEqual(snapshot)
+      const option = yield* ui.getNode({
+        instance: "permission-1",
+        role: "option",
+        selected: true,
+        disabled: false,
+      }, { interval: 1 })
+      expect(option).toEqual(snapshot.nodes[1])
+      expect(yield* ui.click(option)).toEqual(state)
+      expect(peer.received.map(({ request }) => request)).toEqual([
+        { jsonrpc: "2.0", id: 1, method: "ui.snapshot" },
+        { jsonrpc: "2.0", id: 2, method: "ui.snapshot" },
+        { jsonrpc: "2.0", id: 3, method: "ui.snapshot" },
+        { jsonrpc: "2.0", id: 4, method: "ui.state" },
+        {
+          jsonrpc: "2.0",
+          id: 5,
+          method: "ui.click",
+          params: {
+            target: 3,
+            x: 10,
+            y: 3,
+            semantic: {
+              id: "session.permission.action.once",
+              instance: "permission-1",
+              element: 3,
+            },
+          },
+        },
+      ])
+    })
+  })
+
+  it.live("sends stale semantic handles to the endpoint without polling", () => {
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.state") {
+        sendResult(socket, request, { ...state, elements: [] })
+        return
+      }
+      sendError(socket, request, "target is stale")
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const error = yield* OpenCodeUi.make(connection)
+        .click(snapshot.nodes[1]!)
+        .pipe(Effect.flip)
+
+      expect(error).toMatchObject({
+        _tag: "SimulationRequestError",
+        method: "ui.click",
+        message: "target is stale",
+      })
+      expect(peer.received.map(({ request }) => request)).toEqual([
+        { jsonrpc: "2.0", id: 1, method: "ui.state" },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "ui.click",
+          params: {
+            target: 3,
+            x: 0,
+            y: 0,
+            semantic: {
+              id: "session.permission.action.once",
+              instance: "permission-1",
+              element: 3,
+            },
+          },
+        },
+      ])
+    })
+  })
+
+  it.live("reports unavailable semantic snapshots without breaking older endpoints", () => {
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "simulation.handshake") {
+        const params = request.params as {
+          readonly requiredCapabilities: ReadonlyArray<string>
+        }
+        sendResult(socket, request, {
+          protocolVersion: 1,
+          role: "ui",
+          server: { name: "opencode", version: "older" },
+          capabilities: params.requiredCapabilities,
+        })
+        return
+      }
+      sendResult(socket, request, state)
+    }, { handshake: false })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection)
+
+      expect(yield* ui.state()).toEqual(state)
+      const error = yield* ui.snapshot().pipe(Effect.flip)
+      expect(error).toBeInstanceOf(OpenCodeUi.UiCapabilityError)
+      expect(error).toMatchObject({
+        capability: "ui.snapshot",
+        message: "ui.snapshot is not available on this OpenCode endpoint",
+      })
+      const clickError = yield* ui.click(snapshot.nodes[1]!).pipe(Effect.flip)
+      expect(clickError).toMatchObject({
+        capability: "ui.click.semantic",
+        message: "semantic ui.click is not available on this OpenCode endpoint",
+      })
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "simulation.handshake",
+        "ui.state",
+      ])
+    })
+  })
+
+  it.live("reports ambiguous semantic nodes as typed UI failures", () => {
+    const peer = startTransportPeer(({ request, socket }) =>
+      sendResult(socket, request, {
+        ...snapshot,
+        nodes: [
+          snapshot.nodes[0],
+          snapshot.nodes[1],
+          {
+            ...snapshot.nodes[1],
+            id: "session.permission.action.always",
+            element: 4,
+          },
+        ],
+      }),
+    )
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const error = yield* OpenCodeUi.make(connection)
+        .getNode({ role: "option" })
+        .pipe(Effect.flip)
+      expect(error).toBeInstanceOf(OpenCodeUi.UiNodeAmbiguousError)
+      expect(error).toMatchObject({
+        count: 2,
+        message: "ui.getNode matched 2 semantic nodes",
+      })
     })
   })
 

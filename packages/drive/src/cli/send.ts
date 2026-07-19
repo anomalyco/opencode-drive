@@ -19,7 +19,7 @@ export async function send(options: SendOptions) {
   }
   if (
     options.commands.length === 1 &&
-    ["ui.state", "ui.capture"].includes(
+    ["ui.state", "ui.snapshot", "ui.capture"].includes(
       options.commands[0]?.operation ?? "",
     )
   ) {

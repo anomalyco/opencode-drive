@@ -1,7 +1,7 @@
 import type { Frontend } from "../client/index.js"
 
 export interface DriveCommand {
-  readonly operation: Frontend.Capability
+  readonly operation: Exclude<Frontend.Capability, "ui.click.semantic">
   readonly value?: string
 }
 

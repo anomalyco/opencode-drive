@@ -34,6 +34,7 @@ export const UiRpcs = RpcGroup.make(
     success: Handshake.Response,
   }),
   request("ui.state", { success: Frontend.State }),
+  request("ui.snapshot", { success: Frontend.SemanticSnapshot }),
   request("ui.capture", { success: Frontend.CapturedFrame }),
   request("ui.matches", {
     payload: Frontend.MatchesParams,
