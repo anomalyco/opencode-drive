@@ -182,7 +182,7 @@ If you installed the skill file, OpenCode will be able to see and interact with 
 
 Install the skill file above and ask the agent to test various flows with the app. Start with `--record` when you want a video; `opencode-drive stop` then exports the complete session and prints its path.
 
-Screenshots and videos are written to `<system temp>/opencode-drive/output` with unique filenames. Set `OPENCODE_DRIVE_MEDIA_DIR` to use a different directory.
+Screenshots and videos are written beneath `<system temp>/opencode-drive/output/<run-id>/<generation-id>`, so named outputs cannot overwrite media from earlier runs or restarts. Set `OPENCODE_DRIVE_MEDIA_DIR` to use a different media root.
 
 Captured frames use the official full Commit Mono v1.143 faces at 16px with bundled Noto Symbols, Symbols 2, and Math fallbacks in a fixed 10x20 cell grid. Set `OPENCODE_DRIVE_FONT` to a comma-separated list of font files (for example regular, bold, italic, and bold-italic faces) to use a different primary capture font without changing the symbol fallback or cell geometry.
 
