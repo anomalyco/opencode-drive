@@ -1,5 +1,11 @@
 # opencode-drive
 
+## 1.4.0
+
+### Minor Changes
+
+- c20d147: Control arbitrary provider-backed tool lifecycles with dynamic registration, structured progress, success, failure, cancellation, and reconnect-safe replay.
+
 ## 1.3.0
 
 ### Minor Changes
