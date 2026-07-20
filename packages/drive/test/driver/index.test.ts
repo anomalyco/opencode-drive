@@ -252,6 +252,87 @@ it.live("exposes runtime controls for tools declared by name", () =>
   }),
 )
 
+it.live("controls arbitrary provider-backed tools through the runtime lifecycle", () =>
+  Effect.gen(function* () {
+    const artifacts = yield* OpenCodeDriver.use(
+      {
+        keepArtifacts: true,
+        opencode: {
+          command: [...fakeOpenCode, "dynamic-tool", "reconnect-tool"],
+        },
+      },
+      (driver) =>
+        Effect.gen(function* () {
+          yield* driver.tools.attach({
+            tools: [
+              {
+                name: "lookup",
+                description: "Look up a value",
+                inputSchema: {
+                  type: "object",
+                  properties: { query: { type: "string" } },
+                  required: ["query"],
+                },
+                outputSchema: {
+                  type: "object",
+                  properties: { answer: { type: "number" } },
+                  required: ["answer"],
+                },
+                options: { codemode: false },
+              },
+            ],
+          })
+          const call = yield* driver.tools.take("call_lookup")
+          expect(call).toMatchObject({
+            name: "lookup",
+            input: { query: "meaning" },
+            context: { sessionID: "ses_dynamic", callID: "call_lookup" },
+          })
+          yield* call.progress({
+            structured: { phase: "searching" },
+            content: [{ type: "text", text: "Searching" }],
+          })
+          yield* call.finish({
+            structured: { answer: 42 },
+            content: [{ type: "text", text: "42" }],
+          })
+          return driver.artifacts
+        }),
+    )
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => rm(artifacts, { recursive: true, force: true })),
+    )
+    const events = (yield* Effect.promise(() =>
+      readFile(`${artifacts}/tool-events.jsonl`, "utf8"),
+    )).trim().split("\n").map((line) => JSON.parse(line))
+    expect(events).toEqual([
+      expect.objectContaining({ method: "tool.attach" }),
+      expect.objectContaining({ method: "tool.attach" }),
+      {
+        method: "tool.update",
+        params: {
+          id: "tool_1",
+          sequence: 0,
+          update: {
+            structured: { phase: "searching" },
+            content: [{ type: "text", text: "Searching" }],
+          },
+        },
+      },
+      {
+        method: "tool.finish",
+        params: {
+          id: "tool_1",
+          output: {
+            structured: { answer: 42 },
+            content: [{ type: "text", text: "42" }],
+          },
+        },
+      },
+    ])
+  }),
+)
+
 it.live("returns structured evidence from the safe lifecycle boundary", () =>
   Effect.gen(function* () {
     const result = yield* OpenCodeDriver.useReport(

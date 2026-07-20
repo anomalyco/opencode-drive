@@ -286,6 +286,66 @@ Declared `config` and `tuiConfig` values are deeply merged over fixture
 `.opencode/opencode.jsonc` and `.opencode/tui.jsonc` files. Arrays replace
 instead of merging, and mutations made in `setup` take final precedence.
 
+Attach arbitrary provider-backed tools at runtime with their JSON schemas, then
+take and settle native OpenCode invocations by model call ID. `attach` replaces
+the complete dynamic set atomically; it does not affect the built-in adapters
+configured through the driver or script `tools` option.
+
+```ts
+import { Effect } from "effect"
+import { Llm, OpenCodeDriver } from "opencode-drive"
+
+export default OpenCodeDriver.use(({ tools, llm, ui }) =>
+  Effect.gen(function* () {
+    yield* tools.attach({
+      tools: [
+        {
+          name: "lookup",
+          description: "Look up a value",
+          inputSchema: {
+            type: "object",
+            properties: { query: { type: "string" } },
+            required: ["query"],
+          },
+          outputSchema: {
+            type: "object",
+            properties: { answer: { type: "number" } },
+            required: ["answer"],
+          },
+          options: { codemode: false },
+        },
+      ],
+    })
+    yield* llm.queue(
+      Llm.toolCall({
+        index: 0,
+        id: "call_lookup",
+        name: "lookup",
+        input: { query: "meaning" },
+      }),
+      Llm.finish("tool-calls"),
+    )
+    yield* ui.submit("Look up the meaning")
+
+    const lookup = yield* tools.take("call_lookup")
+    yield* lookup.progress({
+      structured: { phase: "searching" },
+      content: [{ type: "text", text: "Searching" }],
+    })
+    yield* lookup.finish({
+      structured: { answer: 42 },
+      content: [{ type: "text", text: "42" }],
+    })
+  }),
+)
+```
+
+Drive owns progress sequence numbers and retries uncertain operations without
+rerunning a claimed call. `awaitCancelled()` completes when OpenCode interrupts
+the native invocation before `finish` or `fail`. Dynamic registrations survive
+the tool-only controller reconnecting; an intentional server generation change
+cancels unresolved calls and reapplies the desired set after launch.
+
 Declare which built-in tools Drive should intercept with `tools`, then control
 their invocations inside `run`. Each tool controller accepts calls in arrival
 order or by the stable call ID chosen in `Llm.toolCall`:

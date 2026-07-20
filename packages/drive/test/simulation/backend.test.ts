@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Stream } from "effect"
+import { Effect, Fiber, Option, Stream } from "effect"
 import { Backend } from "../../src/client/index.js"
 import * as SimulationConnector from "../../src/simulation/connector.js"
 import { sendResult, startTransportPeer } from "./transport-peer.js"
@@ -190,6 +190,104 @@ describe("OpenCode backend simulation transport", () => {
       ).toEqual({ ok: true })
       const received = yield* connection.requests.pipe(Stream.take(2), Stream.runCollect)
       expect([...received]).toEqual([exchanges.first, exchanges.second])
+    }),
+  )
+
+  it.live("mirrors tool lifecycle RPCs and preserves invocation-cancellation order", () =>
+    Effect.gen(function* () {
+      const invocation = {
+        id: "tool_1",
+        name: "lookup",
+        input: { query: "meaning" },
+        context: {
+          sessionID: "ses_tools",
+          agent: "build",
+          messageID: "msg_tools",
+          callID: "call_lookup",
+        },
+      }
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "tool.attach") {
+          sendNotification(socket, "tool.invocation", invocation)
+          sendNotification(socket, "tool.cancel", {
+            id: "tool_1",
+            reason: "interrupted",
+          })
+          sendResult(socket, request, { attached: true })
+          return
+        }
+        sendResult(socket, request, { ok: true })
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      })
+      const events = yield* connection.toolEvents.pipe(
+        Stream.take(2),
+        Stream.runCollect,
+        Effect.forkScoped,
+      )
+      const tools = [
+        {
+          name: "lookup",
+          description: "Look up a value",
+          inputSchema: { type: "object" },
+          options: { codemode: false },
+        },
+      ]
+
+      yield* connection.attachTools(tools)
+      yield* connection.updateTool({
+        id: "tool_1",
+        sequence: 0,
+        update: { structured: { phase: "searching" } },
+      })
+      yield* connection.finishTool({
+        id: "tool_1",
+        output: { structured: { answer: 42 }, content: [] },
+      })
+      yield* connection.failTool({ id: "tool_2", message: "failed" })
+
+      expect([...(yield* Fiber.join(events))]).toEqual([
+        { type: "invocation", invocation },
+        {
+          type: "cancellation",
+          cancellation: { id: "tool_1", reason: "interrupted" },
+        },
+      ])
+      expect(peer.received.map(({ request }) => request)).toEqual([
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tool.attach",
+          params: { tools },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tool.update",
+          params: {
+            id: "tool_1",
+            sequence: 0,
+            update: { structured: { phase: "searching" } },
+          },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tool.finish",
+          params: {
+            id: "tool_1",
+            output: { structured: { answer: 42 }, content: [] },
+          },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 4,
+          method: "tool.fail",
+          params: { id: "tool_2", message: "failed" },
+        },
+      ])
     }),
   )
 })

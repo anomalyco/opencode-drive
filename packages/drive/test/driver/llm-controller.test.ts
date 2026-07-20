@@ -102,7 +102,7 @@ describe("LlmController", () => {
     })
   })
 
-  it.live("streams tool call input as OpenAI argument deltas", () => {
+  it.live("streams tool call input as provider-neutral deltas", () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0.5)
     const peer = startTransportPeer(({ request: frame, socket }) => {
       if (frame.method === "llm.attach")
@@ -144,25 +144,10 @@ describe("LlmController", () => {
             id: "exchange-1",
             items: [
               {
-                type: "raw",
-                chunk: {
-                  choices: [
-                    {
-                      delta: {
-                        tool_calls: [
-                          {
-                            index: 0,
-                            id: "call_1",
-                            function: {
-                              name: "lookup",
-                              arguments: '{"query":"',
-                            },
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
+                type: "toolInputStart",
+                index: 0,
+                id: "call_1",
+                name: "lookup",
               },
             ],
           },
@@ -172,26 +157,101 @@ describe("LlmController", () => {
             id: "exchange-1",
             items: [
               {
-                type: "raw",
-                chunk: {
-                  choices: [
-                    {
-                      delta: {
-                        tool_calls: [
-                          {
-                            index: 0,
-                            function: { arguments: 'weather"}' },
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
+                type: "toolInputDelta",
+                index: 0,
+                text: '{"query":"',
+              },
+            ],
+          },
+        }),
+        expect.objectContaining({
+          params: {
+            id: "exchange-1",
+            items: [
+              {
+                type: "toolInputDelta",
+                index: 0,
+                text: 'weather"}',
               },
             ],
           },
         }),
       ])
+    })
+  })
+
+  it.live("falls back to OpenAI deltas when partial tool input is unavailable", () => {
+    const peer = startTransportPeer(
+      ({ request: frame, socket }) => {
+        if (frame.method === "llm.attach")
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              method: "llm.request",
+              params: request,
+            }),
+          )
+        sendResult(
+          socket,
+          frame,
+          frame.method === "llm.attach" ? { attached: true } : { ok: true },
+        )
+      },
+      {
+        capabilities: (offered) =>
+          offered.filter((capability) => capability !== "llm.tool-input-delta"),
+      },
+    )
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend)
+      yield* llm.queue(
+        Llm.toolCall(
+          {
+            index: 0,
+            id: "call_legacy",
+            name: "lookup",
+            input: { query: "weather" },
+          },
+          { delay: 0, chunkSize: 100 },
+        ),
+        Llm.finish("tool-calls"),
+      )
+      yield* llm.settle()
+
+      const chunk = peer.received.find(
+        ({ request: frame }) => frame.method === "llm.chunk",
+      )?.request
+      expect(chunk).toMatchObject({
+        params: {
+          id: "exchange-1",
+          items: [
+            {
+              type: "raw",
+              chunk: {
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          id: "call_legacy",
+                          function: {
+                            name: "lookup",
+                            arguments: '{"query":"weather"}',
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      })
     })
   })
 

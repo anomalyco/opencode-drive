@@ -22,6 +22,7 @@ const screen = { value: `Fake OpenCode${role === "client" ? ` ${process.env.OPEN
 const drive = await resolveDrive()
 const recordingStarted = performance.now()
 const endpoints = drive.endpoints
+let toolAttachments = 0
 const servicePassword = "drive-test-password"
 const api = role === "service"
   ? Bun.serve({
@@ -138,14 +139,53 @@ const backend = role === "client" ? undefined : Bun.serve({
           `${JSON.stringify({ method: request.method, params: request.params })}\n`,
         )
       }
+      if (request.method.startsWith("tool.") && process.env.OPENCODE_TEST_HOME) {
+        const events = `${process.env.OPENCODE_TEST_HOME}/tool-events.jsonl`
+        await appendFile(
+          events,
+          `${JSON.stringify({ method: request.method, params: request.params })}\n`,
+        )
+      }
+      if (
+        request.method === "tool.attach" &&
+        process.argv.includes("dynamic-tool")
+      )
+        if (
+          (++toolAttachments === 1 &&
+            !process.argv.includes("reconnect-tool")) ||
+          toolAttachments === 2
+        )
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              method: "tool.invocation",
+              params: {
+                id: "tool_1",
+                name: "lookup",
+                input: { query: "meaning" },
+                context: {
+                  sessionID: "ses_dynamic",
+                  agent: "build",
+                  messageID: "msg_dynamic",
+                  callID: "call_lookup",
+                },
+              },
+            }),
+          )
       const result =
         request.method === "simulation.handshake"
           ? handshake(request.params, "backend")
-          : request.method === "llm.attach"
+          : request.method === "llm.attach" || request.method === "tool.attach"
             ? { attached: true }
             : { ok: true }
       if (request.id !== undefined)
         socket.send(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }))
+      if (
+        request.method === "tool.attach" &&
+        process.argv.includes("reconnect-tool") &&
+        toolAttachments === 1
+      )
+        setTimeout(() => socket.close(), 10)
       if (request.method === "llm.attach") {
         const requestDelay = Number(process.argv[3])
         if (Number.isFinite(requestDelay)) await Bun.sleep(requestDelay)

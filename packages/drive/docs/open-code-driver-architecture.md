@@ -15,7 +15,7 @@ OpenCodeDriver
   tuis          additional frontend process factory
   ui            convenience alias for tui.ui
   llm           shared simulated-model control
-  tools         runtime control for declared tool adapters
+  tools         runtime control for static adapters and arbitrary tools
 ```
 
 The names distinguish the two kinds of client involved:
@@ -25,8 +25,10 @@ The names distinguish the two kinds of client involved:
   optional `recording`.
 - `Tuis` launches and supervises additional frontend processes connected to
   the same server.
-- `tools` accepts independently controlled invocations for adapters declared
-  before OpenCode starts.
+- `tools.control` accepts independently controlled invocations for adapters
+  declared before OpenCode starts.
+- `tools.attach` and `tools.take` control arbitrary native tools through the
+  canonical provider-backed lifecycle.
 - Transport-level JSON-RPC clients remain private implementation details.
 
 `defineScript` consumes these exact capabilities. It adds a branded module
@@ -48,7 +50,9 @@ Effect Scope
       controlled invocation exchanges
   OpenCodeServer
     backend simulation connection
+    reconnecting tool-only backend connection
     LLM controller
+    dynamic ToolProducer
     generated OpenCode SDK connection
     TUI supervisor
       primary TUI scope
@@ -59,9 +63,10 @@ Effect Scope
 
 Library drivers create their ToolController before project preparation and
 pass that controller into `OpenCodeInstance`. CLI scripts create the controller
-inside `OpenCodeInstance`. Prepared drivers and script contexts derive controls
-from their instance, so the controller that wrote the plugin configuration is
-structurally the controller exposed at runtime.
+inside `OpenCodeInstance`. Prepared drivers and script contexts combine the
+instance's static controller with the server's dynamic producer. The static
+controller that wrote plugin configuration remains the one exposed through
+`tools.control`.
 
 `OpenCodeDriver.make(options)` requires `Scope.Scope`. It returns once the
 server, generated SDK client, primary TUI, and simulation connections are
@@ -73,11 +78,12 @@ settlement even when the user program fails.
 Settlement is one shared terminal operation. It runs in this order:
 
 1. Validate that queued LLM work was consumed.
-2. Shut down the LLM controller.
-3. Finish active recording timelines.
-4. Close all TUI scopes and processes.
-5. Export completed recordings.
-6. Decode the schema-validated `RunReport`.
+2. Validate that native dynamic-tool invocations were settled.
+3. Shut down the LLM controller.
+4. Finish active recording timelines.
+5. Close all TUI scopes and processes.
+6. Export completed recordings.
+7. Decode the schema-validated `RunReport`.
 
 `driver.settle()` is shared and idempotent. Once settlement starts, `tuis`
 rejects new launches and `llm` rejects new responses. `OpenCodeDriver.use`
@@ -97,6 +103,15 @@ interrupted, aborts active HTTP transports, and waits for handler finalizers.
 Terminal commitment uses a synchronous first-writer-wins Deferred completion;
 Drive guarantees exactly-once acceptance inside the controller, not delivery
 across a transport disconnect.
+
+`ToolProducer` owns a separate backend socket because LLM chunks are not
+idempotent and an LLM socket closure is terminal to `LlmController`. Dynamic
+tool progress and terminal RPCs are idempotent by producer invocation ID and
+sequence, so the tool-only connection may reconnect and replay pending
+invocations safely. One ordered event stream preserves invocation-before-
+cancellation order. The desired registration set survives reconnects and
+manual server relaunches; invocation records are scoped to one server
+generation because producer IDs may be reused by a new process.
 
 ## TUI Lifecycle
 
@@ -153,9 +168,10 @@ schema validation, request correlation, interruption, and connection failure.
 The driver receives the connector through an Effect service and does not
 expose it in userland.
 
-The UI connection is request-response JSON-RPC. The backend additionally
-receives unsolicited `llm.request` notifications and exposes them as a
-validated stream to the LLM controller.
+The UI connection is request-response JSON-RPC. The LLM backend additionally
+receives unsolicited `llm.request` notifications. The tool-only backend keeps
+ordered `tool.invocation` and `tool.cancel` notifications on one validated
+stream and does not call `llm.attach`.
 
 ## Project Setup
 
