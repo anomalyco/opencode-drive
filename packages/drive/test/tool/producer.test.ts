@@ -3,7 +3,7 @@ import { Deferred, Effect, Exit, Fiber, Scope } from "effect"
 import * as SimulationConnector from "../../src/simulation/connector.js"
 import * as ToolProducer from "../../src/tool/producer.js"
 import type { Progress } from "../../src/tool/types.js"
-import { sendResult, startTransportPeer } from "../simulation/transport-peer.js"
+import { sendError, sendResult, startTransportPeer } from "../simulation/transport-peer.js"
 
 const registration = {
   name: "lookup",
@@ -261,7 +261,7 @@ it.live("reattaches the desired set and deduplicates replay after reconnect", ()
   ),
 )
 
-it.live("replays the current set before applying an attachment started while disconnected", () =>
+it.live("replays a replacement intent started while disconnected", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const peer = startTransportPeer(({ request, socket }) =>
@@ -300,11 +300,203 @@ it.live("replays the current set before applying an attachment started while dis
           .map(({ request }) => request.params),
       ).toEqual([
         { tools: [registration] },
-        { tools: [registration] },
+        { tools: [replacement] },
         { tools: [replacement] },
       ])
       yield* secondAttachment.detach()
       yield* Scope.close(secondScope, Exit.void)
+    }),
+  ),
+)
+
+it.live("preserves a replacement intent when its acknowledgement is lost", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      let attaches = 0
+      const replacement = {
+        ...registration,
+        name: "search",
+        description: "Search for a value",
+      }
+      const replacementInvocation = {
+        ...invocation,
+        id: "tool_2",
+        name: "search",
+        context: { ...invocation.context, callID: "call_search" },
+      }
+      const firstReplacement = yield* Deferred.make<void>()
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "tool.attach") {
+          attaches++
+          if (attaches === 2) {
+            notify(socket, "tool.invocation", replacementInvocation)
+            Deferred.doneUnsafe(firstReplacement, Effect.void)
+            socket.close()
+            return
+          }
+          if (attaches === 3) notify(socket, "tool.invocation", replacementInvocation)
+          sendResult(socket, request, { attached: true })
+          return
+        }
+        sendResult(socket, request, { ok: true })
+      })
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          void peer.stop()
+        }),
+      )
+      const controller = yield* ToolProducer.make(new Set())
+      const firstScope = yield* Scope.make()
+      const first = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      }).pipe(Scope.provide(firstScope))
+      const firstAttachment = yield* controller.connect(first)
+      yield* controller.controls.attach({ tools: [registration] })
+
+      const replacing = yield* controller.controls
+        .attach({ tools: [replacement] })
+        .pipe(Effect.forkScoped)
+      yield* Deferred.await(firstReplacement)
+      yield* first.closed
+      yield* firstAttachment.detach()
+      yield* Scope.close(firstScope, Exit.void)
+      const secondScope = yield* Scope.make()
+      const second = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      }).pipe(Scope.provide(secondScope))
+      const secondAttachment = yield* controller.connect(second)
+      yield* Fiber.join(replacing)
+      const call = yield* controller.controls.take("call_search")
+      yield* call.fail("finished")
+
+      expect(
+        peer.received
+          .filter(({ request }) => request.method === "tool.attach")
+          .map(({ request }) => request.params),
+      ).toEqual([
+        { tools: [registration] },
+        { tools: [replacement] },
+        { tools: [replacement] },
+        { tools: [replacement] },
+      ])
+      yield* secondAttachment.detach()
+      yield* Scope.close(secondScope, Exit.void)
+      yield* controller.endGeneration
+      yield* controller.shutdown
+    }),
+  ),
+)
+
+it.live("restores the acknowledged set after a rejected replacement", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      let attaches = 0
+      const replacement = {
+        ...registration,
+        name: "search",
+        description: "Search for a value",
+      }
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "tool.attach" && ++attaches === 2) {
+          sendError(socket, request, "replacement rejected")
+          return
+        }
+        sendResult(socket, request, { attached: true })
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const controller = yield* ToolProducer.make(new Set())
+      const firstScope = yield* Scope.make()
+      const first = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      }).pipe(Scope.provide(firstScope))
+      const firstAttachment = yield* controller.connect(first)
+      yield* controller.controls.attach({ tools: [registration] })
+      expect(
+        yield* controller.controls.attach({ tools: [replacement] }).pipe(Effect.flip),
+      ).toMatchObject({ operation: "attach", reason: "rejected" })
+      yield* firstAttachment.detach()
+      yield* Scope.close(firstScope, Exit.void)
+      const secondScope = yield* Scope.make()
+      const second = yield* SimulationConnector.backend(peer.url, {
+        attach: false,
+      }).pipe(Scope.provide(secondScope))
+      const secondAttachment = yield* controller.connect(second)
+
+      expect(
+        peer.received
+          .filter(({ request }) => request.method === "tool.attach")
+          .map(({ request }) => request.params),
+      ).toEqual([
+        { tools: [registration] },
+        { tools: [replacement] },
+        { tools: [registration] },
+      ])
+      yield* secondAttachment.detach()
+      yield* Scope.close(secondScope, Exit.void)
+    }),
+  ),
+)
+
+it.live("rejects malformed lifecycle acknowledgements without retrying", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const peer = startTransportPeer(({ request, socket }) =>
+        sendResult(socket, request, { attached: "invalid" }),
+      )
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url, { attach: false })
+      const controller = yield* ToolProducer.make(new Set())
+      yield* controller.connect(backend)
+
+      expect(
+        yield* controller.controls.attach({ tools: [registration] }).pipe(Effect.flip),
+      ).toMatchObject({ operation: "attach", reason: "rejected" })
+      expect(peer.received.filter(({ request }) => request.method === "tool.attach")).toHaveLength(1)
+    }),
+  ),
+)
+
+it.live("drains queued invocations before reporting settlement", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      let attaches = 0
+      const peer = startTransportPeer(({ request, socket }) => {
+        if (request.method === "tool.attach") {
+          attaches++
+          if (attaches === 2) notify(socket, "tool.invocation", invocation)
+          sendResult(socket, request, { attached: true })
+          return
+        }
+        sendResult(socket, request, { ok: true })
+      })
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url, { attach: false })
+      const controller = yield* ToolProducer.make(new Set())
+      yield* controller.connect(backend)
+      yield* controller.controls.attach({ tools: [registration] })
+
+      expect(yield* controller.settle.pipe(Effect.flip)).toMatchObject({
+        operation: "take",
+        reason: "rejected",
+        message: expect.stringContaining("1 dynamic tool invocation"),
+      })
+      const call = yield* controller.controls.take("call_lookup")
+      yield* call.fail("finished")
+      yield* controller.settle
+      expect(
+        peer.received.filter(({ request }) => request.method === "tool.attach").map(({ request }) => request.params),
+      ).toEqual([{ tools: [registration] }, { tools: [] }])
+    }),
+  ),
+)
+
+it.effect("rejects a malformed take call ID", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const controller = yield* ToolProducer.make(new Set())
+      expect(
+        yield* controller.controls.take(null as unknown as string).pipe(Effect.flip),
+      ).toMatchObject({ operation: "take", reason: "rejected" })
     }),
   ),
 )

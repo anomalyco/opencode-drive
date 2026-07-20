@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect"
+import * as Cause from "effect/Cause"
 import * as Deferred from "effect/Deferred"
 import * as Ref from "effect/Ref"
 import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
 import * as Exit from "effect/Exit"
+import { RpcClientError } from "effect/unstable/rpc"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import * as OpenCodeTui from "./client.js"
@@ -12,6 +14,7 @@ import { error, type OpenCodeDriverError } from "./error.js"
 import * as LlmController from "./llm-controller.js"
 import * as ToolProducer from "../tool/producer.js"
 import type * as Tool from "../tool/index.js"
+import { LifecycleError } from "../tool/types.js"
 
 export interface Target {
   readonly command?: ReadonlyArray<string>
@@ -71,6 +74,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
     } | undefined
   >(undefined)
   const unexpectedExit = yield* Deferred.make<never, OpenCodeDriverError>()
+  const toolConnectionFailure = yield* Deferred.make<never, OpenCodeDriverError>()
   const lifecycle = yield* Semaphore.make(1)
   let compatibility: ReadonlyArray<
     SimulationConnector.EndpointCompatibility
@@ -86,17 +90,16 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
       Effect.mapError((cause) => error("server.launch", cause)),
       Effect.onError(() => Scope.close(scope, Exit.void)),
     )
+    const rollbackLaunch = Scope.close(scope, Exit.void).pipe(
+      Effect.andThen(toolProducer.endGeneration),
+      Effect.andThen(instance.killServer.pipe(Effect.ignore)),
+    )
     const backend = yield* connector.backend(launched.endpoint, {
       compatibility: target.compatibility,
     }).pipe(
       Scope.provide(scope),
       Effect.mapError((cause) => error("server.connect", cause)),
-      Effect.onError(() =>
-        instance.killServer.pipe(
-          Effect.ignore,
-          Effect.andThen(Scope.close(scope, Exit.void)),
-        ),
-      ),
+      Effect.onError(() => rollbackLaunch),
     )
     const connectTools = Effect.fn("OpenCodeServer.connectTools")(function* () {
       const connectionScope = yield* Scope.fork(scope)
@@ -105,19 +108,35 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
         compatibility: target.compatibility,
       }).pipe(
         Scope.provide(connectionScope),
-        Effect.mapError((cause) => error("tools.connect", cause)),
         Effect.onError(() => Scope.close(connectionScope, Exit.void)),
       )
       const attachment = yield* toolProducer.connect(backend).pipe(
-        Effect.mapError((cause) => error("tools.connect", cause)),
         Effect.onError(() => Scope.close(connectionScope, Exit.void)),
       )
       return { attachment, backend, scope: connectionScope }
     })
+    const failToolConnection = (cause: unknown) =>
+      toolProducer.shutdown.pipe(
+        Effect.andThen(
+          Deferred.fail(
+            toolConnectionFailure,
+            error("tools.connect", cause),
+          ),
+        ),
+        Effect.asVoid,
+      )
     function reconnectTools(): Effect.Effect<void> {
       return connectTools().pipe(
         Effect.flatMap(superviseTools),
-        Effect.catch(() => Effect.sleep(25).pipe(Effect.andThen(reconnectTools()))),
+        Effect.catchIf(
+          isRetryableToolConnectionError,
+          () => Effect.sleep(25).pipe(Effect.andThen(reconnectTools())),
+        ),
+        Effect.catch(failToolConnection),
+        Effect.catchCauseIf(
+          (cause) => !Cause.hasInterrupts(cause),
+          (cause) => failToolConnection(Cause.pretty(cause)),
+        ),
       )
     }
     function superviseTools(
@@ -133,34 +152,22 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
         Effect.andThen(reconnectTools()),
       )
     }
-    const toolConnection = yield* connectTools()
+    const toolConnection = yield* connectTools().pipe(
+      Effect.mapError((cause) => error("tools.connect", cause)),
+      Effect.onError(() => rollbackLaunch),
+    )
     yield* superviseTools(toolConnection).pipe(
       Effect.forkIn(scope),
     )
     const attachment = yield* llm.attach(backend).pipe(
-      Effect.onError(() =>
-        instance.killServer.pipe(
-          Effect.ignore,
-          Effect.andThen(Scope.close(scope, Exit.void)),
-        ),
-      ),
+      Effect.onError(() => rollbackLaunch),
     )
     const opencode = yield* OpenCodeSdk.make(instance.artifacts).pipe(
-      Effect.onError(() =>
-        instance.killServer.pipe(
-          Effect.ignore,
-          Effect.andThen(Scope.close(scope, Exit.void)),
-        ),
-      ),
+      Effect.onError(() => rollbackLaunch),
     )
     const process = yield* instance.primary.pipe(
       Effect.mapError((cause) => error("server.launch", cause)),
-      Effect.onError(() =>
-        instance.killServer.pipe(
-          Effect.ignore,
-          Effect.andThen(Scope.close(scope, Exit.void)),
-        ),
-      ),
+      Effect.onError(() => rollbackLaunch),
     )
     yield* Ref.set(generation, { scope, attachment, process })
     compatibility = [...compatibility, backend.compatibility]
@@ -216,10 +223,34 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
       toolProducer.failure.pipe(
         Effect.mapError((cause) => error("tools", cause)),
       ),
-      Effect.raceFirst(llm.failure, Deferred.await(unexpectedExit)),
+      Effect.raceFirst(
+        Deferred.await(toolConnectionFailure),
+        Effect.raceFirst(llm.failure, Deferred.await(unexpectedExit)),
+      ),
     ),
     compatibility: Effect.sync(() => compatibility),
   } satisfies Server
 })
+
+function isRetryableToolConnectionError(cause: unknown) {
+  return (
+    cause instanceof SimulationConnector.SimulationConnectionError ||
+    (cause instanceof RpcClientError.RpcClientError &&
+      isTransientRpcClientError(cause)) ||
+    (cause instanceof LifecycleError && cause.reason === "transport-interrupted")
+  )
+}
+
+function isTransientRpcClientError(error: RpcClientError.RpcClientError) {
+  if (error.reason._tag !== "RpcClientDefect") return true
+  const message = error.reason.message
+  return (
+    message.startsWith("cannot connect") ||
+    message === "connection closed" ||
+    message === "connection error" ||
+    message === "connection is not open" ||
+    message === "failed to send request"
+  )
+}
 
 export * as OpenCodeServer from "./server.js"

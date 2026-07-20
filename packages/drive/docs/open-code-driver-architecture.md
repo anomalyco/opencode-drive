@@ -112,6 +112,10 @@ invocations safely. One ordered event stream preserves invocation-before-
 cancellation order. The desired registration set survives reconnects and
 manual server relaunches; invocation records are scoped to one server
 generation because producer IDs may be reused by a new process.
+Settlement first clears the dynamic registration set on OpenCode, then drains
+the ordered local event stream before checking for unresolved invocations. The
+clear acts as the server-side barrier that prevents a native invocation from
+appearing after a successful settlement snapshot.
 
 ## TUI Lifecycle
 

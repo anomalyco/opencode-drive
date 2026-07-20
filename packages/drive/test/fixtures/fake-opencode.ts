@@ -23,6 +23,7 @@ const drive = await resolveDrive()
 const recordingStarted = performance.now()
 const endpoints = drive.endpoints
 let toolAttachments = 0
+let backendHandshakes = 0
 const servicePassword = "drive-test-password"
 const api = role === "service"
   ? Bun.serve({
@@ -126,6 +127,21 @@ const backend = role === "client" ? undefined : Bun.serve({
         readonly method: string
         readonly params?: unknown
       }
+      if (
+        request.method === "simulation.handshake" &&
+        process.argv.includes("reject-tool-handshake") &&
+        ++backendHandshakes === 2
+      ) {
+        if (request.id !== undefined)
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: request.id,
+              error: { code: -32000, message: "tool handshake rejected" },
+            }),
+          )
+        return
+      }
       if (request.method === "llm.chunk" && process.env.OPENCODE_TEST_HOME) {
         await Bun.write(
           `${process.env.OPENCODE_TEST_HOME}/mock-response.json`,
@@ -172,6 +188,21 @@ const backend = role === "client" ? undefined : Bun.serve({
               },
             }),
           )
+      if (
+        request.method === "tool.attach" &&
+        process.argv.includes("reject-tool-reconnect") &&
+        toolAttachments === 2
+      ) {
+        if (request.id !== undefined)
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: request.id,
+              error: { code: -32000, message: "tool reconnect rejected" },
+            }),
+          )
+        return
+      }
       const result =
         request.method === "simulation.handshake"
           ? handshake(request.params, "backend")

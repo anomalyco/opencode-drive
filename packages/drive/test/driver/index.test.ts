@@ -196,6 +196,25 @@ it.live("supports explicit terminal settlement with make", () =>
   }),
 )
 
+it.live("rolls back a failed initial tool connection", () =>
+  Effect.gen(function* () {
+    const failure = yield* OpenCodeDriver.make({
+      opencode: { command: [...fakeOpenCode, "reject-tool-handshake"] },
+    }).pipe(
+      Effect.scoped,
+      Effect.timeoutOrElse({
+        duration: 10_000,
+        orElse: () => Effect.dieMessage("failed tool connection did not roll back"),
+      }),
+      Effect.flip,
+    )
+    expect(failure).toMatchObject({
+      _tag: "OpenCodeDriverError",
+      operation: "tools.connect",
+    })
+  }),
+)
+
 it.live("injects declared tool handlers for library drivers", () =>
   Effect.gen(function* () {
     const artifacts = yield* OpenCodeDriver.use(
@@ -329,7 +348,69 @@ it.live("controls arbitrary provider-backed tools through the runtime lifecycle"
           },
         },
       },
+      {
+        method: "tool.attach",
+        params: { tools: [] },
+      },
     ])
+  }),
+)
+
+it.live("surfaces a permanent tool reconnect failure", () =>
+  Effect.gen(function* () {
+    let artifacts = ""
+    const result = yield* Effect.exit(
+      OpenCodeDriver.use(
+        {
+          keepArtifacts: true,
+          opencode: {
+            command: [
+              ...fakeOpenCode,
+              "dynamic-tool",
+              "reconnect-tool",
+              "reject-tool-reconnect",
+            ],
+          },
+        },
+        (driver) =>
+          Effect.gen(function* () {
+            artifacts = driver.artifacts
+            yield* driver.tools.attach({
+              tools: [
+                {
+                  name: "lookup",
+                  description: "Look up a value",
+                  inputSchema: { type: "object" },
+                  options: { codemode: false },
+                },
+              ],
+            })
+            return yield* Effect.never
+          }),
+      ).pipe(
+        Effect.timeoutOrElse({
+          duration: 10_000,
+          orElse: () => Effect.dieMessage("permanent tool reconnect failure was not observed"),
+        }),
+      ),
+    )
+    yield* Effect.addFinalizer(() =>
+      artifacts === ""
+        ? Effect.void
+        : Effect.promise(() => rm(artifacts, { recursive: true, force: true })),
+    )
+    if (Exit.isSuccess(result))
+      return yield* Effect.dieMessage("driver unexpectedly succeeded")
+    expect(
+      result.cause.reasons
+        .filter(Cause.isFailReason)
+        .map((reason) => reason.error),
+    ).toContainEqual(
+      expect.objectContaining({
+        _tag: "OpenCodeDriverError",
+        operation: "tools.connect",
+      }),
+    )
   }),
 )
 

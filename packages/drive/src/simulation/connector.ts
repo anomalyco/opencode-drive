@@ -87,6 +87,7 @@ export interface UiConnection {
 export type ToolEvent =
   | { readonly type: "invocation"; readonly invocation: BackendProtocol.ToolInvocation }
   | { readonly type: "cancellation"; readonly cancellation: BackendProtocol.ToolCancellation }
+  | { readonly type: "barrier"; readonly completed: Deferred.Deferred<void> }
 
 export interface BackendConnection {
   readonly endpoint: string
@@ -97,6 +98,7 @@ export interface BackendConnection {
     Schema.SchemaError
   >
   readonly toolEvents: Stream.Stream<ToolEvent, Schema.SchemaError>
+  readonly flushToolEvents: () => Effect.Effect<void>
   readonly closed: Effect.Effect<void>
   readonly attach: () => Effect.Effect<
     { readonly attached: true },
@@ -305,12 +307,18 @@ export const backend = Effect.fn("SimulationConnector.backend")(function* (
     withTimeout("tool.finish", rpc["tool.finish"](params))
   const failTool: BackendConnection["failTool"] = (params) =>
     withTimeout("tool.fail", rpc["tool.fail"](params))
+  const flushToolEvents = Effect.fn("SimulationConnector.flushToolEvents")(function* () {
+    const completed = yield* Deferred.make<void>()
+    yield* Queue.offer(toolEvents, { type: "barrier", completed })
+    yield* Deferred.await(completed)
+  })
   return {
     endpoint,
     rpc,
     compatibility,
     requests: Stream.fromQueue(requests),
     toolEvents: Stream.fromQueue(toolEvents),
+    flushToolEvents,
     closed: Deferred.await(closed),
     attach,
     attachTools,

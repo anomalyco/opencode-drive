@@ -169,6 +169,7 @@ export class LifecycleError extends Schema.TaggedErrorClass<LifecycleError>()(
       "already-settled",
       "cancelled",
       "rejected",
+      "transport-interrupted",
     ]),
     callID: Schema.optional(Schema.String),
     message: Schema.String,

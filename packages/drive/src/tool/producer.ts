@@ -58,16 +58,23 @@ type Active = {
   state: "pending" | "settled" | "cancelled"
 }
 
+type AttachmentIntent = {
+  readonly params: AttachParams
+  attempted: boolean
+}
+
 const decodeAttach = Schema.decodeUnknownEffect(Backend.ToolAttachParams)
 const decodeProgress = Schema.decodeUnknownEffect(Backend.ToolProgress)
 const decodeOutput = Schema.decodeUnknownEffect(Backend.ToolOutput)
 const decodeFailure = Schema.decodeUnknownEffect(Schema.String)
+const decodeCallID = Schema.decodeUnknownEffect(Schema.String)
 
 export const make = Effect.fn("ToolProducer.make")(function* (
   staticNames: ReadonlySet<string>,
 ) {
   const parentScope = yield* Scope.Scope
   const lifecycle = yield* Semaphore.make(1)
+  const attachmentCalls = yield* Semaphore.make(1)
   const attachmentLock = yield* Semaphore.make(1)
   const records = new Map<string, Active>()
   const waiters: Waiter[] = []
@@ -78,7 +85,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
     | { readonly backend: BackendConnection; readonly scope: Scope.Scope }
     | undefined
   >(undefined)
-  let desired: AttachParams | undefined
+  let desired: AttachmentIntent | undefined
   let closed = false
 
   const lifecycleError = (
@@ -193,8 +200,14 @@ export const make = Effect.fn("ToolProducer.make")(function* (
       if (Exit.isSuccess(result)) return result.value
       if (Cause.hasInterrupts(result.cause)) return yield* Effect.interrupt
       const found = Cause.findErrorOption(result.cause)
-      if (found._tag === "None")
-        return yield* Effect.die(Cause.squash(result.cause))
+      if (found._tag === "None") {
+        const defect = Cause.squash(result.cause)
+        if (Schema.isSchemaError(defect))
+          return yield* Effect.fail(
+            lifecycleError(operation, "rejected", defect.message, callID),
+          )
+        return yield* Effect.die(defect)
+      }
       if (
         found.value instanceof SimulationRequestError ||
         found.value instanceof SimulationCompatibilityError
@@ -204,7 +217,10 @@ export const make = Effect.fn("ToolProducer.make")(function* (
         )
       if (
         !(found.value instanceof SimulationConnectionError) &&
-        !(found.value instanceof RpcClientError.RpcClientError)
+        !(
+          found.value instanceof RpcClientError.RpcClientError &&
+          isTransientRpcError(found.value)
+        )
       )
         return yield* Effect.fail(
           lifecycleError(operation, "rejected", String(found.value), callID),
@@ -433,11 +449,15 @@ export const make = Effect.fn("ToolProducer.make")(function* (
           )
         const scope = yield* Scope.fork(parentScope)
         yield* backend.toolEvents.pipe(
-          Stream.runForEach((event) =>
-            event.type === "invocation"
-              ? receiveInvocation(event.invocation)
-              : receiveCancellation(event.cancellation),
-          ),
+          Stream.runForEach((event) => {
+            if (event.type === "invocation")
+              return receiveInvocation(event.invocation)
+            if (event.type === "cancellation")
+              return receiveCancellation(event.cancellation)
+            return Deferred.succeed(event.completed, undefined).pipe(
+              Effect.asVoid,
+            )
+          }),
           Effect.matchCauseEffect({
             onFailure: (cause) =>
               Deferred.fail(
@@ -454,23 +474,35 @@ export const make = Effect.fn("ToolProducer.make")(function* (
         )
         const applied = yield* Effect.exit(
           attachmentLock.withPermit(
-            Effect.suspend(() =>
-              desired === undefined
-                ? Effect.void
-                : whileConnected(
-                    backend,
+            Effect.suspend(() => {
+              const intent = desired
+              if (intent === undefined) return Effect.void
+              intent.attempted = true
+              return whileConnected(
+                backend,
+                "attach",
+                backend.attachTools(intent.params.tools),
+              ).pipe(
+                Effect.mapError((error) =>
+                  lifecycleError(
                     "attach",
-                    backend.attachTools(desired.tools),
-                  ).pipe(
-                    Effect.mapError((error) =>
-                      lifecycleError("attach", "rejected", String(error)),
-                    ),
+                    isTransientConnectionError(error)
+                      ? "transport-interrupted"
+                      : "rejected",
+                    String(error),
                   ),
-            ),
+                ),
+              )
+            }),
           ),
         )
         if (Exit.isFailure(applied)) {
           yield* Scope.close(scope, Exit.void)
+          const defect = Cause.squash(applied.cause)
+          if (Schema.isSchemaError(defect))
+            return yield* Effect.fail(
+              lifecycleError("attach", "rejected", defect.message),
+            )
           return yield* Effect.failCause(applied.cause)
         }
         yield* Ref.set(current, { backend, scope })
@@ -509,16 +541,39 @@ export const make = Effect.fn("ToolProducer.make")(function* (
             `dynamic tool conflicts with configured static adapter: ${collision}`,
           ),
         )
-      yield* request("attach", undefined, (backend) =>
-        attachmentLock.withPermit(
-          backend.attachTools(decoded.tools).pipe(
-            Effect.andThen(
-              Effect.sync(() => {
-                desired = decoded
+      yield* attachmentCalls.withPermit(
+        Effect.gen(function* () {
+          const previous = desired
+          const intent: AttachmentIntent = { params: decoded, attempted: false }
+          desired = intent
+          const rollback = Effect.sync(() => {
+            if (desired === intent) desired = previous
+          })
+          yield* request("attach", undefined, (backend) =>
+            attachmentLock.withPermit(
+              Effect.suspend(() => {
+                if (desired !== intent)
+                  return Effect.succeed({ attached: true as const })
+                intent.attempted = true
+                return backend
+                  .attachTools(decoded.tools)
+                  .pipe(
+                    Effect.tapError((error) =>
+                      error instanceof SimulationRequestError ||
+                      error instanceof SimulationCompatibilityError
+                        ? rollback
+                        : Effect.void,
+                    ),
+                  )
               }),
             ),
-          ),
-        ),
+          ).pipe(
+            Effect.tapError(() => (intent.attempted ? Effect.void : rollback)),
+            Effect.onInterrupt(() =>
+              intent.attempted ? Effect.void : rollback,
+            ),
+          )
+        }),
       )
       return undefined
     })
@@ -526,69 +581,86 @@ export const make = Effect.fn("ToolProducer.make")(function* (
   function take(): Effect.Effect<Invocation, LifecycleError>
   function take(callID: string): Effect.Effect<Invocation, LifecycleError>
   function take(callID?: string): Effect.Effect<Invocation, LifecycleError> {
-    return Effect.callback<Invocation, LifecycleError>((resume) => {
-      if (closed) {
-        resume(
-          Effect.fail(
-            lifecycleError(
-              "take",
-              "controller-closed",
-              "dynamic tool controller is closed",
-              callID,
+    const decoded: Effect.Effect<string | undefined, LifecycleError> =
+      callID === undefined
+        ? Effect.succeed(undefined)
+        : decodeCallID(callID).pipe(
+            Effect.mapError((error) =>
+              lifecycleError("take", "rejected", error.message),
             ),
-          ),
-        )
-        return undefined
-      }
-      if (
-        callID !== undefined &&
-        (Array.from(records.values()).some(
-          (record) => record.call.context.callID === callID && record.claimed,
-        ) ||
-          waiters.some((waiter) => waiter.callID === callID))
-      ) {
-        resume(
-          Effect.fail(
-            lifecycleError(
-              "take",
-              "already-claimed",
-              `dynamic tool call is already claimed: ${callID}`,
-              callID,
-            ),
-          ),
-        )
-        return undefined
-      }
-      let record = Array.from(records.values()).find(
-        (candidate) =>
-          !candidate.claimed &&
-          (callID === undefined || candidate.call.context.callID === callID),
-      )
-      if (record !== undefined) {
-        record.claimed = true
-        resume(Effect.succeed(record.call))
-        if (record.state === "cancelled") records.delete(record.call.id)
-        return Effect.sync(() => {
-          if (record !== undefined && records.get(record.call.id) === record) {
-            record.claimed = false
-            deliver(record)
+          )
+    return decoded.pipe(
+      Effect.flatMap((callID) =>
+        Effect.callback<Invocation, LifecycleError>((resume) => {
+          if (closed) {
+            resume(
+              Effect.fail(
+                lifecycleError(
+                  "take",
+                  "controller-closed",
+                  "dynamic tool controller is closed",
+                  callID,
+                ),
+              ),
+            )
+            return undefined
           }
-        })
-      }
-      const waiter: Waiter = { callID, resume }
-      waiters.push(waiter)
-      return Effect.sync(() => {
-        const index = waiters.indexOf(waiter)
-        if (index >= 0) waiters.splice(index, 1)
-        else if (waiter.delivered !== undefined) {
-          record = waiter.delivered
-          if (records.get(record.call.id) === record) {
-            record.claimed = false
-            deliver(record)
+          if (
+            callID !== undefined &&
+            (Array.from(records.values()).some(
+              (record) =>
+                record.call.context.callID === callID && record.claimed,
+            ) ||
+              waiters.some((waiter) => waiter.callID === callID))
+          ) {
+            resume(
+              Effect.fail(
+                lifecycleError(
+                  "take",
+                  "already-claimed",
+                  `dynamic tool call is already claimed: ${callID}`,
+                  callID,
+                ),
+              ),
+            )
+            return undefined
           }
-        }
-      })
-    })
+          let record = Array.from(records.values()).find(
+            (candidate) =>
+              !candidate.claimed &&
+              (callID === undefined ||
+                candidate.call.context.callID === callID),
+          )
+          if (record !== undefined) {
+            record.claimed = true
+            resume(Effect.succeed(record.call))
+            if (record.state === "cancelled") records.delete(record.call.id)
+            return Effect.sync(() => {
+              if (
+                record !== undefined &&
+                records.get(record.call.id) === record
+              ) {
+                record.claimed = false
+                deliver(record)
+              }
+            })
+          }
+          const waiter: Waiter = { callID, resume }
+          waiters.push(waiter)
+          return Effect.sync(() => {
+            const index = waiters.indexOf(waiter)
+            if (index >= 0) waiters.splice(index, 1)
+            else if (waiter.delivered !== undefined) {
+              record = waiter.delivered
+              if (records.get(record.call.id) === record) {
+                record.claimed = false
+                deliver(record)
+              }
+            }
+          })
+        }),
+      ),
+    )
   }
 
   const endGeneration = lifecycle.withPermit(
@@ -612,22 +684,28 @@ export const make = Effect.fn("ToolProducer.make")(function* (
     }),
   )
 
-  const settle = lifecycle.withPermit(
-    Effect.suspend(() => {
-      const pending = Array.from(records.values()).filter(
-        (record) => record.state === "pending",
-      ).length
-      return pending === 0
-        ? Effect.void
-        : Effect.fail(
-            lifecycleError(
-              "take",
-              "rejected",
-              `${pending} dynamic tool invocation(s) remain unsettled`,
-            ),
-          )
-    }),
-  )
+  const settle = Effect.gen(function* () {
+    if (desired !== undefined) {
+      if (desired.params.tools.length > 0) yield* attach({ tools: [] })
+      yield* request("take", undefined, (backend) => backend.flushToolEvents())
+    }
+    yield* lifecycle.withPermit(
+      Effect.suspend(() => {
+        const pending = Array.from(records.values()).filter(
+          (record) => record.state === "pending",
+        ).length
+        return pending === 0
+          ? Effect.void
+          : Effect.fail(
+              lifecycleError(
+                "take",
+                "rejected",
+                `${pending} dynamic tool invocation(s) remain unsettled`,
+              ),
+            )
+      }),
+    )
+  })
 
   const shutdown = Effect.suspend(() => {
     if (closed) return Effect.void
@@ -676,6 +754,26 @@ function canonicalJson(value: unknown): string {
 
 function fingerprintJson(value: unknown) {
   return createHash("sha256").update(canonicalJson(value)).digest("base64url")
+}
+
+function isTransientConnectionError(error: unknown) {
+  return (
+    error instanceof SimulationConnectionError ||
+    (error instanceof RpcClientError.RpcClientError &&
+      isTransientRpcError(error))
+  )
+}
+
+function isTransientRpcError(error: RpcClientError.RpcClientError) {
+  if (error.reason._tag !== "RpcClientDefect") return true
+  const message = error.reason.message
+  return (
+    message.startsWith("cannot connect") ||
+    message === "connection closed" ||
+    message === "connection error" ||
+    message === "connection is not open" ||
+    message === "failed to send request"
+  )
 }
 
 export * as ToolProducer from "./producer.js"
