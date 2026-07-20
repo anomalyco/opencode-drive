@@ -1013,6 +1013,32 @@ describe("opencode-drive", () => {
     expect((await Bun.file(join(artifacts, "launches.txt")).text()).trim().split("\n")).toHaveLength(3)
   }, 60_000)
 
+  test("retries a launch that fails after LLM attachment", async () => {
+    const root = await temporary()
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        "failed-launch-retry-test",
+        "--script",
+        fixture("failed-launch-retry-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+        "omit-service-registration",
+      ],
+      root,
+    )
+    const stderr = new Response(child.stderr).text()
+    expect(await child.exited).toBe(0)
+    const artifacts = artifactPath(await stderr)
+    roots.push(artifacts)
+    const result = await Bun.file(join(artifacts, "failed-launch-retry.json")).json()
+    expect(Number.isInteger(result.firstPid)).toBe(true)
+    expect(Number.isInteger(result.secondPid)).toBe(true)
+    expect(result.secondPid).not.toBe(result.firstPid)
+  }, 60_000)
+
   test("rejects the removed callback script shape", async () => {
     const root = await temporary()
     const child = spawn(["start", "--name", "callback-script-test", "--script", fixture("callback-script.ts")], root)

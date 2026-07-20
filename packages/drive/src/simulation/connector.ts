@@ -35,6 +35,14 @@ export class SimulationCompatibilityError extends Schema.TaggedErrorClass<Simula
   },
 ) {}
 
+export class SimulationEventStreamError extends Schema.TaggedErrorClass<SimulationEventStreamError>()(
+  "SimulationEventStreamError",
+  {
+    endpoint: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 export const EndpointCompatibility = Schema.TaggedUnion({
   Negotiated: {
     endpoint: Schema.String,
@@ -84,6 +92,11 @@ export interface UiConnection {
   readonly compatibility: EndpointCompatibility
 }
 
+export type ToolEvent =
+  | { readonly type: "invocation"; readonly invocation: BackendProtocol.ToolInvocation }
+  | { readonly type: "cancellation"; readonly cancellation: BackendProtocol.ToolCancellation }
+  | { readonly type: "barrier"; readonly completed: Deferred.Deferred<void> }
+
 export interface BackendConnection {
   readonly endpoint: string
   readonly rpc: BackendClient
@@ -92,6 +105,8 @@ export interface BackendConnection {
     BackendProtocol.OpenedExchange,
     Schema.SchemaError
   >
+  readonly toolEvents: Stream.Stream<ToolEvent, Schema.SchemaError>
+  readonly flushToolEvents: () => Effect.Effect<void, SimulationEventStreamError>
   readonly closed: Effect.Effect<void>
   readonly attach: () => Effect.Effect<
     { readonly attached: true },
@@ -99,7 +114,50 @@ export interface BackendConnection {
     | RpcClientError.RpcClientError
     | SimulationRequestError
   >
+  readonly attachTools: (
+    tools: ReadonlyArray<BackendProtocol.ToolRegistration>,
+  ) => Effect.Effect<
+    { readonly attached: true },
+    | SimulationCompatibilityError
+    | SimulationConnectionError
+    | RpcClientError.RpcClientError
+    | SimulationRequestError
+  >
+  readonly updateTool: (
+    params: BackendProtocol.ToolUpdateParams,
+  ) => Effect.Effect<
+    { readonly ok: true },
+    | SimulationConnectionError
+    | RpcClientError.RpcClientError
+    | SimulationRequestError
+  >
+  readonly finishTool: (
+    params: BackendProtocol.ToolFinishParams,
+  ) => Effect.Effect<
+    { readonly ok: true },
+    | SimulationConnectionError
+    | RpcClientError.RpcClientError
+    | SimulationRequestError
+  >
+  readonly failTool: (
+    params: BackendProtocol.ToolFailParams,
+  ) => Effect.Effect<
+    { readonly ok: true },
+    | SimulationConnectionError
+    | RpcClientError.RpcClientError
+    | SimulationRequestError
+  >
 }
+
+const toolCapabilities = [
+  "tool.attach",
+  "tool.update",
+  "tool.finish",
+  "tool.fail",
+  "tool.invocation",
+  "tool.cancel",
+] as const satisfies ReadonlyArray<Handshake.Capability>
+const toolCapabilitySet: ReadonlySet<Handshake.Capability> = new Set(toolCapabilities)
 
 export const ui = Effect.fn("SimulationConnector.ui")(function* (
   endpoint: string,
@@ -140,10 +198,12 @@ export const backend = Effect.fn("SimulationConnector.backend")(function* (
     BackendProtocol.OpenedExchange,
     Schema.SchemaError
   >()
+  const toolEvents = yield* Queue.unbounded<ToolEvent, Schema.SchemaError>()
   const closed = yield* Deferred.make<void>()
   const close = Effect.all([
     Deferred.succeed(closed, undefined),
     Queue.shutdown(requests),
+    Queue.shutdown(toolEvents),
   ], { discard: true })
   yield* Effect.addFinalizer(() => close)
   const protocol = yield* OpenCodeRpcProtocol.make(endpoint, {
@@ -151,22 +211,46 @@ export const backend = Effect.fn("SimulationConnector.backend")(function* (
     firstWireId: 0,
     onClose: () => close,
     onNotification: ({ method, params }) => {
-      if (method !== "llm.request") return Effect.void
-      return Effect.matchEffect(
-        Schema.decodeUnknownEffect(BackendProtocol.OpenedExchange)(params),
-        {
-          onFailure: (error) => Queue.fail(requests, error).pipe(Effect.asVoid),
-          onSuccess: (request) =>
-            Queue.offer(requests, request).pipe(Effect.asVoid),
-        },
-      )
+      switch (method) {
+        case "llm.request":
+          return Effect.matchEffect(
+            Schema.decodeUnknownEffect(BackendProtocol.OpenedExchange)(params),
+            {
+              onFailure: (error) => Queue.fail(requests, error).pipe(Effect.asVoid),
+              onSuccess: (request) => Queue.offer(requests, request).pipe(Effect.asVoid),
+            },
+          )
+        case "tool.invocation":
+          return Effect.matchEffect(
+            Schema.decodeUnknownEffect(BackendProtocol.ToolInvocation)(params),
+            {
+              onFailure: (error) => Queue.fail(toolEvents, error).pipe(Effect.asVoid),
+              onSuccess: (invocation) =>
+                Queue.offer(toolEvents, { type: "invocation", invocation }).pipe(Effect.asVoid),
+            },
+          )
+        case "tool.cancel":
+          return Effect.matchEffect(
+            Schema.decodeUnknownEffect(BackendProtocol.ToolCancellation)(params),
+            {
+              onFailure: (error) => Queue.fail(toolEvents, error).pipe(Effect.asVoid),
+              onSuccess: (cancellation) =>
+                Queue.offer(toolEvents, { type: "cancellation", cancellation }).pipe(Effect.asVoid),
+            },
+          )
+        default:
+          return Effect.void
+      }
     },
   })
   const rpc = yield* RpcClient.make(BackendRpcs).pipe(
     Effect.provideService(RpcClient.Protocol, protocol),
   )
   const required = BackendProtocol.Capabilities.filter(
-    (capability) => capability !== "llm.pending",
+    (capability) =>
+      capability !== "llm.pending" &&
+      capability !== "llm.tool-input-delta" &&
+      !toolCapabilitySet.has(capability),
   )
   const compatibility = yield* negotiate(
     endpoint,
@@ -177,7 +261,7 @@ export const backend = Effect.fn("SimulationConnector.backend")(function* (
       expectedRole: "backend",
       offeredVersions: [1],
       requiredCapabilities: required,
-      optionalCapabilities: ["llm.pending"],
+      optionalCapabilities: ["llm.pending", "llm.tool-input-delta", ...toolCapabilities],
     }),
     options?.compatibility,
   )
@@ -197,13 +281,66 @@ export const backend = Effect.fn("SimulationConnector.backend")(function* (
     ),
   )
   if (options?.attach !== false) yield* attach()
+  const withTimeout = <A, E>(operation: string, effect: Effect.Effect<A, E>) =>
+    effect.pipe(
+      Effect.timeoutOrElse({
+        duration: options?.requestTimeout ?? 30_000,
+        orElse: () =>
+          Effect.fail(
+            new SimulationConnectionError({
+              endpoint,
+              operation,
+              message: `${operation} timed out after ${options?.requestTimeout ?? 30_000}ms`,
+            }),
+          ),
+      }),
+    )
+  const attachTools: BackendConnection["attachTools"] = (tools) => {
+    const missing = toolCapabilities.filter(
+      (capability) => !supportsCapability(compatibility, capability),
+    )
+    if (missing.length > 0)
+      return Effect.fail(
+        new SimulationCompatibilityError({
+          endpoint,
+          role: "backend",
+          message: `Simulation endpoint is missing required capabilities: ${missing.join(", ")}`,
+        }),
+      )
+    return withTimeout("tool.attach", rpc["tool.attach"]({ tools }))
+  }
+  const updateTool: BackendConnection["updateTool"] = (params) =>
+    withTimeout("tool.update", rpc["tool.update"](params))
+  const finishTool: BackendConnection["finishTool"] = (params) =>
+    withTimeout("tool.finish", rpc["tool.finish"](params))
+  const failTool: BackendConnection["failTool"] = (params) =>
+    withTimeout("tool.fail", rpc["tool.fail"](params))
+  const flushToolEvents = Effect.fn("SimulationConnector.flushToolEvents")(function* () {
+    const completed = yield* Deferred.make<void>()
+    const offered = yield* Queue.offer(toolEvents, { type: "barrier", completed })
+    if (!offered)
+      return yield* Effect.fail(
+        new SimulationEventStreamError({
+          endpoint,
+          message: "Dynamic tool event stream is unavailable",
+        }),
+      )
+    yield* Deferred.await(completed)
+    return undefined
+  })
   return {
     endpoint,
     rpc,
     compatibility,
     requests: Stream.fromQueue(requests),
+    toolEvents: Stream.fromQueue(toolEvents),
+    flushToolEvents,
     closed: Deferred.await(closed),
     attach,
+    attachTools,
+    updateTool,
+    finishTool,
+    failTool,
   } satisfies BackendConnection
 })
 

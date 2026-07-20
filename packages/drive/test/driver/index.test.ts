@@ -196,6 +196,25 @@ it.live("supports explicit terminal settlement with make", () =>
   }),
 )
 
+it.live("rolls back a failed initial tool connection", () =>
+  Effect.gen(function* () {
+    const failure = yield* OpenCodeDriver.make({
+      opencode: { command: [...fakeOpenCode, "reject-tool-handshake"] },
+    }).pipe(
+      Effect.scoped,
+      Effect.timeoutOrElse({
+        duration: 10_000,
+        orElse: () => Effect.dieMessage("failed tool connection did not roll back"),
+      }),
+      Effect.flip,
+    )
+    expect(failure).toMatchObject({
+      _tag: "OpenCodeDriverError",
+      operation: "tools.connect",
+    })
+  }),
+)
+
 it.live("injects declared tool handlers for library drivers", () =>
   Effect.gen(function* () {
     const artifacts = yield* OpenCodeDriver.use(
@@ -249,6 +268,149 @@ it.live("exposes runtime controls for tools declared by name", () =>
         options: expect.objectContaining({ tools: ["shell"] }),
       }),
     ])
+  }),
+)
+
+it.live("controls arbitrary provider-backed tools through the runtime lifecycle", () =>
+  Effect.gen(function* () {
+    const artifacts = yield* OpenCodeDriver.use(
+      {
+        keepArtifacts: true,
+        opencode: {
+          command: [...fakeOpenCode, "dynamic-tool", "reconnect-tool"],
+        },
+      },
+      (driver) =>
+        Effect.gen(function* () {
+          yield* driver.tools.attach({
+            tools: [
+              {
+                name: "lookup",
+                description: "Look up a value",
+                inputSchema: {
+                  type: "object",
+                  properties: { query: { type: "string" } },
+                  required: ["query"],
+                },
+                outputSchema: {
+                  type: "object",
+                  properties: { answer: { type: "number" } },
+                  required: ["answer"],
+                },
+                options: { codemode: false },
+              },
+            ],
+          })
+          const call = yield* driver.tools.take("call_lookup")
+          expect(call).toMatchObject({
+            name: "lookup",
+            input: { query: "meaning" },
+            context: { sessionID: "ses_dynamic", callID: "call_lookup" },
+          })
+          yield* call.progress({
+            structured: { phase: "searching" },
+            content: [{ type: "text", text: "Searching" }],
+          })
+          yield* call.finish({
+            structured: { answer: 42 },
+            content: [{ type: "text", text: "42" }],
+          })
+          return driver.artifacts
+        }),
+    )
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => rm(artifacts, { recursive: true, force: true })),
+    )
+    const events = (yield* Effect.promise(() =>
+      readFile(`${artifacts}/tool-events.jsonl`, "utf8"),
+    )).trim().split("\n").map((line) => JSON.parse(line))
+    expect(events).toEqual([
+      expect.objectContaining({ method: "tool.attach" }),
+      expect.objectContaining({ method: "tool.attach" }),
+      {
+        method: "tool.update",
+        params: {
+          id: "tool_1",
+          sequence: 0,
+          update: {
+            structured: { phase: "searching" },
+            content: [{ type: "text", text: "Searching" }],
+          },
+        },
+      },
+      {
+        method: "tool.finish",
+        params: {
+          id: "tool_1",
+          output: {
+            structured: { answer: 42 },
+            content: [{ type: "text", text: "42" }],
+          },
+        },
+      },
+      {
+        method: "tool.attach",
+        params: { tools: [] },
+      },
+    ])
+  }),
+)
+
+it.live("surfaces a permanent tool reconnect failure", () =>
+  Effect.gen(function* () {
+    let artifacts = ""
+    const result = yield* Effect.exit(
+      OpenCodeDriver.use(
+        {
+          keepArtifacts: true,
+          opencode: {
+            command: [
+              ...fakeOpenCode,
+              "dynamic-tool",
+              "reconnect-tool",
+              "reject-tool-reconnect",
+            ],
+          },
+        },
+        (driver) =>
+          Effect.gen(function* () {
+            artifacts = driver.artifacts
+            yield* driver.tools.attach({
+              tools: [
+                {
+                  name: "lookup",
+                  description: "Look up a value",
+                  inputSchema: { type: "object" },
+                  options: { codemode: false },
+                },
+              ],
+            })
+            return yield* Effect.never
+          }),
+      ).pipe(
+        Effect.timeoutOrElse({
+          duration: 10_000,
+          orElse: () => Effect.dieMessage("permanent tool reconnect failure was not observed"),
+        }),
+      ),
+    )
+    yield* Effect.addFinalizer(() =>
+      artifacts === ""
+        ? Effect.void
+        : Effect.promise(() => rm(artifacts, { recursive: true, force: true })),
+    )
+    if (Exit.isSuccess(result))
+      return yield* Effect.dieMessage("driver unexpectedly succeeded")
+    expect(
+      result.cause.reasons
+        .filter(Cause.isFailReason)
+        .map((reason) => reason.error),
+    ).toContainEqual(
+      expect.objectContaining({
+        _tag: "OpenCodeDriverError",
+        operation: "tools.connect",
+      }),
+    )
   }),
 )
 
@@ -382,6 +544,16 @@ it.live("interrupts use when the backend disconnects", () =>
         (driver) =>
           Effect.gen(function* () {
             artifacts = driver.artifacts
+            yield* driver.tools.attach({
+              tools: [
+                {
+                  name: "lookup",
+                  description: "Look up a value",
+                  inputSchema: { type: "object" },
+                  options: { codemode: false },
+                },
+              ],
+            })
             const pid = Number(
               yield* Effect.promise(() =>
                 readFile(`${artifacts}/service.pid`, "utf8"),

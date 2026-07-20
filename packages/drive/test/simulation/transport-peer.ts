@@ -13,7 +13,12 @@ export interface ReceivedRequest {
 
 export function startTransportPeer(
   onRequest: (received: ReceivedRequest) => void,
-  options?: { readonly handshake?: boolean },
+  options?: {
+    readonly handshake?: boolean
+    readonly capabilities?: (
+      offered: ReadonlyArray<string>,
+    ) => ReadonlyArray<string>
+  },
 ) {
   const received: ReceivedRequest[] = []
   const server = Bun.serve<undefined>({
@@ -40,7 +45,10 @@ export function startTransportPeer(
             protocolVersion: 1,
             role: params.expectedRole,
             server: { name: "opencode", version: "test" },
-            capabilities: [
+            capabilities: options?.capabilities?.([
+              ...params.requiredCapabilities,
+              ...params.optionalCapabilities,
+            ]) ?? [
               ...params.requiredCapabilities,
               ...params.optionalCapabilities,
             ],

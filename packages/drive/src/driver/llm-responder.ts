@@ -116,20 +116,11 @@ export const make = ({ requestTimeout }: Options): Responder => {
     const delay = toolCall.options?.delay ?? 2
     const chunkSize = toolCall.options?.chunkSize ?? 15
     const chunks = [...chunkText(JSON.stringify(toolCall.input), chunkSize)]
-    for (let index = 0; index < chunks.length; index++) {
-      const text = chunks[index]
-      if (text === undefined) continue
-      const callDelta =
-        index === 0
-          ? {
-              index: toolCall.index,
-              id: toolCall.id,
-              function: { name: toolCall.name, arguments: text },
-            }
-          : {
-              index: toolCall.index,
-              function: { arguments: text },
-            }
+    const providerNeutral = supportsCapability(
+      backend.compatibility,
+      "llm.tool-input-delta",
+    )
+    if (providerNeutral)
       yield* call(
         backend,
         "llm.chunk",
@@ -138,10 +129,49 @@ export const make = ({ requestTimeout }: Options): Responder => {
           id: requestId,
           items: [
             {
-              type: "raw",
-              chunk: { choices: [{ delta: { tool_calls: [callDelta] } }] },
+              type: "toolInputStart",
+              index: toolCall.index,
+              id: toolCall.id,
+              name: toolCall.name,
             },
           ],
+        }),
+      )
+    for (let index = 0; index < chunks.length; index++) {
+      const text = chunks[index]
+      if (text === undefined) continue
+      const item = providerNeutral
+        ? { type: "toolInputDelta" as const, index: toolCall.index, text }
+        : {
+            type: "raw" as const,
+            chunk: {
+              choices: [
+                {
+                  delta: {
+                    tool_calls: [
+                      index === 0
+                        ? {
+                            index: toolCall.index,
+                            id: toolCall.id,
+                            function: { name: toolCall.name, arguments: text },
+                          }
+                        : {
+                            index: toolCall.index,
+                            function: { arguments: text },
+                          },
+                    ],
+                  },
+                },
+              ],
+            },
+          }
+      yield* call(
+        backend,
+        "llm.chunk",
+        requestId,
+        backend.rpc["llm.chunk"]({
+          id: requestId,
+          items: [item],
         }),
       )
       if (index < chunks.length - 1 && delay > 0) yield* Effect.sleep(delay)

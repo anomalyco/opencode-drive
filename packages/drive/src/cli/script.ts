@@ -130,7 +130,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       kill: prepared.server.kill,
     },
     llm: prepared.llm,
-    tools: instance.tools,
+    tools: prepared.tools,
     artifacts: instance.artifacts,
   }
   const primaryTui = prepared.primary

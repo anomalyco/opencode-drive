@@ -243,6 +243,53 @@ unresolved calls, and waits for transport cleanup. The callback-style
 for fixed handlers; callback-controlled tools are not also available through
 the runtime `tools.control` capability.
 
+## Arbitrary tools use the provider-backed lifecycle
+
+`tools.attach({ tools })` atomically replaces the complete dynamic registration
+set for the current run. Registrations use OpenCode's canonical JSON Schema,
+permission, namespace, and CodeMode options. Static `shell`, `webfetch`, and
+`websearch` adapters remain installed separately.
+
+```ts
+yield* tools.attach({
+  tools: [
+    {
+      name: "lookup",
+      description: "Look up a value",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+      options: { codemode: false },
+    },
+  ],
+})
+
+const invocation = yield* tools.take("call_lookup")
+yield* invocation.progress({
+  structured: { phase: "searching" },
+  content: [{ type: "text", text: "Searching" }],
+})
+yield* invocation.finish({
+  structured: { answer: 42 },
+  content: [{ type: "text", text: "42" }],
+})
+```
+
+`take(callID)` matches `context.callID`, the model call ID supplied to
+`Llm.toolCall`; `invocation.id` is the producer's transport identity. Drive
+deduplicates invocation replay after a controller reconnect and retries
+progress or terminal operations with the same producer identity and progress
+sequence. `awaitCancelled()` observes OpenCode's native interruption. There is
+no public cancel operation because cancellation flows from OpenCode to Drive.
+
+Attaching a dynamic effective name that collides with a configured static
+adapter fails locally. Calling `attach({ tools: [] })` clears the dynamic set.
+Older OpenCode revisions remain compatible with static adapters and ordinary
+LLM control; dynamic attachment fails with `Tool.LifecycleError` when the six
+tool lifecycle capabilities are unavailable.
+
 ## LLM response description is separate from live LLM control
 
 `Llm` is a pure data module. `llm` is the live capability that queues, sends, and serves responses.
@@ -262,8 +309,9 @@ yield* llm.queue(
 Each constructor returns an ordinary serializable value. Raw values with the same schema remain accepted.
 
 Tool calls remain atomic when options are omitted. Supplying stream options
-serializes the input to JSON and emits it incrementally through the simulated
-provider, producing OpenCode's normal tool-input lifecycle:
+serializes the input to JSON and emits provider-neutral partial tool input when
+the endpoint advertises that capability. Older endpoints retain the existing
+OpenAI-compatible fallback:
 
 ```ts
 Llm.toolCall(

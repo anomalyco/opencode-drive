@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 
 export default defineScript({
   launch: "manual",
-  run: ({ server, tuis, artifacts }) =>
+  run: ({ server, tools, tuis, artifacts }) =>
     Effect.gen(function* () {
       yield* server.launch()
       const firstServer = Number(
@@ -41,6 +41,16 @@ export default defineScript({
       yield* alice.close()
       const relaunchedAlice = yield* tuis.launch("alice")
       yield* relaunchedAlice.close()
+      yield* tools.attach({
+        tools: [
+          {
+            name: "lookup",
+            description: "Look up a value",
+            inputSchema: { type: "object" },
+            options: { codemode: false },
+          },
+        ],
+      })
       yield* server.kill()
 
       yield* Effect.tryPromise(() =>

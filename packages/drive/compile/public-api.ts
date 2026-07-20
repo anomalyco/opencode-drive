@@ -55,6 +55,9 @@ export type ZeroConfigUseIsRunnable = Assert<
 const controlledOptions: OpenCodeDriver.Options = { tools: ["shell"] }
 declare const controls: Tool.Controls
 const shellCalls = controls.control("shell")
+declare const dynamicTools: Tool.AttachParams
+const attached = controls.attach(dynamicTools)
+const dynamicCall = controls.take("call_lookup")
 declare const toolName: Tool.Name
 controls.control(toolName)
 export type ShellControlIsTyped = Assert<
@@ -62,6 +65,12 @@ export type ShellControlIsTyped = Assert<
     Effect.Success<typeof shellCalls>,
     Tool.ControlledCalls<Tool.ShellInput, Tool.ShellResult>
   >
+>
+export type DynamicAttachIsTyped = Assert<
+  Equal<Effect.Success<typeof attached>, void>
+>
+export type DynamicCallIsTyped = Assert<
+  Equal<Effect.Success<typeof dynamicCall>, Tool.Invocation>
 >
 const controlled = OpenCodeDriver.use(controlledOptions, ({ tools }) =>
   tools.control("shell").pipe(Effect.asVoid),

@@ -31,6 +31,7 @@ export interface Prepared {
   readonly driver: Driver | undefined
   readonly primary: OpenCodeTui.Tui | undefined
   readonly llm: Llm
+  readonly tools: Driver["tools"]
   readonly tuis: OpenCodeTui.Tuis
   readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
   readonly artifacts: string
@@ -67,6 +68,11 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
     ) =>
       Effect.gen(function* () {
         const llm = yield* Effect.exit(server.llm.settle())
+        const tools = yield* Effect.exit(
+          server.settleTools.pipe(
+            Effect.mapError((cause) => error("tools.settle", cause)),
+          ),
+        )
         const shutdown = yield* Effect.exit(server.llm.shutdown())
         const tuiExit = yield* Effect.exit(tuis)
         let failure: Cause.Cause<
@@ -76,6 +82,10 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
           | OpenCodeUi.OperationError
         > | undefined
         if (Exit.isFailure(llm)) failure = llm.cause
+        if (Exit.isFailure(tools))
+          failure = failure === undefined
+            ? tools.cause
+            : Cause.combine(failure, tools.cause)
         if (Exit.isFailure(shutdown))
           failure = failure === undefined
             ? shutdown.cause
@@ -110,7 +120,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
           tui: primary,
           ui: primary.ui,
           llm,
-          tools: instance.tools,
+          tools: server.tools,
           tuis: server.tuis,
           artifacts: instance.artifacts,
           settle: () => settle,
@@ -119,6 +129,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       driver,
       primary,
       llm,
+      tools: server.tools,
       tuis: server.tuis,
       server,
       artifacts: instance.artifacts,

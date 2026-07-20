@@ -109,4 +109,40 @@ describe("SimulationConnector", () => {
       expect(Schema.isSchemaError(error)).toBe(true)
     }).pipe(Effect.provide(SimulationConnector.layer)),
   )
+
+  it.live("keeps tool capabilities optional until dynamic tools are attached", () =>
+    Effect.gen(function* () {
+      const peer = startTransportPeer(
+        ({ request, socket }) =>
+          sendResult(
+            socket,
+            request,
+            request.method === "llm.attach"
+              ? { attached: true }
+              : { ok: true },
+          ),
+        {
+          capabilities: (offered) =>
+            offered.filter((capability) => !capability.startsWith("tool.")),
+        },
+      )
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+
+      const connection = yield* SimulationConnector.backend(peer.url)
+      expect(connection.compatibility).toMatchObject({
+        _tag: "Negotiated",
+        role: "backend",
+      })
+      expect(
+        yield* connection.attachTools([]).pipe(Effect.flip),
+      ).toMatchObject({
+        _tag: "SimulationCompatibilityError",
+        role: "backend",
+        message: expect.stringContaining("tool.attach"),
+      })
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "llm.attach",
+      ])
+    }).pipe(Effect.provide(SimulationConnector.layer)),
+  )
 })

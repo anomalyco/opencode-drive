@@ -93,4 +93,20 @@ export const BackendRpcs = RpcGroup.make(
     payload: Backend.DisconnectParams,
     success: Backend.Ok,
   }),
+  request("tool.attach", {
+    payload: Backend.ToolAttachParams,
+    success: Backend.Attached,
+  }),
+  request("tool.update", {
+    payload: Backend.ToolUpdateParams,
+    success: Backend.Ok,
+  }),
+  request("tool.finish", {
+    payload: Backend.ToolFinishParams,
+    success: Backend.Ok,
+  }),
+  request("tool.fail", {
+    payload: Backend.ToolFailParams,
+    success: Backend.Ok,
+  }),
 )

@@ -24,7 +24,7 @@ import {
   type ControlledCall,
   type ControlledCalls,
   type ControlledCallsFor,
-  type Controls,
+  type StaticControls,
   type Handler,
   type Name,
   type Registration,
@@ -92,8 +92,9 @@ function controlError(
 
 export interface Controller {
   readonly enabled: boolean
-  readonly controls: Controls
+  readonly controls: StaticControls
   readonly configure: (config: OpenCodeConfig) => void
+  readonly names: ReadonlySet<string>
 }
 
 export function composeSetup(
@@ -231,9 +232,9 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
       ? Effect.fail(controlError("control", "not-controlled", name))
       : Effect.succeed(calls)
   }
-  const controls: Controls = { control }
+  const controls: StaticControls = { control }
   if (definitions.size === 0)
-    return { enabled: false, controls, configure() {} } satisfies Controller
+    return { enabled: false, controls, configure() {}, names: new Set() } satisfies Controller
 
   const token = crypto.randomUUID()
   const indexes = new Map<string, number>()
@@ -299,6 +300,7 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
   return {
     enabled: true,
     controls,
+    names: new Set(definitions.keys()),
     configure(config) {
       const current = config.plugins
       if (current !== undefined && !Array.isArray(current))

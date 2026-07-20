@@ -65,7 +65,8 @@ export interface Instance {
     readonly ui: string
     readonly backend: string
   }
-  readonly tools: Tool.Controls
+  readonly tools: Tool.StaticControls
+  readonly toolNames: ReadonlySet<string>
   readonly recording: Effect.Effect<RecordingPaths | undefined>
   readonly primary: Effect.Effect<Process.Running, OpenCodeInstanceError>
   readonly launchServer: Effect.Effect<
@@ -564,6 +565,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     visible: options.visible ?? false,
     endpoints,
     tools: toolController.controls,
+    toolNames: toolController.names,
     recording: Ref.get(state).pipe(Effect.map((current) => current.recording)),
     primary: Ref.get(state).pipe(
       Effect.flatMap((current) =>

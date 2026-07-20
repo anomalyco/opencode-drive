@@ -183,6 +183,42 @@ yield* secondary.ui.screenshot("secondary")
 
 Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. Additional built-in tool adapters remain follow-ups.
 
+### Arbitrary Dynamic Tools
+
+Use runtime `tools.attach` for tools that do not have a shipped Drive adapter.
+Attachment replaces the complete dynamic set without affecting configured
+static adapters. Take invocations by the model call ID, while Drive owns
+producer IDs, progress sequences, reconnect replay, and exactly-one terminal
+commitment.
+
+```ts
+yield* tools.attach({
+  tools: [
+    {
+      name: "lookup",
+      description: "Look up a value",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+      options: { codemode: false },
+    },
+  ],
+})
+
+const lookup = yield* tools.take("call_lookup")
+yield* lookup.progress({ structured: { phase: "searching" } })
+yield* lookup.finish({
+  structured: { answer: 42 },
+  content: [{ type: "text", text: "42" }],
+})
+```
+
+Use `awaitCancelled()` to observe native interruption. Do not synthesize
+cancellation or expose transport sequence numbers. Dynamic effective names may
+not collide with configured `shell`, `webfetch`, or `websearch` adapters.
+
 ### Simulated Shell Execution
 
 Declare the built-in tools Drive should intercept, then control each invocation

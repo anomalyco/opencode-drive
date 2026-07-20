@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import type { Backend } from "../simulation/protocol.js"
 
 const PositiveInt = Schema.Number.check(Schema.isInt(), Schema.isGreaterThan(0))
 
@@ -147,6 +148,53 @@ export type ControlledCallsFor<Tool extends Name> = ControlledCalls<
   ToolTypes[Tool]["result"]
 >
 
-export interface Controls {
+export interface StaticControls {
   control<Tool extends Name>(name: Tool): Effect.Effect<ControlledCallsFor<Tool>, ControlError>
 }
+
+export type Content = Backend.ToolContent
+export type DynamicRegistration = Backend.ToolRegistration
+export type AttachParams = Backend.ToolAttachParams
+export type Progress = Backend.ToolProgress
+export type Output = Backend.ToolOutput
+export type Cancellation = Backend.ToolCancellation
+
+export class LifecycleError extends Schema.TaggedErrorClass<LifecycleError>()(
+  "OpenCodeDrive.ToolLifecycleError",
+  {
+    operation: Schema.Literals(["attach", "take", "progress", "finish", "fail"]),
+    reason: Schema.Literals([
+      "controller-closed",
+      "already-claimed",
+      "already-settled",
+      "cancelled",
+      "rejected",
+      "transport-interrupted",
+    ]),
+    callID: Schema.optional(Schema.String),
+    message: Schema.String,
+  },
+) {}
+
+export interface Invocation {
+  /** Producer invocation ID, stable across controller reconnects. */
+  readonly id: string
+  /** Effective provider-visible name, including any flattened namespace. */
+  readonly name: string
+  readonly input: Backend.ToolInvocation["input"]
+  readonly context: Backend.ToolInvocation["context"]
+  readonly progress: (update: Progress) => Effect.Effect<void, LifecycleError>
+  readonly finish: (output: Output) => Effect.Effect<void, LifecycleError>
+  readonly fail: (message: string) => Effect.Effect<void, LifecycleError>
+  /** Completes only when OpenCode cancels before `finish` or `fail`. */
+  readonly awaitCancelled: () => Effect.Effect<Cancellation>
+}
+
+export interface DynamicControls {
+  /** Atomically replaces the complete provider-backed dynamic tool set. */
+  readonly attach: (params: AttachParams) => Effect.Effect<void, LifecycleError>
+  take(): Effect.Effect<Invocation, LifecycleError>
+  take(callID: string): Effect.Effect<Invocation, LifecycleError>
+}
+
+export interface Controls extends StaticControls, DynamicControls {}
