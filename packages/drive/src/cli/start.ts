@@ -404,10 +404,6 @@ const startDetached = Effect.fn("DriveCli.startDetached")(function* (
   options: StartOptions,
   artifacts: string,
 ) {
-  const existing = yield* fromPromise(() =>
-    resolveInstance(options.name, { ready: false }).catch(() => undefined),
-  )
-  if (existing) throw new Error(`drive instance "${options.name}" is already running`)
   const ownerLog = join(registryDirectory(), `${options.name}.log`)
   yield* fromPromise(() => mkdir(registryDirectory(), { recursive: true }))
   yield* fromPromise(() => rm(ownerLog, { force: true }))
