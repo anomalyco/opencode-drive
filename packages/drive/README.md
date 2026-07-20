@@ -346,6 +346,16 @@ the native invocation before `finish` or `fail`. Dynamic registrations survive
 the tool-only controller reconnecting; an intentional server generation change
 cancels unresolved calls and reapplies the desired set after launch.
 
+Run the complete progress, cancellation, and terminal-completion example from
+this repository with:
+
+```sh
+bun run --cwd packages/drive drive start --name dynamic-tool \
+  --script ./examples/dynamic-tool.ts
+```
+
+See [`examples/dynamic-tool.ts`](./examples/dynamic-tool.ts).
+
 Declare which built-in tools Drive should intercept with `tools`, then control
 their invocations inside `run`. Each tool controller accepts calls in arrival
 order or by the stable call ID chosen in `Llm.toolCall`:
