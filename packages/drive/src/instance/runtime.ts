@@ -145,9 +145,15 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
       try: () => configureDevSimulation(artifacts, endpoints.backend),
       catch: (cause) => instanceError("configure development simulation", cause),
     })
+  const dev = options.dev !== undefined
+    ? yield* prepareDev(artifacts, options.dev)
+    : undefined
   const environment = stripGitEnvironment({
     ...process.env,
     ...options.env,
+    BUN_OPTIONS: dev === undefined
+      ? options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS
+      : [options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS, ...dev.preloads].filter(Boolean).join(" "),
     OPENCODE_SIMULATE: "1",
     OPENCODE_DRIVE_SCRIPTED: options.scripted ? "1" : undefined,
     DRIVE_REGISTRY_DIR: drive,
@@ -162,8 +168,8 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     XDG_DATA_HOME: logs,
     XDG_STATE_HOME: join(artifacts, "home", ".local", "state"),
   })
-  const command = options.dev !== undefined
-    ? yield* prepareDev(artifacts, options.dev)
+  const command = dev !== undefined
+    ? dev.command
     : options.command?.length
       ? [...options.command]
       : ["opencode2"]
