@@ -16,15 +16,17 @@ export const runProgram = Effect.fn("Cli.runProgram")((file: string) =>
     }),
     ({ file }) =>
       Effect.gen(function* () {
-        const module = yield* Effect.tryPromise({
-          try: () => import(pathToFileURL(file).href),
+        const program = yield* Effect.tryPromise({
+          // prepareProgram type-checks this boundary as a fully provided Effect.
+          try: async (): Promise<Effect.Effect<unknown, unknown>> => {
+            const module = await import(pathToFileURL(file).href)
+            if (!Effect.isEffect(module.default))
+              throw new Error("program must default-export a fully provided Effect")
+            return module.default
+          },
           catch: (cause) => cause,
         })
-        if (!Effect.isEffect(module.default))
-          return yield* Effect.fail(
-            new Error("program must default-export a fully provided Effect"),
-          )
-        return yield* module.default
+        return yield* program
       }),
     ({ remove }) => Effect.promise(remove),
   ),

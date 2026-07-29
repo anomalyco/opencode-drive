@@ -33,6 +33,7 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
     process.execPath,
     "--conditions=browser",
     "--preload=@opentui/solid/preload",
+    `--preload=${new URL("./dev-preload.ts", import.meta.url).pathname}`,
     entrypoint,
   ]
 })

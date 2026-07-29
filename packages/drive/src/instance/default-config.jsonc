@@ -11,9 +11,11 @@
   "providers": {
     "simulation": {
       "name": "Simulation",
-      "package": "aisdk:@ai-sdk/openai-compatible",
-      "settings": {
-        "baseURL": "https://api.openai.com/v1"
+      "api": {
+        "type": "aisdk",
+        "package": "@ai-sdk/openai-compatible",
+        "url": "https://api.openai.com/v1",
+        "settings": {}
       },
       "request": {
         "body": {

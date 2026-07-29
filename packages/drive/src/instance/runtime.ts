@@ -11,7 +11,7 @@ import { ChildProcessSpawner } from "effect/unstable/process"
 import { prepareDev } from "./dev.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
 import { runMediaDirectory } from "./media.js"
-import { prepareInstanceProject } from "./instance.js"
+import { configureDevSimulation, prepareInstanceProject } from "./instance.js"
 import * as Process from "./process.js"
 import { freePort, waitForWebSocket } from "./readiness.js"
 import { isValidName } from "./registry.js"
@@ -140,6 +140,11 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     }).pipe(
       Effect.mapError((cause) => instanceError("prepare project", cause)),
     )
+  if (options.dev !== undefined)
+    yield* Effect.tryPromise({
+      try: () => configureDevSimulation(artifacts, endpoints.backend),
+      catch: (cause) => instanceError("configure development simulation", cause),
+    })
   const environment = stripGitEnvironment({
     ...process.env,
     ...options.env,
@@ -147,6 +152,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     OPENCODE_DRIVE_SCRIPTED: options.scripted ? "1" : undefined,
     DRIVE_REGISTRY_DIR: drive,
     OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "headless",
+    OPENCODE_DRIVE_DEV: options.dev,
     OPENCODE_CONFIG_DIR: join(files, ".opencode"),
     OPENCODE_DB: database,
     OPENCODE_LOG_LEVEL: !options.visible ? "DEBUG" : process.env.OPENCODE_LOG_LEVEL,

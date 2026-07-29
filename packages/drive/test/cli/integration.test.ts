@@ -121,7 +121,11 @@ describe("opencode-drive", () => {
       permissions: [{ action: "*", resource: "*", effect: "allow" }],
       providers: {
         simulation: {
-          package: "aisdk:@ai-sdk/openai-compatible",
+          api: {
+            type: "aisdk",
+            package: "@ai-sdk/openai-compatible",
+            url: "https://api.openai.com/v1",
+          },
           models: { "gpt-sim-model": { capabilities: { tools: true } } },
         },
       },
