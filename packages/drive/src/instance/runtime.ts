@@ -140,9 +140,26 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     }).pipe(
       Effect.mapError((cause) => instanceError("prepare project", cause)),
     )
+  const dev = options.dev !== undefined
+    ? yield* prepareDev(artifacts, options.dev)
+    : undefined
+  if (dev?.standalone && options.scripted) {
+    const port = yield* freePort
+    yield* Effect.tryPromise({
+      try: () =>
+        Bun.write(
+          join(files, ".opencode", "service-local.json"),
+          `${JSON.stringify({ port }, undefined, 2)}\n`,
+        ),
+      catch: (cause) => instanceError("configure development service", cause),
+    })
+  }
   const environment = stripGitEnvironment({
     ...process.env,
     ...options.env,
+    BUN_OPTIONS: dev === undefined
+      ? options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS
+      : [options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS, ...dev.bunOptions].filter(Boolean).join(" "),
     OPENCODE_SIMULATE: "1",
     OPENCODE_DRIVE_SCRIPTED: options.scripted ? "1" : undefined,
     DRIVE_REGISTRY_DIR: drive,
@@ -156,8 +173,8 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     XDG_DATA_HOME: logs,
     XDG_STATE_HOME: join(artifacts, "home", ".local", "state"),
   })
-  const command = options.dev !== undefined
-    ? yield* prepareDev(artifacts, options.dev)
+  const command = dev !== undefined
+    ? dev.command
     : options.command?.length
       ? [...options.command]
       : ["opencode2"]
@@ -231,7 +248,12 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   ) {
     yield* writeManifest(options.name, endpoints, recording, options.viewport)
     options.log?.("launching OpenCode")
-    return yield* spawn(options.name, command, "opencode", options.visible ?? false)
+    return yield* spawn(
+      options.name,
+      dev?.standalone && !options.visible ? [...command, "--standalone"] : command,
+      "opencode",
+      options.visible ?? false,
+    )
   })
 
   if (!options.scripted) {
