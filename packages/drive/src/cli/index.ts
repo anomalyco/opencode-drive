@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-import { NodeRuntime, NodeServices } from "@effect/platform-node"
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import packageJson from "../../package.json" with { type: "json" }

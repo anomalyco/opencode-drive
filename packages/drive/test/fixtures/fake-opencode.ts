@@ -3,7 +3,7 @@ import { resolve } from "node:path"
 
 const serviceMode = process.env.OPENCODE_DRIVE_SCRIPTED === "1"
 const role = serviceMode
-  ? process.argv.at(-2) === "serve" && process.argv.at(-1) === "--service"
+  ? process.argv.includes("serve") && process.argv.includes("--service")
     ? "service"
     : "client"
   : "legacy"

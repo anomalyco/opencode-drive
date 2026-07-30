@@ -93,22 +93,6 @@ export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject
     return undefined
   })
 
-export async function configureDevSimulation(artifacts: string, endpoint: string) {
-  const path = join(resolve(artifacts), "files", ".opencode", "opencode.jsonc")
-  const config = await readConfig(path, "opencode.jsonc")
-  const providers = config.providers
-  if (!isJsonObject(providers)) return
-  const simulation = providers.simulation
-  if (!isJsonObject(simulation)) return
-  const api = simulation.api
-  if (!isJsonObject(api) || api.package !== "@ai-sdk/openai-compatible") return
-  const url = new URL(endpoint)
-  url.protocol = "http:"
-  url.pathname = "/v1"
-  deepMerge(api, { url: url.toString().replace(/\/$/, "") })
-  await Bun.write(path, `${JSON.stringify(config, undefined, 2)}\n`)
-}
-
 const promise = <A>(evaluate: () => PromiseLike<A>) =>
   Effect.tryPromise({
     try: evaluate,

@@ -11,7 +11,7 @@ import { ChildProcessSpawner } from "effect/unstable/process"
 import { prepareDev } from "./dev.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
 import { runMediaDirectory } from "./media.js"
-import { configureDevSimulation, prepareInstanceProject } from "./instance.js"
+import { prepareInstanceProject } from "./instance.js"
 import * as Process from "./process.js"
 import { freePort, waitForWebSocket } from "./readiness.js"
 import { isValidName } from "./registry.js"
@@ -140,11 +140,6 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     }).pipe(
       Effect.mapError((cause) => instanceError("prepare project", cause)),
     )
-  if (options.dev !== undefined)
-    yield* Effect.tryPromise({
-      try: () => configureDevSimulation(artifacts, endpoints.backend),
-      catch: (cause) => instanceError("configure development simulation", cause),
-    })
   const dev = options.dev !== undefined
     ? yield* prepareDev(artifacts, options.dev)
     : undefined
@@ -173,6 +168,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     : options.command?.length
       ? [...options.command]
       : ["opencode2"]
+  const scriptedCommand = dev?.scriptedCommand ?? command
   const initialRecording = options.record ? recordingPaths(media) : undefined
   const processSpawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const fileSystem = yield* FileSystem.FileSystem
@@ -262,12 +258,19 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
         if (current.server !== undefined || current.pendingServer !== undefined)
           return yield* Effect.fail(instanceError("launch server", "the script server has already been launched"))
         const name = processDriveName(options.name, "service")
+        const serverCommand = [
+          ...scriptedCommand,
+          "serve",
+          "--service",
+          "--port",
+          String(yield* freePort),
+        ]
         yield* writeManifest(name, {
           ui: `ws://127.0.0.1:${yield* freePort}`,
           backend: endpoints.backend,
         })
         options.log?.("launching script server")
-        const server = yield* spawn(name, [...command, "serve", "--service"], "service", false)
+        const server = yield* spawn(name, serverCommand, "service", false)
         yield* Ref.update(state, (value) => ({ ...value, pendingServer: server }))
         return server
       }),
@@ -376,7 +379,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           tuiOptions.viewport ?? options.viewport,
         )
         options.log?.(`launching TUI ${name}`)
-        const tui = yield* spawn(driveName, command, `tui-${name}`, options.visible ?? false)
+        const tui = yield* spawn(driveName, scriptedCommand, `tui-${name}`, options.visible ?? false)
         yield* Ref.update(state, (value) => ({
           ...value,
           pendingTuis: new Map(value.pendingTuis).set(name, tui),

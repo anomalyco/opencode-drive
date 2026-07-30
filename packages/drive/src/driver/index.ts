@@ -3,7 +3,7 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import type * as Scope from "effect/Scope"
-import { NodeServices } from "@effect/platform-node"
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import type {

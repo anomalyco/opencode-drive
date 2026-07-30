@@ -3,7 +3,6 @@ import { rm } from "node:fs/promises"
 import { join } from "node:path"
 import * as Effect from "effect/Effect"
 import {
-  configureDevSimulation,
   initializeInstance,
   prepareInstanceProject,
 } from "../../src/instance/instance.js"
@@ -27,28 +26,8 @@ describe("instance configuration", () => {
       model: "simulation/gpt-sim-model",
       providers: {
         simulation: {
-          api: {
-            type: "aisdk",
-            package: "@ai-sdk/openai-compatible",
-            url: "https://api.openai.com/v1",
-            settings: {},
-          },
-          request: { body: { apiKey: "sim-key" } },
-        },
-      },
-    })
-  })
-
-  test("points the development provider at the isolated simulation endpoint", async () => {
-    const root = await initializeInstance()
-    artifacts.push(root)
-
-    await configureDevSimulation(root, "ws://127.0.0.1:43123")
-
-    expect(await Bun.file(join(root, "files", ".opencode", "opencode.jsonc")).json()).toMatchObject({
-      providers: {
-        simulation: {
-          api: { url: "http://127.0.0.1:43123/v1" },
+          package: "@opencode-ai/ai/providers/openai/chat",
+          settings: { apiKey: "sim-key" },
         },
       },
     })

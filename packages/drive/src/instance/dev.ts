@@ -33,10 +33,11 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
   const preloads = [
     "--conditions=browser",
     `--preload=${join(solid, "scripts", "preload.js")}`,
-    `--preload=${new URL("./dev-preload.ts", import.meta.url).pathname}`,
   ]
+  const base = [process.execPath, ...preloads, entrypoint]
   return {
-    command: [process.execPath, ...preloads, entrypoint, ...(standalone ? ["--standalone"] : [])],
+    command: [...base, ...(standalone ? ["--standalone"] : [])],
+    scriptedCommand: base,
     preloads,
   }
 })

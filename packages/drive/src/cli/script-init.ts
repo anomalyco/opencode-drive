@@ -2,8 +2,7 @@ import { mkdir, open, rm } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { logSuccess } from "../log.js"
 
-const template = `import { Effect } from "effect"
-import { defineScript, Llm } from "opencode-drive"
+const template = `import { defineScript, Effect, Llm } from "opencode-drive"
 
 export default defineScript({
   project: {

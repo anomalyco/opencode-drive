@@ -12,7 +12,7 @@ import { connectMockBackend } from "./mock-backend.js"
 import { createResponseSettings } from "./response-generator.js"
 import { loadScript, runScript } from "./script.js"
 import type { ScriptDefinition } from "../script/types.js"
-import { prepareScriptTooling } from "../script/tooling.js"
+import { prepareScriptModule } from "../script/tooling.js"
 import { finalizeRecording } from "../recording/finalize.js"
 import { listenControl } from "../instance/control.js"
 import { configureLogFile, logError, logReadyPaths, logSuccess } from "../log.js"
@@ -57,19 +57,15 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
   if (!options.visible && !options.script && !options.daemon)
     return yield* startDetached(options, initialized.artifacts)
   const scriptPath = options.script
-  const scriptTooling = scriptPath
-    ? yield* Effect.acquireRelease(
-        fromPromise(async () => {
-          logSuccess(`preparing script ${scriptPath}`)
-          return prepareScriptTooling(initialized.artifacts, scriptPath)
-        }),
-        (tooling) => fromPromise(() => tooling.links.remove()).pipe(Effect.ignore),
-      )
+  const scriptModule = scriptPath
+    ? yield* fromPromise(async () => {
+        logSuccess(`preparing script ${scriptPath}`)
+        return prepareScriptModule(initialized.artifacts, scriptPath)
+      })
     : undefined
-  const script = scriptTooling
-    ? yield* loadScript(scriptTooling.file).pipe(
-        Effect.tap(() => Effect.sync(() => logSuccess(`loading script ${scriptTooling.file}`))),
-        Effect.onError(() => fromPromise(() => scriptTooling.links.remove()).pipe(Effect.ignore)),
+  const script = scriptModule
+    ? yield* loadScript(scriptModule).pipe(
+        Effect.tap(() => Effect.sync(() => logSuccess(`loading script ${scriptModule}`))),
       )
     : undefined
   if (script && "launch" in script && options.record) {
@@ -111,7 +107,7 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
     ),
     () => fromPromise(() => unregister(options.name, process.pid)).pipe(Effect.ignore),
   )
-  return yield* lifecycle(options, instance, responses, script, scriptTooling, log)
+  return yield* lifecycle(options, instance, responses, script, log)
 })
 
 function lifecycle(
@@ -119,12 +115,11 @@ function lifecycle(
   instance: OpenCodeInstance.Instance,
   responses: ReturnType<typeof createResponseSettings>,
   script: ScriptDefinition | undefined,
-  scriptTooling: Awaited<ReturnType<typeof prepareScriptTooling>> | undefined,
   log: (message: string) => void,
 ) {
   return Effect.callback<void, unknown>((resume) => {
     const abort = new AbortController()
-    const promise = runLifecycle(options, instance, responses, script, scriptTooling, log, abort.signal)
+    const promise = runLifecycle(options, instance, responses, script, log, abort.signal)
     void promise.then(
       () => resume(Effect.void),
       (error) => resume(Effect.fail(error)),
@@ -141,7 +136,6 @@ async function runLifecycle(
   instance: OpenCodeInstance.Instance,
   responses: ReturnType<typeof createResponseSettings>,
   script: ScriptDefinition | undefined,
-  scriptTooling: Awaited<ReturnType<typeof prepareScriptTooling>> | undefined,
   log: (message: string) => void,
   signal: AbortSignal,
 ) {
@@ -330,10 +324,6 @@ async function runLifecycle(
     await unregister(options.name, process.pid).catch((error) => {
       cleanupFailure ??= error
       logError(`failed to unregister ${options.name}: ${error}`)
-    })
-    await scriptTooling?.links.remove().catch((error) => {
-      cleanupFailure ??= error
-      logError(`failed to remove script tooling: ${error}`)
     })
     if (options.script && !options.visible) report(completed ? "completed" : undefined)
     if (options.script && recordingPath) logSuccess(`recording ${recordingPath}`)

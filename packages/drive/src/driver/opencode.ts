@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import { NodeFileSystem } from "@effect/platform-node"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import {
   OpenCode as OpenCodeService,
   type OpenCodeClient,

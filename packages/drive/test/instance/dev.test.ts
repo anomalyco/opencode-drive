@@ -26,6 +26,7 @@ test("uses standalone mode and inheritable preloads for V2 development checkouts
   const result = await Effect.runPromise(prepareDev(artifacts, root))
 
   expect(result.command.at(-1)).toBe("--standalone")
+  expect(result.scriptedCommand.at(-1)).toBe(join(root, "packages", "cli", "src", "index.ts"))
   expect(result.preloads).toContain("--conditions=browser")
   expect(result.preloads).toContain(
     `--preload=${join(root, "packages", "tui", "node_modules", "@opentui", "solid", "scripts", "preload.js")}`,
