@@ -14,7 +14,7 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
   const root = resolve(directory)
   const entrypoint = join(root, "packages", "cli", "src", "index.ts")
   const solid = join(root, "packages", "tui", "node_modules", "@opentui", "solid")
-  yield* Effect.tryPromise({
+  const standalone = yield* Effect.tryPromise({
     try: async () => {
       if (!(await Bun.file(entrypoint).exists()))
         throw new Error(`OpenCode development entrypoint not found: ${entrypoint}`)
@@ -26,13 +26,18 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
       })
       await rm(preload, { recursive: true, force: true })
       await symlink(solid, preload, "dir")
+      return Bun.file(join(root, "packages", "cli", "src", "services", "standalone.ts")).exists()
     },
     catch: (cause) => instanceError("prepare development checkout", cause),
   })
-  return [
-    process.execPath,
+  const preloads = [
     "--conditions=browser",
-    "--preload=@opentui/solid/preload",
-    entrypoint,
+    `--preload=${join(solid, "scripts", "preload.js")}`,
   ]
+  const base = [process.execPath, ...preloads, entrypoint]
+  return {
+    command: [...base, ...(standalone ? ["--standalone"] : [])],
+    scriptedCommand: base,
+    preloads,
+  }
 })

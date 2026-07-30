@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "../../src/index.js"
+import { defineScript, Llm } from "opencode-drive"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 

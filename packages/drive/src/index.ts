@@ -1,4 +1,5 @@
 export * from "./script/index.js"
+export * as Effect from "effect/Effect"
 export * as Llm from "./llm/index.js"
 export * as OpenCodeDriver from "./driver/index.js"
 export * as Errors from "./script/errors.js"

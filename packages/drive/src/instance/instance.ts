@@ -75,7 +75,7 @@ export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject
   if (options.setup !== undefined) {
     const protectGit =
       Boolean(options.project?.git) || (yield* promise(() => hasGitMetadata(files)))
-    const setup: unknown = options.setup({
+    const setup: Effect.Effect<void, unknown> = options.setup({
       fs: createScriptFileSystem(files, { git: protectGit }),
       config,
       tuiConfig: tui,

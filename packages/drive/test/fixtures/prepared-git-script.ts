@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import { defineScript } from "../../src/index.js"
+import { defineScript } from "opencode-drive"
 import * as Effect from "effect/Effect"
 
 let setupGitError: string | undefined

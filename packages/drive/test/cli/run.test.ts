@@ -15,10 +15,11 @@ describe("opencode-drive run", () => {
   test("type-checks and executes a default-exported Effect", async () => {
     const root = await temporary()
     const marker = join(root, "executed.txt")
+    await Bun.write(join(root, "helper.ts"), 'export const value = "yes\\n"\n')
     const program = await writeProgram(
       root,
       "valid.ts",
-      `import { Effect } from "effect"\nexport default Effect.promise(() => Bun.write(${JSON.stringify(marker)}, "yes\\n"))\n`,
+      `import { Effect } from "effect"\nimport { OpenCodeDriver } from "opencode-drive"\nimport { value } from "./helper.ts"\nvoid OpenCodeDriver\nexport default Effect.promise(() => Bun.write(${JSON.stringify(marker)}, value))\n`,
     )
 
     const child = spawn(["run", program])

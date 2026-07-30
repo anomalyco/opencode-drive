@@ -24,8 +24,9 @@ npx skills add anomalyco/opencode-drive --agent opencode --skill opencode-drive
 ## Effect programs
 
 The primary way to automate OpenCode is a default-exported, fully provided
-Effect. Drive type-checks the module contract before importing it, validates the
-export at runtime, and runs it in the CLI's Effect runtime:
+Effect. Drive type-checks the module contract, compiles the script and its local
+imports against the launching Drive toolchain, then validates and runs the
+export in an isolated Bun process:
 
 ```ts
 // drive.ts
@@ -248,8 +249,7 @@ generated script is ready for `opencode-drive check ./drive.ts` and
 `start --script ./drive.ts`.
 
 ```ts
-import { Effect } from "effect"
-import { defineScript, Llm } from "opencode-drive"
+import { defineScript, Effect, Llm } from "opencode-drive"
 
 export default defineScript({
   config: {
@@ -405,11 +405,11 @@ Type-check every new or edited script before running it:
 opencode-drive check ./drive.ts
 ```
 
-Drive temporarily exposes its script API and `tsgo` beside the script while
-checking, then removes only the links it created. When it detects an old
-Promise-style `setup`, `run`, or `ui.waitFor` callback, it prints the equivalent
-Effect shape after the TypeScript diagnostics. Use `Effect.sleep(milliseconds)`
-for unconditional delays.
+Drive resolves its script API, Effect, Bun declarations, and `tsgo` from the
+launching installation without installing packages or modifying the script's
+directory. When it detects an old Promise-style `setup`, `run`, or `ui.waitFor`
+callback, it prints the equivalent Effect shape after the TypeScript
+diagnostics. Use `Effect.sleep(milliseconds)` for unconditional delays.
 
 The `fs`, `ui`, `llm`, `tools`, `server`, and `tuis` capabilities expose
 Effect-returning operations. Compose them with `yield*`, `Effect.flatMap`, or
@@ -437,8 +437,8 @@ export default defineScript({
 })
 ```
 
-Only one server may be launched per script. All TUIs share its LLM backend. TUI processes and temporary
-script links are cleaned up when the script ends.
+Only one server may be launched per script. All TUIs share its LLM backend. TUI
+processes and compiled script artifacts are cleaned up when the script ends.
 
 `yield* server.kill()` stops the server so it can be launched again later.
 `yield* tui.close()` closes a TUI, after which its name may be reused.

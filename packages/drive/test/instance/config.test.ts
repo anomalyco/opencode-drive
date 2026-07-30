@@ -18,6 +18,21 @@ afterEach(async () => {
 })
 
 describe("instance configuration", () => {
+  test("initializes the simulation provider with the current OpenCode provider shape", async () => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+
+    expect(await Bun.file(join(root, "files", ".opencode", "opencode.jsonc")).json()).toMatchObject({
+      model: "simulation/gpt-sim-model",
+      providers: {
+        simulation: {
+          package: "@opencode-ai/ai/providers/openai/chat",
+          settings: { apiKey: "sim-key" },
+        },
+      },
+    })
+  })
+
   test("merges JSONC fixtures, replaces arrays, applies setup last, and commits normalized files", async () => {
     const root = await initializeInstance()
     artifacts.push(root)

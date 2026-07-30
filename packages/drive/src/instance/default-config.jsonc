@@ -11,14 +11,9 @@
   "providers": {
     "simulation": {
       "name": "Simulation",
-      "package": "aisdk:@ai-sdk/openai-compatible",
+      "package": "@opencode-ai/ai/providers/openai/chat",
       "settings": {
-        "baseURL": "https://api.openai.com/v1"
-      },
-      "request": {
-        "body": {
-          "apiKey": "sim-key"
-        }
+        "apiKey": "sim-key"
       },
       "models": {
         "gpt-sim-model": {

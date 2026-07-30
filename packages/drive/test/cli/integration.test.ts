@@ -121,7 +121,8 @@ describe("opencode-drive", () => {
       permissions: [{ action: "*", resource: "*", effect: "allow" }],
       providers: {
         simulation: {
-          package: "aisdk:@ai-sdk/openai-compatible",
+          package: "@opencode-ai/ai/providers/openai/chat",
+          settings: { apiKey: "sim-key" },
           models: { "gpt-sim-model": { capabilities: { tools: true } } },
         },
       },
@@ -819,7 +820,12 @@ describe("opencode-drive", () => {
     expect(await realpath(await Bun.file(join(artifacts, "child-cwd.txt")).text())).toBe(
       await realpath(join(artifacts, "files")),
     )
-    expect(await Bun.file(join(artifacts, "service-argv.json")).json()).toEqual(["serve", "--service"])
+    expect(await Bun.file(join(artifacts, "service-argv.json")).json()).toEqual([
+      "serve",
+      "--service",
+      "--port",
+      expect.stringMatching(/^\d+$/),
+    ])
     const pid = Number(await Bun.file(join(artifacts, "child.pid")).text())
     expect(running(pid)).toBe(false)
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
@@ -915,7 +921,7 @@ describe("opencode-drive", () => {
     expect(await Bun.file(artifacts).exists()).toBe(false)
   })
 
-  test("checks a typed script and removes temporary dependency links", async () => {
+  test("checks a typed script without modifying its source directory", async () => {
     const root = await temporary()
     const directory = join(root, "scripts")
     await mkdir(directory, { recursive: true })
@@ -967,7 +973,7 @@ describe("opencode-drive", () => {
     expect(status).toBe(0)
     expect(stdout.trim()).toBe(file)
     const source = await Bun.file(file).text()
-    expect(source).toContain('import { defineScript, Llm } from "opencode-drive"')
+    expect(source).toContain('import { defineScript, Effect, Llm } from "opencode-drive"')
     expect(source).toContain('llm.queue(Llm.text("The value is 1."))')
 
     const checked = spawn(["check", file], root)
@@ -1152,12 +1158,11 @@ describe("opencode-drive", () => {
   test.each(["setup", "run"] as const)("rejects a Promise-returning script %s callback", async (callback) => {
     const root = await temporary()
     const script = join(root, `promise-${callback}-script.js`)
-    const drive = JSON.stringify(resolve("src/index.ts"))
     await Bun.write(
       script,
       callback === "setup"
-        ? `import { Effect } from "effect"\nimport { defineScript } from ${drive}\nexport default defineScript({ setup: async () => {}, run: () => Effect.void })\n`
-        : `import { defineScript } from ${drive}\nexport default defineScript({ run: async () => {} })\n`,
+        ? `import { Effect } from "effect"\nimport { defineScript } from "opencode-drive"\nexport default defineScript({ setup: async () => {}, run: () => Effect.void })\n`
+        : `import { defineScript } from "opencode-drive"\nexport default defineScript({ run: async () => {} })\n`,
     )
     const child = spawn(
       [
@@ -1185,7 +1190,7 @@ describe("opencode-drive", () => {
     const script = join(root, "promise-predicate-script.js")
     await Bun.write(
       script,
-      `import { defineScript } from ${JSON.stringify(resolve("src/index.ts"))}\nexport default defineScript({ run: ({ ui }) => ui.waitFor(() => Promise.resolve(false)) })\n`,
+      `import { defineScript } from "opencode-drive"\nexport default defineScript({ run: ({ ui }) => ui.waitFor(() => Promise.resolve(false)) })\n`,
     )
     const child = spawn(
       [
@@ -1420,7 +1425,7 @@ describe("opencode-drive", () => {
     const marker = join(root, "script-interrupted")
     await Bun.write(
       script,
-      `import { Effect } from "effect"\nimport { defineScript } from ${JSON.stringify(resolve("src/index.ts"))}\nexport default defineScript({ run: ({ artifacts }) => Effect.never.pipe(Effect.ensuring(Effect.promise(async () => { const pid = Number(await Bun.file(artifacts + "/child.pid").text()); let running = true; try { process.kill(pid, 0) } catch { running = false }; await Bun.write(${JSON.stringify(marker)}, running ? "child-running\\n" : "child-stopped\\n") }))) })\n`,
+      `import { Effect } from "effect"\nimport { defineScript } from "opencode-drive"\nexport default defineScript({ run: ({ artifacts }) => Effect.never.pipe(Effect.ensuring(Effect.promise(async () => { const pid = Number(await Bun.file(artifacts + "/child.pid").text()); let running = true; try { process.kill(pid, 0) } catch { running = false }; await Bun.write(${JSON.stringify(marker)}, running ? "child-running\\n" : "child-stopped\\n") }))) })\n`,
     )
     const child = spawn(
       [

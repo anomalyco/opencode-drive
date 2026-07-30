@@ -1,7 +1,7 @@
 import { lstat, readdir, rm } from "node:fs/promises"
 import { devNull } from "node:os"
 import { join } from "node:path"
-import { NodeServices } from "@effect/platform-node"
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Effect from "effect/Effect"
 import * as Process from "../instance/process.js"
 import { writeScriptFiles } from "./filesystem.js"
