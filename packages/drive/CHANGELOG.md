@@ -1,5 +1,12 @@
 # opencode-drive
 
+## 1.4.1
+
+### Patch Changes
+
+- 6a8d52b: Prevent concurrent detached launchers from stealing prepared instance ownership and spawning competing daemon processes.
+- d71356f: Restore compatibility with current OpenCode V2 checkouts and packed Drive installations. Drive now uses V2's built-in simulation transport and provider shape, isolates scripted service ports and command forms, and compiles standalone scripts against the launching Drive toolchain without package installation or source-directory links.
+
 ## 1.4.0
 
 ### Minor Changes
