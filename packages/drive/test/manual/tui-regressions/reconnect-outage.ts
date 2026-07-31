@@ -1,4 +1,4 @@
-import { defineScript } from "../../../src/index.js"
+import { defineScript } from "opencode-drive"
 import { Effect } from "effect"
 
 const outage = Number(process.env.OPENCODE_DRIVE_OUTAGE_MS ?? 20_000)

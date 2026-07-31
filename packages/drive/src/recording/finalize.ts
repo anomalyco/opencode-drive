@@ -1,4 +1,4 @@
-import { exportRecording, type ExportRecordingOptions } from "./export.js"
+import type { ExportRecordingOptions } from "./export.js"
 
 export interface RecordingPaths {
   readonly timeline: string
@@ -14,6 +14,7 @@ export async function finalizeRecording(
     throw new Error(`OpenCode returned an unexpected recording path: ${timeline}`)
   if (!(await Bun.file(timeline).exists()))
     throw new Error(`OpenCode recording timeline was not created: ${timeline}`)
+  const { exportRecording } = await import("./export.js")
   await exportRecording(timeline, expected.video, options)
   return expected.video
 }

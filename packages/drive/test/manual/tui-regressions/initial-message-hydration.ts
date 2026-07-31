@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "../../../src/index.js"
+import { defineScript, Llm } from "opencode-drive"
 import { Effect } from "effect"
 
 const attempts = Number(process.env.OPENCODE_DRIVE_ATTEMPTS ?? 20)

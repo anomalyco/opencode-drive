@@ -1,4 +1,4 @@
-import type { Ui } from "../../../src/index.js"
+import type { Ui } from "opencode-drive"
 import { Effect, Exit, Random } from "effect"
 
 export interface Context {

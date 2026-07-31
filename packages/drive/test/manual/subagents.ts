@@ -1,4 +1,4 @@
-import { defineScript, Llm, type JsonValue, type Ui } from "../../src/index.js"
+import { defineScript, Llm, type JsonValue, type Ui } from "opencode-drive"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 

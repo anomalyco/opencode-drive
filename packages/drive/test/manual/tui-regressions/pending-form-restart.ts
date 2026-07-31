@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "../../../src/index.js"
+import { defineScript, Llm } from "opencode-drive"
 import { Effect } from "effect"
 
 const question = {
