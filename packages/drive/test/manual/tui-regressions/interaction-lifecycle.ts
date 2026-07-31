@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "opencode-drive"
+import { defineScript, Llm } from "../../../src/index.js"
 import { Effect } from "effect"
 
 const prompt = "submitted-message-must-render-before-the-model-responds"

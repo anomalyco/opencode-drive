@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "opencode-drive"
+import { defineScript, Llm } from "../../../src/index.js"
 import { Deferred, Effect, Schedule, Stream } from "effect"
 
 const shellCallID = "call_multi_shell"

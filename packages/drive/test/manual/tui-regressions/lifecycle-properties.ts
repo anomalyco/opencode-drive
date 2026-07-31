@@ -1,4 +1,5 @@
-import { defineScript, Llm, type OpenCode } from "opencode-drive"
+import { defineScript, Llm } from "../../../src/index.js"
+import type { OpenCode } from "../../../src/index.js"
 import { Deferred, Effect, Queue, Stream } from "effect"
 import { run } from "./state-machine.js"
 

@@ -1,4 +1,4 @@
-import { defineScript, Llm } from "opencode-drive"
+import { defineScript, Llm } from "../../../src/index.js"
 import { Config, Effect } from "effect"
 
 export default defineScript({
