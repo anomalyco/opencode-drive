@@ -962,6 +962,28 @@ describe("opencode-drive", () => {
     expect(await promiseError).toContain("Effect.gen(function* ()")
   }, 60_000)
 
+  test("runs a script imported from the Drive source checkout", async () => {
+    const root = await temporary()
+    const name = "source-script-test"
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        name,
+        "--script",
+        fixture("source-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+
+    expect(status).toBe(0)
+    expect(stderr).not.toContain("Failed to register capture font")
+  }, 10_000)
+
   test("creates a type-checkable Effect script without overwriting it", async () => {
     const root = await temporary()
     const file = join(root, "scripts", "drive.ts")
