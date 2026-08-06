@@ -13,7 +13,7 @@ import { RpcClientError } from "effect/unstable/rpc"
 import {
   SimulationCompatibilityError,
   SimulationConnectionError,
-  type BackendConnection,
+  type BackendConnection as SimulationBackendConnection,
 } from "../simulation/connector.js"
 import { Backend } from "../simulation/protocol.js"
 import { SimulationRequestError } from "../simulation/rpc.js"
@@ -31,13 +31,25 @@ export interface BackendAttachment {
   readonly detach: () => Effect.Effect<void>
 }
 
+export type BackendConnection = Pick<
+  SimulationBackendConnection,
+  | "endpoint"
+  | "toolEvents"
+  | "flushToolEvents"
+  | "closed"
+  | "attachTools"
+  | "updateTool"
+  | "finishTool"
+  | "failTool"
+>
+
 export interface Controller {
   readonly controls: DynamicControls
   readonly connect: (backend: BackendConnection) => Effect.Effect<BackendAttachment, LifecycleError>
-  readonly connectFrom: <E, R>(
-    backend: Effect.Effect<BackendConnection, E, R>,
+  readonly connectFrom: <B extends BackendConnection, E, R>(
+    backend: Effect.Effect<B, E, R>,
   ) => Effect.Effect<
-    { readonly backend: BackendConnection; readonly attachment: BackendAttachment },
+    { readonly backend: B; readonly attachment: BackendAttachment },
     E | LifecycleError,
     R
   >
