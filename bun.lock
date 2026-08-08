@@ -31,7 +31,7 @@
     },
     "packages/drive": {
       "name": "opencode-drive",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "bin": {
         "opencode-drive": "bin/opencode-drive",
       },
@@ -39,7 +39,7 @@
         "@effect/platform-node": "4.0.0-beta.101",
         "@effect/platform-node-shared": "4.0.0-beta.101",
         "@napi-rs/canvas": "1.0.2",
-        "@opencode-ai/client": "0.0.0-next-16543",
+        "@opencode-ai/client": "0.0.0-next-17010",
         "@opentui/core": "0.4.5",
         "@types/bun": "1.3.13",
         "@typescript/native-preview": "7.0.0-dev.20251207.1",
@@ -168,11 +168,11 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@opencode-ai/client": ["@opencode-ai/client@0.0.0-next-16543", "", { "dependencies": { "@opencode-ai/protocol": "0.0.0-next-16543", "@opencode-ai/schema": "0.0.0-next-16543" }, "peerDependencies": { "effect": "4.0.0-beta.101" }, "optionalPeers": ["effect"] }, "sha512-TjVOLtl2P5/63mTxTRb0WF9IYrPEJwKvUKEMkeII/AHqkH/QmSMmIZjRJyHQMgc5QBC8qtw+hm8WRiCiudu6qw=="],
+    "@opencode-ai/client": ["@opencode-ai/client@0.0.0-next-17010", "", { "dependencies": { "@opencode-ai/protocol": "0.0.0-next-17010", "@opencode-ai/schema": "0.0.0-next-17010" }, "peerDependencies": { "effect": "4.0.0-beta.101" }, "optionalPeers": ["effect"] }, "sha512-NrmgWgWyf86J+WS9C1XYHyv7pg3Dc73+0tCEeft+UNEV5j4oeEycaWyQ9bi9qKBeSwe9UrMgA7pN9ogkyA3iRQ=="],
 
-    "@opencode-ai/protocol": ["@opencode-ai/protocol@0.0.0-next-16543", "", { "dependencies": { "@opencode-ai/schema": "0.0.0-next-16543", "effect": "4.0.0-beta.101" } }, "sha512-SIYM15csEIf2wtrVCM3Eg3+SCvG66gyjrckqEeTtrfntqAVH5+M9Yce5oefQyZr5vKL+akGzjX5ywsgMqb4DlA=="],
+    "@opencode-ai/protocol": ["@opencode-ai/protocol@0.0.0-next-17010", "", { "dependencies": { "@opencode-ai/schema": "0.0.0-next-17010", "effect": "4.0.0-beta.101" } }, "sha512-Tg0hKjO3xi0IWNb5nECzqanfuOCx/bEls9gbJ1fw1JdIHGYY4Ug6kMpr+6pTrte+Mo/8yOOOrrpDek1VHPl4Nw=="],
 
-    "@opencode-ai/schema": ["@opencode-ai/schema@0.0.0-next-16543", "", { "dependencies": { "@standard-schema/spec": "1.1.0", "effect": "4.0.0-beta.101" } }, "sha512-X29NyL9urulLSRKjVFukqR6zFdW7uPcdnaup1L3JH46RL0NQIfnXPTpqC/tFBhbu6S4LlhP/SsfKj56ncvPVKQ=="],
+    "@opencode-ai/schema": ["@opencode-ai/schema@0.0.0-next-17010", "", { "dependencies": { "@standard-schema/spec": "1.1.0", "effect": "4.0.0-beta.101" } }, "sha512-K0ZDy1o2NgyBTHsE6JjGuZdRMcvb8tgJstBwh5xh0gawohcKPT7mYo1XNe7p2okPCVBQMduG41Dq5rV46ZdHJw=="],
 
     "@opencode-drive/catalog": ["@opencode-drive/catalog@workspace:apps/catalog"],
 

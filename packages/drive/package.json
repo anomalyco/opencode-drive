@@ -61,7 +61,7 @@
     "@effect/platform-node": "4.0.0-beta.101",
     "@effect/platform-node-shared": "4.0.0-beta.101",
     "@napi-rs/canvas": "1.0.2",
-    "@opencode-ai/client": "0.0.0-next-16543",
+    "@opencode-ai/client": "0.0.0-next-17010",
     "@opentui/core": "0.4.5",
     "@types/bun": "1.3.13",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",

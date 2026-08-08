@@ -30,7 +30,7 @@ export default defineScript({
       yield* opencode.event.subscribe().pipe(
         Stream.runForEach((event) => {
           if (event.type === "session.tool.success" || event.type === "session.tool.failed")
-            toolSettlements.push(`${event.type}:${event.data.callID}`)
+            toolSettlements.push(`${event.type}:${event.data.id}`)
           if (event.type === "session.execution.interrupted")
             return Deferred.succeed(executionInterrupted, undefined).pipe(Effect.asVoid)
           return Effect.void
@@ -92,13 +92,13 @@ export default defineScript({
         opencode.permission.list({ sessionID }).pipe(
           Effect.map((items) => {
             const questionPermission = items.find(
-              (item) => item.source?.type === "tool" && item.source.callID === questionCallID,
+              (item) => item.source?.type === "tool" && item.source.id === questionCallID,
             )
             const readPermission = items.find(
-              (item) => item.source?.type === "tool" && item.source.callID === readCallID,
+              (item) => item.source?.type === "tool" && item.source.id === readCallID,
             )
             const globPermission = items.find(
-              (item) => item.source?.type === "tool" && item.source.callID === globCallID,
+              (item) => item.source?.type === "tool" && item.source.id === globCallID,
             )
             return questionPermission && readPermission && globPermission
               ? { question: questionPermission, read: readPermission, glob: globPermission }

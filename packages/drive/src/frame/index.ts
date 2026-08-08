@@ -62,6 +62,27 @@ export const BlockGlyphs: Record<string, GlyphRect> = {
   "╹": { x: CellWidth / 2 - 1, y: 0, width: 2, height: CellHeight / 2, stretch: false },
 }
 
+const lightBoxGlyphs: Record<
+  string,
+  readonly [up: boolean, right: boolean, down: boolean, left: boolean]
+> = {
+  "─": [false, true, false, true],
+  "│": [true, false, true, false],
+  "┌": [false, true, true, false],
+  "┐": [false, false, true, true],
+  "└": [true, true, false, false],
+  "┘": [true, false, false, true],
+  "├": [true, true, true, false],
+  "┤": [true, false, true, true],
+  "┬": [false, true, true, true],
+  "┴": [true, true, false, true],
+  "┼": [true, true, true, true],
+  "╭": [false, true, true, false],
+  "╮": [false, false, true, true],
+  "╰": [true, true, false, false],
+  "╯": [true, false, false, true],
+}
+
 const diagonalBlockGlyphs: Record<string, ReadonlyArray<Omit<GlyphRect, "stretch">>> = {
   "▚": [
     { x: 0, y: 0, width: CellWidth / 2, height: CellHeight / 2 },
@@ -92,6 +113,26 @@ export const drawBlockGlyph = (
       ? glyph.width + (cells - 1) * CellWidth
       : glyph.width
     context.fillRect(x + glyph.x, y + glyph.y, width, glyph.height)
+    return true
+  }
+  const box = lightBoxGlyphs[char]
+  if (box !== undefined) {
+    const lineX = CellWidth / 2 - 1
+    const lineY = CellHeight / 2 - 1
+    const vertical = box[0] || box[2]
+    if (vertical) {
+      const top = box[0] ? 0 : lineY
+      const bottom = box[2] ? CellHeight : lineY + 1
+      context.fillRect(x + lineX, y + top, 1, bottom - top)
+    }
+    if (!vertical && (box[1] || box[3])) {
+      const left = box[3] ? 0 : lineX
+      const right = box[1] ? CellWidth : lineX + 1
+      context.fillRect(x + left, y + lineY, right - left, 1)
+    } else {
+      if (box[3]) context.fillRect(x, y + lineY, lineX, 1)
+      if (box[1]) context.fillRect(x + lineX + 1, y + lineY, CellWidth - lineX - 1, 1)
+    }
     return true
   }
   const quadrants = diagonalBlockGlyphs[char]
