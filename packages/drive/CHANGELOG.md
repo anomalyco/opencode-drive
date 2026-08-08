@@ -1,5 +1,12 @@
 # opencode-drive
 
+## 1.4.2
+
+### Patch Changes
+
+- b524213: Render light box-drawing borders as continuous geometric primitives.
+- a24a09d: Defer recording font initialization so source-checkout scripts can start without loading a duplicate renderer.
+
 ## 1.4.1
 
 ### Patch Changes
