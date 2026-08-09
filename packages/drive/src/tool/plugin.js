@@ -7,18 +7,26 @@ const descriptions = {
   shell: "Executes a shell command.",
   webfetch: "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML.",
   websearch: "Search the web using the session's local web search provider.",
+  write: "Writes a file to the local filesystem, overwriting if one exists.",
 }
 
 class ToolFailure extends Schema.TaggedErrorClass()("LLM.ToolFailure", {
   message: Schema.String,
 }) {}
 
+const content = (result) => [
+  { type: "text", text: result.output },
+  ...(result.status === "running" ? [{ type: "text", text: BACKGROUND_INSTRUCTION }] : []),
+]
+
 const output = (result) => ({
+  output: result,
+  content: content(result),
+})
+
+const progress = (result) => ({
   structured: result,
-  content: [
-    { type: "text", text: result.output },
-    ...(result.status === "running" ? [{ type: "text", text: BACKGROUND_INSTRUCTION }] : []),
-  ],
+  content: content(result),
 })
 
 const failure = (cause) =>
@@ -92,7 +100,7 @@ const execute = (ctx, scope, options, name, input, context) =>
           },
           body: JSON.stringify({
             input,
-            context: { callID: context.callID },
+            context: { callID: context.id },
           }),
           signal,
         }),
@@ -125,7 +133,7 @@ const execute = (ctx, scope, options, name, input, context) =>
               buffer = buffer.slice(newline + 1)
               if (!line) continue
               const event = yield* parse(line)
-              if (event.type === "progress") yield* context.progress(output(event.result))
+              if (event.type === "progress") yield* context.progress(progress(event.result))
               if (event.type === "success") result = event.result
               if (event.type === "failure")
                 return yield* new ToolFailure({ message: event.message })
@@ -151,15 +159,13 @@ export default {
       const scope = yield* Scope.Scope
       yield* ctx.tool.transform((tools) => {
         for (const name of ctx.options.tools) {
-          tools.add(
+          tools.add({
             name,
-            {
-              description: descriptions[name],
-              jsonSchema: ctx.options.schemas[name],
-              execute: (input, context) => execute(ctx, scope, ctx.options, name, input, context),
-            },
-            { codemode: false },
-          )
+            description: descriptions[name],
+            input: ctx.options.schemas[name],
+            options: { codemode: false },
+            execute: (input, context) => execute(ctx, scope, ctx.options, name, input, context),
+          })
         }
       })
     }),

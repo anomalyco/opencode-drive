@@ -20,6 +20,8 @@ import {
   WebFetchResult,
   WebSearchInput,
   WebSearchResult,
+  WriteInput,
+  WriteResult,
   type Configuration,
   type ControlledCall,
   type ControlledCalls,
@@ -32,9 +34,10 @@ import {
   type ShellHandler,
   type WebFetchHandler,
   type WebSearchHandler,
+  type WriteHandler,
 } from "./types.js"
 
-type Result = ShellResult | WebFetchResult | WebSearchResult
+type Result = ShellResult | WebFetchResult | WebSearchResult | WriteResult
 type Event =
   | { readonly type: "progress"; readonly result: Result }
   | { readonly type: "success"; readonly result: Result }
@@ -51,7 +54,7 @@ type BackgroundJob = {
   readonly cancel: () => void
 }
 type Definition = {
-  readonly schema: typeof ShellInput | typeof WebFetchInput | typeof WebSearchInput
+  readonly schema: typeof ShellInput | typeof WebFetchInput | typeof WebSearchInput | typeof WriteInput
   readonly invoke: (
     input: unknown,
     index: number,
@@ -134,6 +137,7 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
   function handle(name: "shell", handler: ShellHandler): void
   function handle(name: "webfetch", handler: WebFetchHandler): void
   function handle(name: "websearch", handler: WebSearchHandler): void
+  function handle(name: "write", handler: WriteHandler): void
   function handle(...registration: Registration) {
     switch (registration[0]) {
       case "shell": {
@@ -188,6 +192,24 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
               return yield* Schema.decodeUnknownEffect(WebSearchResult)(result)
             }),
         })
+        return
+      }
+      case "write": {
+        const handler = registration[1]
+        add("write", {
+          schema: WriteInput,
+          invoke: (raw, index, id, progress) =>
+            Effect.gen(function* () {
+              const input = yield* Schema.decodeUnknownEffect(WriteInput)(raw)
+              const result = yield* handler({
+                id,
+                input,
+                index,
+                progress: (value) => progress(typeof value === "string" ? { output: value } : value),
+              })
+              return yield* Schema.decodeUnknownEffect(WriteResult)(result)
+            }),
+        })
       }
     }
   }
@@ -214,6 +236,13 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
           const controlled = makeControlledHandler<WebSearchInput, WebSearchResult>("websearch")
           handle("websearch", controlled.handler)
           controlledCalls.websearch = controlled.calls
+          closeControls.push(controlled.close)
+          break
+        }
+        case "write": {
+          const controlled = makeControlledHandler<WriteInput, WriteResult>("write")
+          handle("write", controlled.handler)
+          controlledCalls.write = controlled.calls
           closeControls.push(controlled.close)
           break
         }

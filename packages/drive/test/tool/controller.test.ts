@@ -9,9 +9,10 @@ import plugin from "../../src/tool/plugin.js"
 import type { OpenCodeConfig } from "../../src/script/types.js"
 
 interface RegisteredTool {
+  readonly name: string
   readonly execute: (
     input: unknown,
-    context: { readonly sessionID: string; readonly callID: string },
+    context: { readonly sessionID: string; readonly id: string },
   ) => Effect.Effect<{
     readonly structured: unknown
     readonly content: ReadonlyArray<{ readonly type: string; readonly text: string }>
@@ -403,7 +404,7 @@ it.effect("interrupts claimed calls when the controller scope closes", () =>
   }),
 )
 
-it.effect("routes typed webfetch and websearch handlers independently", () =>
+it.effect("routes typed webfetch, websearch, and write handlers independently", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const controller = yield* ToolController.make((tools) => {
@@ -413,13 +414,16 @@ it.effect("routes typed webfetch and websearch handlers independently", () =>
         tools.handle("websearch", ({ input, index }) =>
           Effect.succeed({ output: `${index}:${input.query}`, provider: "exa" }),
         )
+        tools.handle("write", ({ input, index }) =>
+          Effect.succeed({ output: `${index}:${input.path}:${input.content}` }),
+        )
       })
       const config: OpenCodeConfig = {}
       controller.configure(config)
       const injected = (config.plugins as Array<{
         options: { endpoint: string; token: string; tools: string[] }
       }>)[0]!
-      expect(injected.options.tools).toEqual(["webfetch", "websearch"])
+      expect(injected.options.tools).toEqual(["webfetch", "websearch", "write"])
 
       const invoke = (name: string, input: unknown) =>
         Effect.promise(async () => {
@@ -447,6 +451,12 @@ it.effect("routes typed webfetch and websearch handlers independently", () =>
         {
           type: "success",
           result: { output: "0:effect typescript", provider: "exa" },
+        },
+      ])
+      expect(yield* invoke("write", { path: "src/a.ts", content: "export const a = 1\n" })).toEqual([
+        {
+          type: "success",
+          result: { output: "0:src/a.ts:export const a = 1\n" },
         },
       ])
     }),
@@ -673,11 +683,11 @@ it.effect("notifies OpenCode when a registered background shell completes", () =
       yield* plugin.effect({
         options,
         tool: {
-          transform: (register: (tools: { add: (name: string, tool: RegisteredTool) => void }) => void) =>
+          transform: (register: (tools: { add: (tool: RegisteredTool) => void }) => void) =>
             Effect.sync(() =>
               register({
-                add: (name, tool) => {
-                  if (name === "shell") shell = tool
+                add: (tool) => {
+                  if (tool.name === "shell") shell = tool
                 },
               }),
             ),
@@ -690,10 +700,10 @@ it.effect("notifies OpenCode when a registered background shell completes", () =
 
       const started = yield* shell.execute(
         { command: "plugin", background: true },
-        { sessionID: "ses_plugin", callID: "call_plugin" },
+        { sessionID: "ses_plugin", id: "call_plugin" },
       )
       expect(started).toEqual({
-        structured: {
+        output: {
           output: "The command was moved to the background.",
           shellID: "call_plugin",
           status: "running",
@@ -869,11 +879,11 @@ it.effect("interrupts a handler with its plugin execution", () =>
       yield* plugin.effect({
         options,
         tool: {
-          transform: (register: (tools: { add: (name: string, tool: RegisteredTool) => void }) => void) =>
+          transform: (register: (tools: { add: (tool: RegisteredTool) => void }) => void) =>
             Effect.sync(() =>
               register({
-                add: (name, tool) => {
-                  if (name === "shell") shell = tool
+                add: (tool) => {
+                  if (tool.name === "shell") shell = tool
                 },
               }),
             ),
@@ -886,7 +896,7 @@ it.effect("interrupts a handler with its plugin execution", () =>
 
       const execution = yield* shell.execute(
         { command: "wait" },
-        { sessionID: "ses_interrupt", callID: "call_interrupt" },
+        { sessionID: "ses_interrupt", id: "call_interrupt" },
       ).pipe(Effect.forkScoped)
       yield* Effect.promise(() => started.promise)
       yield* Fiber.interrupt(execution)
