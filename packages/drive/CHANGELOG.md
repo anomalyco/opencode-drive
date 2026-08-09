@@ -1,5 +1,11 @@
 # opencode-drive
 
+## 1.4.3
+
+### Patch Changes
+
+- 99561ad: Restore controlled tools against the current V2 plugin API and add typed runtime control for write calls.
+
 ## 1.4.2
 
 ### Patch Changes
