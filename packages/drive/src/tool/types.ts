@@ -61,12 +61,23 @@ export const WebSearchResult = Schema.Struct({
 })
 export interface WebSearchResult extends Schema.Schema.Type<typeof WebSearchResult> {}
 
+export const WriteInput = Schema.Struct({
+  path: Schema.String.annotate({ description: "Path to the file to write to" }),
+  content: Schema.String.annotate({ description: "Content to write to the file" }),
+})
+export interface WriteInput extends Schema.Schema.Type<typeof WriteInput> {}
+
+export const WriteResult = Schema.Struct({
+  output: Schema.String,
+})
+export interface WriteResult extends Schema.Schema.Type<typeof WriteResult> {}
+
 export class Failure extends Schema.TaggedErrorClass<Failure>()(
   "OpenCodeDrive.ToolFailure",
   { message: Schema.String },
 ) {}
 
-export const Name = Schema.Literals(["shell", "webfetch", "websearch"])
+export const Name = Schema.Literals(["shell", "webfetch", "websearch", "write"])
 export type Name = typeof Name.Type
 export const Names = Schema.Array(Name)
 
@@ -102,11 +113,13 @@ export type Handler<Input, Result> = (
 export type ShellHandler = Handler<ShellInput, ShellResult>
 export type WebFetchHandler = Handler<WebFetchInput, WebFetchResult>
 export type WebSearchHandler = Handler<WebSearchInput, WebSearchResult>
+export type WriteHandler = Handler<WriteInput, WriteResult>
 
 export interface ToolTypes {
   readonly shell: { readonly input: ShellInput; readonly result: ShellResult }
   readonly webfetch: { readonly input: WebFetchInput; readonly result: WebFetchResult }
   readonly websearch: { readonly input: WebSearchInput; readonly result: WebSearchResult }
+  readonly write: { readonly input: WriteInput; readonly result: WriteResult }
 }
 
 export type HandlerFor<Tool extends Name> = Handler<
