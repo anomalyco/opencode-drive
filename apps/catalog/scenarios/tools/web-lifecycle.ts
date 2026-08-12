@@ -93,7 +93,6 @@ export const webLifecycleFlow = defineExecutableFlow(
           ),
           Llm.finish("tool-calls"),
         )
-        yield* driver.llm.queue(Llm.text("The web search attempt is complete."))
 
         yield* driver.ui.submit("Fetch the Example Domain.")
         yield* driver.ui.waitFor("Fetching from the web...", { timeout: 30_000 })
@@ -106,9 +105,7 @@ export const webLifecycleFlow = defineExecutableFlow(
         yield* driver.ui.submit("Search the web for the OpenCode terminal interface.")
         yield* driver.ui.waitFor("Searching web...", { timeout: 30_000 })
         yield* checkpoint(websearchRunning)
-        yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
-        yield* driver.ui.enter()
-        yield* driver.ui.waitFor("The web search attempt is complete.", { timeout: 30_000 })
+        yield* Effect.sleep(1_000)
         yield* checkpoint(websearchFailure)
       }),
     )

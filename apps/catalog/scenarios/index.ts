@@ -19,7 +19,7 @@ export const executableScenarios = [
   executableScenario(searchLifecycleFlow),
   executableScenario(webLifecycleFlow),
   executableScenario(assistantLifecycleFlow, { clientIsolation: "isolated" }),
-  executableScenario(questionLifecycleFlow),
+  executableScenario(questionLifecycleFlow, { clientIsolation: "isolated" }),
   executableScenario(readLifecycleFlow, { clientIsolation: "isolated" }),
   executableScenario(patchFileChangesFlow),
   executableScenario(sessionTabsFlow, { clientIsolation: "isolated" }),

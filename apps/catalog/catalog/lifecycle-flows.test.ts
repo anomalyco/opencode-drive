@@ -56,7 +56,7 @@ describe("catalog lifecycle scenarios", () => {
 
   test("isolates scenarios that cannot safely reset their TUI client", () => {
     expect(executableScenarios.filter((scenario) => scenario.clientIsolation === "isolated").map((scenario) => scenario.id))
-      .toEqual(["assistant-lifecycle", "read-file-lifecycle", "session-tabs-lifecycle"])
+      .toEqual(["assistant-lifecycle", "question-lifecycle", "read-file-lifecycle", "session-tabs-lifecycle"])
   })
 
   test("builds the shared capture and reproduce driver runtime", () => {

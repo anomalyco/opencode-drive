@@ -42,6 +42,9 @@ export function catalogScenarioRuntime(options: {
           return { output: "catalog shell success\n", exit: 0 }
         }),
       )
+      tools.handle("websearch", () =>
+        Effect.fail(new Tool.Failure({ message: "catalog web search provider failure" })),
+      )
     },
     setup:
       options.theme === undefined

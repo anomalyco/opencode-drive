@@ -97,6 +97,18 @@ export const shellLifecycleFlow = defineExecutableFlow(
           ),
           Llm.finish("tool-calls"),
         )
+        yield* driver.llm.queue(Llm.text("The successful shell command completed."))
+
+        yield* driver.ui.submit("Run one successful foreground shell command.")
+        yield* Effect.sleep(250)
+        yield* checkpoint(thinkingStreaming)
+        yield* driver.ui.waitFor("Writing command...", { timeout: 15_000 })
+        yield* checkpoint(inputStreaming)
+        yield* driver.ui.waitFor("printf catalog-shell-success", { timeout: 15_000 })
+        yield* checkpoint(outputStreaming)
+        yield* driver.ui.waitFor("The successful shell command completed.", { timeout: 15_000 })
+        yield* checkpoint(succeeded)
+
         yield* driver.llm.queue(
           Llm.toolCall({
             index: 0,
@@ -107,17 +119,8 @@ export const shellLifecycleFlow = defineExecutableFlow(
           Llm.finish("tool-calls"),
         )
         yield* driver.llm.queue(Llm.text("The shell lifecycle is complete."))
-
-        yield* driver.ui.submit("Run one successful foreground shell command, then one failing command.")
-        yield* Effect.sleep(250)
-        yield* checkpoint(thinkingStreaming)
-        yield* driver.ui.waitFor("Writing command...", { timeout: 15_000 })
-        yield* checkpoint(inputStreaming)
-        yield* driver.ui.waitFor("streamed output: printf catalog-shell-success", { timeout: 15_000 })
-        yield* checkpoint(outputStreaming)
-        yield* driver.ui.waitFor("catalog shell success", { timeout: 15_000 })
-        yield* checkpoint(succeeded)
-        yield* driver.ui.waitFor("catalog shell failure", { timeout: 15_000 })
+        yield* driver.ui.submit("Now run one failing foreground shell command.")
+        yield* driver.ui.waitFor("The shell lifecycle is complete.", { timeout: 15_000 })
         yield* checkpoint(failed)
       }),
     )

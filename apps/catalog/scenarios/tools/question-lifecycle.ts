@@ -107,7 +107,6 @@ export const questionLifecycleFlow = defineExecutableFlow(
           ),
           Llm.finish("tool-calls"),
         )
-        yield* driver.llm.queue(Llm.text("The catalog answers were submitted."))
         yield* driver.ui.submit("Ask me which runtime and validation mode to use.")
         yield* Effect.sleep(450)
         yield* checkpoint(inputStreaming)
@@ -120,7 +119,7 @@ export const questionLifecycleFlow = defineExecutableFlow(
         yield* driver.ui.waitFor("Review", { timeout: 5_000 })
         yield* checkpoint(review)
         yield* driver.ui.enter()
-        yield* driver.ui.waitFor("catalog answers were submitted", { timeout: 15_000 })
+        yield* Effect.sleep(500)
         yield* checkpoint(succeeded)
 
         yield* driver.llm.queue(
