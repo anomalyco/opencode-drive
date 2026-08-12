@@ -20,6 +20,7 @@ export const flowGroups = defineFlows(screens, {
   "session-management": {
     label: "Session management",
     flows: {
+      ...executableFlowDefinitions("session-management"),
       "switching-sessions": {
         title: "Switching sessions",
         description: "Find an existing conversation and resume it from the session picker.",
@@ -59,17 +60,6 @@ export const flowGroups = defineFlows(screens, {
     label: "Tool use",
     flows: {
       ...executableFlowDefinitions("tool-use"),
-      "approving-a-tool-call": {
-        title: "Approving a tool call",
-        description: "Review a requested operation and choose its permission scope.",
-        steps: [
-          {
-            capture: "permission-prompt",
-            title: "Review and approve the request",
-            trigger: "Choose Allow once or Allow always",
-          },
-        ],
-      },
       "answering-a-question": {
         title: "Answering an agent question",
         description: "Respond to a structured question without leaving the conversation.",

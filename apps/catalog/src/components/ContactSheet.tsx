@@ -120,7 +120,7 @@ export function ContactSheet({
                     >
                       <CaptureContextMenu identifier={screen.id} deepLink={deepLinkFor(screen.id)}>
                         <span className="capture-frame">
-                          <TerminalFrame frame={frame} label={screen.title} lazy />
+                          <TerminalFrame frame={frame} label={screen.title} />
                         </span>
                       </CaptureContextMenu>
                     </button>

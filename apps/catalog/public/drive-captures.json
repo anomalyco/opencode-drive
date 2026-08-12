@@ -3,6 +3,14 @@
   "generatedBy": "scripts/capture-opencode-drive.ts",
   "variants": [
     {
+      "id": "2a0ccdbfd458",
+      "label": "2a0ccdb",
+      "source": "opencode",
+      "revision": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "ref": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "committedAt": "2026-08-12T12:45:43-04:00"
+    },
+    {
       "id": "f05d2ab551fb",
       "label": "f05d2ab",
       "source": "opencode",
@@ -446,6 +454,12 @@
       "category": "session",
       "frames": [
         {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/patch-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/patch-input-streaming.frame.json",
           "cols": 118,
@@ -477,6 +491,12 @@
       "category": "session",
       "frames": [
         {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/permission-prompt.frame.json",
           "cols": 118,
@@ -507,6 +527,12 @@
       "title": "Patch succeeded",
       "category": "session",
       "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
         {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/patch-success.frame.json",
@@ -1391,6 +1417,84 @@
         {
           "variantId": "5d5b33f195cc",
           "src": "captures/5d5b33f195cc/subagent-session.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-always-selected",
+      "title": "Permission prompt (always selected)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-always-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-always-confirmation",
+      "title": "Always allow confirmation",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-always-confirmation.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-reject-selected",
+      "title": "Permission prompt (reject selected)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-reject-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-fullscreen",
+      "title": "Permission prompt (fullscreen)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-fullscreen.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-tabs-running",
+      "title": "Session tabs (running)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/session-tabs-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-tabs-idle",
+      "title": "Session tabs (idle)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/session-tabs-idle.frame.json",
           "cols": 118,
           "rows": 34
         }

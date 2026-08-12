@@ -4,7 +4,7 @@ Production: <https://catalog.kitlangton.dev>
 
 Capture a reproducible catalog of OpenCode terminal states from local checkouts, browse every state in one web app, and flip between themes or branches without changing the selected screen.
 
-The catalog currently contains 57 scripted states covering navigation, sessions, assistant responses, questions, subagents, shell, file patches, reads, project search, web tools, permissions, toasts, and review surfaces.
+The catalog currently contains 63 scripted states covering navigation, sessions, assistant responses, questions, subagents, shell, file patches, reads, project search, web tools, permissions, toasts, and review surfaces.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ The catalog currently contains 57 scripted states covering navigation, sessions,
 ## Install
 
 ```bash
-gh repo clone anomalyco/opencode-catalog
-cd opencode-catalog
+gh repo clone anomalyco/opencode-drive
+cd opencode-drive/apps/catalog
 bun install
 ```
 

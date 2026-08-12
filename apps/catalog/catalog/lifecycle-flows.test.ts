@@ -3,6 +3,8 @@ import { executableFlows, executableScenarios, executableStates } from "../scena
 import { catalogScenarioRuntime, catalogViewport } from "../scenarios/runtime"
 import { shellLifecycleFlow } from "../scenarios/tools/shell-lifecycle"
 import { subagentLifecycleFlow } from "../scenarios/subagents/subagent-lifecycle"
+import { sessionTabsFlow } from "../scenarios/session-tabs"
+import { patchSuccessFlow } from "../scenarios/tools/patch-success"
 import { flowGroups } from "./authored/flows"
 import { screens } from "./authored/screens"
 
@@ -20,6 +22,13 @@ describe("catalog lifecycle scenarios", () => {
       "subagent-lifecycle/subagent-completed",
       "subagent-lifecycle/subagent-session",
     ])
+    expect(sessionTabsFlow.states.map((state) => state.address)).toEqual([
+      "session-tabs-lifecycle/session-tabs-running",
+      "session-tabs-lifecycle/session-tabs-idle",
+    ])
+    expect(patchSuccessFlow.states.map((state) => state.address)).toContain(
+      "patch-success-lifecycle/permission-fullscreen",
+    )
     expect(executableFlows).toContain(shellLifecycleFlow)
     expect(executableFlows).toContain(subagentLifecycleFlow)
     expect(executableStates.map((state) => state.address)).toContain("shell-lifecycle/shell-execute-failed")
@@ -37,6 +46,7 @@ describe("catalog lifecycle scenarios", () => {
     }
     expect(flowGroups["tool-use"].flows["shell-lifecycle"].replayable).toBe(true)
     expect(flowGroups.subagents.flows["subagent-lifecycle"].replayable).toBe(true)
+    expect(flowGroups["session-management"].flows["session-tabs-lifecycle"].replayable).toBe(true)
   })
 
   test("declares the one dynamic response-mode scenario", () => {
@@ -46,7 +56,7 @@ describe("catalog lifecycle scenarios", () => {
 
   test("isolates scenarios that cannot safely reset their TUI client", () => {
     expect(executableScenarios.filter((scenario) => scenario.clientIsolation === "isolated").map((scenario) => scenario.id))
-      .toEqual(["assistant-lifecycle", "read-file-lifecycle"])
+      .toEqual(["assistant-lifecycle", "read-file-lifecycle", "session-tabs-lifecycle"])
   })
 
   test("builds the shared capture and reproduce driver runtime", () => {

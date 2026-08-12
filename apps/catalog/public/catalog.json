@@ -3,6 +3,14 @@
   "generatedBy": "scripts/capture-opencode-drive.ts",
   "variants": [
     {
+      "id": "2a0ccdbfd458",
+      "label": "2a0ccdb",
+      "source": "opencode",
+      "revision": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "ref": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "committedAt": "2026-08-12T12:45:43-04:00"
+    },
+    {
       "id": "f05d2ab551fb",
       "label": "f05d2ab",
       "source": "opencode",
@@ -344,6 +352,7 @@
     "info",
     "landing",
     "list",
+    "navigation",
     "notification",
     "pairing",
     "palette",
@@ -376,6 +385,7 @@
     "skill",
     "subagent",
     "system",
+    "tabs",
     "theme",
     "thinking",
     "tool",
@@ -386,9 +396,12 @@
     "default",
     "empty",
     "error",
+    "expanded",
+    "idle",
     "pending",
     "populated",
     "running",
+    "selected",
     "streaming",
     "success"
   ],
@@ -1380,6 +1393,12 @@
       "variations": [],
       "frames": [
         {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/patch-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/patch-input-streaming.frame.json",
           "cols": 118,
@@ -1458,6 +1477,12 @@
       "variations": [],
       "frames": [
         {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/permission-prompt.frame.json",
           "cols": 118,
@@ -1527,6 +1552,12 @@
       },
       "variations": [],
       "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
         {
           "variantId": "f05d2ab551fb",
           "src": "captures/f05d2ab551fb/patch-success.frame.json",
@@ -4074,6 +4105,350 @@
           "rows": 34
         }
       ]
+    },
+    {
+      "id": "permission-always-selected",
+      "title": "Permission prompt (always selected)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "tool-execution",
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation",
+        "inline",
+        "approval",
+        "permission",
+        "tool",
+        "patch",
+        "selected"
+      ],
+      "screenLabels": [
+        "tool-execution"
+      ],
+      "uiElements": [
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation"
+      ],
+      "surfaces": [
+        "inline"
+      ],
+      "patterns": [
+        "approval"
+      ],
+      "features": [
+        "permission",
+        "tool",
+        "patch"
+      ],
+      "states": [
+        "selected"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-always-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-always-confirmation",
+      "title": "Always allow confirmation",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "tool-execution",
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation",
+        "inline",
+        "approval",
+        "permission",
+        "tool",
+        "patch",
+        "confirmation"
+      ],
+      "screenLabels": [
+        "tool-execution"
+      ],
+      "uiElements": [
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation"
+      ],
+      "surfaces": [
+        "inline"
+      ],
+      "patterns": [
+        "approval"
+      ],
+      "features": [
+        "permission",
+        "tool",
+        "patch"
+      ],
+      "states": [
+        "confirmation"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-always-confirmation.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-reject-selected",
+      "title": "Permission prompt (reject selected)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "tool-execution",
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "destructive-action",
+        "inline",
+        "approval",
+        "permission",
+        "tool",
+        "patch",
+        "selected"
+      ],
+      "screenLabels": [
+        "tool-execution"
+      ],
+      "uiElements": [
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "destructive-action"
+      ],
+      "surfaces": [
+        "inline"
+      ],
+      "patterns": [
+        "approval"
+      ],
+      "features": [
+        "permission",
+        "tool",
+        "patch"
+      ],
+      "states": [
+        "selected"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-reject-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "permission-fullscreen",
+      "title": "Permission prompt (fullscreen)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "tool-execution",
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation",
+        "full-screen-view",
+        "full-screen",
+        "approval",
+        "permission",
+        "tool",
+        "patch",
+        "expanded"
+      ],
+      "screenLabels": [
+        "tool-execution"
+      ],
+      "uiElements": [
+        "inline-prompt",
+        "approval-actions",
+        "button-group",
+        "keyboard-hints",
+        "confirmation",
+        "full-screen-view"
+      ],
+      "surfaces": [
+        "full-screen"
+      ],
+      "patterns": [
+        "approval"
+      ],
+      "features": [
+        "permission",
+        "tool",
+        "patch"
+      ],
+      "states": [
+        "expanded"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/permission-fullscreen.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-tabs-running",
+      "title": "Session tabs (running)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "session-list",
+        "tabs",
+        "full-screen-view",
+        "status-indicator",
+        "keyboard-hints",
+        "transcript",
+        "full-screen",
+        "navigation",
+        "session",
+        "tabs",
+        "running"
+      ],
+      "screenLabels": [
+        "session-list"
+      ],
+      "uiElements": [
+        "tabs",
+        "full-screen-view",
+        "status-indicator",
+        "keyboard-hints",
+        "transcript"
+      ],
+      "surfaces": [
+        "full-screen"
+      ],
+      "patterns": [
+        "navigation"
+      ],
+      "features": [
+        "session",
+        "tabs"
+      ],
+      "states": [
+        "running"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/session-tabs-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-tabs-idle",
+      "title": "Session tabs (idle)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "session-list",
+        "tabs",
+        "full-screen-view",
+        "status-indicator",
+        "keyboard-hints",
+        "full-screen",
+        "navigation",
+        "session",
+        "tabs",
+        "idle"
+      ],
+      "screenLabels": [
+        "session-list"
+      ],
+      "uiElements": [
+        "tabs",
+        "full-screen-view",
+        "status-indicator",
+        "keyboard-hints"
+      ],
+      "surfaces": [
+        "full-screen"
+      ],
+      "patterns": [
+        "navigation"
+      ],
+      "features": [
+        "session",
+        "tabs"
+      ],
+      "states": [
+        "idle"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "2a0ccdbfd458",
+          "src": "captures/2a0ccdbfd458/session-tabs-idle.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
     }
   ],
   "flows": [
@@ -4098,6 +4473,24 @@
           "screenId": "agent-picker",
           "title": "Choose an agent",
           "trigger": "Open the agent picker"
+        }
+      ]
+    },
+    {
+      "id": "session-tabs-lifecycle",
+      "title": "Monitoring session tabs",
+      "group": "Session management",
+      "description": "Compare an idle session strip with a session actively running work.",
+      "replayable": true,
+      "steps": [
+        {
+          "screenId": "session-tabs-running",
+          "title": "Review a running tab",
+          "trigger": "Start the selected session"
+        },
+        {
+          "screenId": "session-tabs-idle",
+          "title": "Review idle tabs"
         }
       ]
     },
@@ -4194,6 +4587,26 @@
         {
           "screenId": "permission-prompt",
           "title": "Permission is requested"
+        },
+        {
+          "screenId": "permission-always-selected",
+          "title": "Persistent permission is selected",
+          "trigger": "Choose Allow always"
+        },
+        {
+          "screenId": "permission-always-confirmation",
+          "title": "Persistent permission is confirmed",
+          "trigger": "Confirm Allow always"
+        },
+        {
+          "screenId": "permission-reject-selected",
+          "title": "Rejection is selected",
+          "trigger": "Select Reject"
+        },
+        {
+          "screenId": "permission-fullscreen",
+          "title": "Permission is inspected fullscreen",
+          "trigger": "Toggle fullscreen"
         },
         {
           "screenId": "patch-success",
@@ -4364,20 +4777,6 @@
         {
           "screenId": "patch-failed",
           "title": "Patch fails verification"
-        }
-      ]
-    },
-    {
-      "id": "approving-a-tool-call",
-      "title": "Approving a tool call",
-      "group": "Tool use",
-      "description": "Review a requested operation and choose its permission scope.",
-      "replayable": false,
-      "steps": [
-        {
-          "screenId": "permission-prompt",
-          "title": "Review and approve the request",
-          "trigger": "Choose Allow once or Allow always"
         }
       ]
     },

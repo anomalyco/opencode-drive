@@ -53,9 +53,9 @@ const lifecycleScenarios = executableScenarios.filter((scenario) => scenario.id 
 
 const captureVariant = (variant: Variant) => Effect.gen(function* () {
   if (options.flow !== undefined) {
-    const selected = lifecycleScenarios.find((scenario) => scenario.id === options.flow)
+    const selected = executableScenarios.find((scenario) => scenario.id === options.flow)
     if (!selected) {
-      const known = lifecycleScenarios.map((scenario) => scenario.id).join(", ")
+      const known = executableScenarios.map((scenario) => scenario.id).join(", ")
       return yield* Effect.fail(
         new Error(`Unknown executable flow ${JSON.stringify(options.flow)}. Known flows: ${known}`),
       )
@@ -177,7 +177,7 @@ const captureBaseline = (driver: OpenCodeDriver.Driver, variant: Variant) =>
       const dialogs = [
         ["/models", "Select model", "model-picker"],
         ["/agents", "Select agent", "agent-picker"],
-        ["/connect", "Connect a service", "integration-picker"],
+        ["/connect", "Connect an integration", "integration-picker"],
         ["/themes", "Themes", "theme-picker"],
         ["/mcps", "MCP servers", "mcp-list"],
         ["/status", "No MCP servers", "status"],

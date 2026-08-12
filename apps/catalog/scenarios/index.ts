@@ -10,6 +10,7 @@ import { assistantLifecycleFlow } from "./responses/assistant-lifecycle"
 import { questionLifecycleFlow } from "./tools/question-lifecycle"
 import { readLifecycleFlow } from "./tools/read-lifecycle"
 import { patchFileChangesFlow } from "./tools/patch-file-changes"
+import { sessionTabsFlow } from "./session-tabs"
 
 export const executableScenarios = [
   executableScenario(patchSuccessFlow),
@@ -21,6 +22,7 @@ export const executableScenarios = [
   executableScenario(questionLifecycleFlow),
   executableScenario(readLifecycleFlow, { clientIsolation: "isolated" }),
   executableScenario(patchFileChangesFlow),
+  executableScenario(sessionTabsFlow, { clientIsolation: "isolated" }),
 ] as const
 
 export const executableFlows = executableScenarios.map((scenario) => scenario.flow)

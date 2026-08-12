@@ -20,6 +20,7 @@ export const Patterns = [
   "terminal",
   "notification",
   "error-report",
+  "navigation",
 ] as const
 export type Pattern = (typeof Patterns)[number]
 
@@ -28,8 +29,11 @@ export const States = [
   "empty",
   "populated",
   "pending",
+  "idle",
   "running",
   "streaming",
+  "selected",
+  "expanded",
   "confirmation",
   "success",
   "error",
