@@ -421,8 +421,11 @@ export function App({ catalog }: AppProps) {
               taxonomy={taxonomy}
               taxonomyValues={taxonomyValues}
               facets={ui.facets}
+              query={ui.query}
+              resultCount={screens.length}
               onTaxonomy={(value) => dispatch({ type: "toggle-taxonomy", taxonomy: taxonomyType, value })}
               onFacet={(facet, value) => dispatch({ type: "toggle-facet", facet, value })}
+              onClearQuery={() => dispatch({ type: "clear-search" })}
               onClear={() => dispatch({ type: "reset-view" })}
             />
             <MatrixNavigation

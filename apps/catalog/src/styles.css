@@ -457,6 +457,20 @@ kbd {
   background: color-mix(in srgb, var(--catalog-canvas) 95%, white 1%);
 }
 
+.selection-label,
+.selection-results {
+  flex: none;
+  color: var(--kit-fg-faint);
+  font-family: var(--kit-mono);
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+.selection-label {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .selection-chips {
   display: flex;
   min-width: 0;
@@ -472,6 +486,12 @@ kbd {
   color: var(--kit-fg-muted);
   font-family: var(--kit-mono);
   font-size: 0.6rem;
+}
+
+.selection-chips button small {
+  margin-right: 0.25rem;
+  color: var(--kit-fg-faint);
+  font: inherit;
 }
 
 .selection-chips button:hover {
