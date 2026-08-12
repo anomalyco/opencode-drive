@@ -82,6 +82,12 @@ export default defineScript({
       yield* ui.waitFor("Session two complete", { timeout: 20_000 })
       yield* ui.screenshot("sessions-second")
 
+      yield* ui.press("tab", { ctrl: true })
+      yield* ui.waitFor("Session one complete")
+
+      yield* ui.press("arrow_down", { meta: true })
+      yield* ui.waitFor("Session two complete")
+
       yield* leader(ui, "l")
       yield* ui.waitFor("Sessions")
       yield* ui.arrow("down")

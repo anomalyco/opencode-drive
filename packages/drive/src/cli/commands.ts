@@ -172,13 +172,16 @@ const execute = (
 function decodeCommand(command: DriveCommand): Frontend.Request {
   if (command.value === undefined && commandInfo[command.operation].value === true)
     throw new Error(`${command.operation} requires a value`)
-  return Frontend.decodeRequest({
-    jsonrpc: "2.0",
-    method: command.operation,
-    ...(command.value === undefined
-      ? {}
-      : { params: JSON.parse(command.value) }),
-  })
+  return Frontend.decodeRequest(
+    {
+      jsonrpc: "2.0",
+      method: command.operation,
+      ...(command.value === undefined
+        ? {}
+        : { params: JSON.parse(command.value) }),
+    },
+    { onExcessProperty: "error" },
+  )
 }
 
 function dispatch(
