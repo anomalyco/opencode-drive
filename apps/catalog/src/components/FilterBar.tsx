@@ -89,13 +89,13 @@ export function FilterBar({
             <small>{label(facet)}</small> {label(value)} <span aria-hidden="true">×</span>
           </button>
         ))}
+        {hasSelections ? (
+          <button type="button" className="filter-bar-clear" onClick={onClearAll}>
+            Clear all
+          </button>
+        ) : undefined}
       </div>
       <span className="filter-bar-results">{resultCount} {resultCount === 1 ? "result" : "results"}</span>
-      {hasSelections ? (
-        <button type="button" className="filter-bar-clear" onClick={onClearAll}>
-          Clear all
-        </button>
-      ) : undefined}
     </div>
   )
 }

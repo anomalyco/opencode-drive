@@ -13,7 +13,6 @@ interface ViewerProps {
   readonly deepLink: string
   readonly variant: Variant
   readonly variants: ReadonlyArray<Variant>
-  readonly variantPosition: number
   readonly screenTaxonomy: ReadonlyArray<TaxonomyGroup>
   readonly uiElementTaxonomy: ReadonlyArray<TaxonomyGroup>
   readonly position: number
@@ -35,7 +34,6 @@ export function Viewer({
   deepLink,
   variant,
   variants,
-  variantPosition,
   screenTaxonomy,
   uiElementTaxonomy,
   position,
@@ -101,13 +99,7 @@ export function Viewer({
         </span>
         <div className="viewer-actions">
           <CaptureActionsMenu identifier={identifier} deepLink={deepLink} issueLink={issueLink} />
-          <CaptureSetSwitcher
-            sets={variants}
-            active={variant}
-            position={variantPosition}
-            onNavigate={onVariant}
-            onSelect={onVariantSelect}
-          />
+          <CaptureSetSwitcher sets={variants} active={variant} onSelect={onVariantSelect} />
         </div>
       </header>
       <div className="viewer-body">

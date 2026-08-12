@@ -525,18 +525,15 @@ kbd {
   white-space: nowrap;
 }
 
-.filter-bar-clear {
-  flex: none;
-  padding: 0 1rem;
-  border-left: 1px solid var(--kit-line);
-  color: var(--kit-fg-muted);
-  font-family: var(--kit-mono);
-  font-size: 0.6rem;
-  white-space: nowrap;
+.filter-bar-chips button.filter-bar-clear {
+  margin-left: 0.35rem;
+  background: transparent;
+  color: var(--catalog-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
 }
 
-.filter-bar-clear:hover {
-  background: var(--kit-bg-hover);
+.filter-bar-chips button.filter-bar-clear:hover {
   color: var(--kit-fg-strong);
 }
 
@@ -677,55 +674,38 @@ kbd {
 }
 
 .variant-switcher {
+  position: relative;
   display: flex;
-  min-width: 10rem;
-  align-items: stretch;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
   border-left: 1px solid var(--kit-line);
   color: var(--kit-fg-muted);
   font-family: var(--kit-mono);
+  font-size: 0.66rem;
+  cursor: pointer;
 }
 
-.variant-switcher button {
-  width: 2.25rem;
-  color: var(--kit-fg-faint);
-}
-
-.variant-switcher button:hover {
+.variant-switcher:hover {
   background: var(--kit-bg-hover);
   color: var(--kit-fg-strong);
 }
 
-.variant-switcher > label {
-  display: flex;
-  min-width: 5.5rem;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 0.15rem;
-  font-size: 0.62rem;
-}
-
 .variant-switcher select {
-  width: 100%;
+  appearance: none;
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--kit-fg-muted);
+  color: inherit;
   font-family: inherit;
   font-size: inherit;
-  text-align: center;
   outline: 0;
   cursor: pointer;
 }
 
-.variant-switcher select:hover,
-.variant-switcher select:focus-visible {
-  color: var(--kit-fg-strong);
-}
-
-.variant-switcher small {
+.variant-switcher .variant-chevron {
   color: var(--kit-fg-faint);
-  font-size: 0.52rem;
+  font-size: 0.58rem;
 }
 
 .capture-open:hover .capture-frame,
@@ -1387,7 +1367,7 @@ kbd {
 
 .command-dialog[open] {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .command-dialog::backdrop {
@@ -1466,6 +1446,24 @@ kbd {
   background: var(--kit-bg-hover);
   color: var(--kit-fg-strong);
   box-shadow: inset 2px 0 0 var(--catalog-accent);
+}
+
+.command-selected {
+  margin-left: 0.6rem;
+  color: var(--catalog-accent);
+  font-family: var(--kit-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.command-hint {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--kit-line-strong);
+  color: var(--kit-fg-faint);
+  font-family: var(--kit-mono);
+  font-size: 0.6rem;
 }
 
 .command-empty {

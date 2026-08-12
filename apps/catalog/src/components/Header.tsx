@@ -9,12 +9,10 @@ interface HeaderProps {
   readonly resultCount: number
   readonly searchRef: Ref<HTMLInputElement>
   readonly variant: Variant
-  readonly variantPosition: number
   readonly onMode: (mode: BrowseMode) => void
   readonly onQuery: (query: string) => void
   readonly onClearSearch: () => void
   readonly onOpenPalette: () => void
-  readonly onVariant: (direction: 1 | -1) => void
   readonly onVariantSelect: (id: string) => void
 }
 
@@ -31,12 +29,10 @@ export function Header({
   resultCount,
   searchRef,
   variant,
-  variantPosition,
   onMode,
   onQuery,
   onClearSearch,
   onOpenPalette,
-  onVariant,
   onVariantSelect,
 }: HeaderProps) {
   const noun = mode === "flows" ? "flows" : "screens"
@@ -61,13 +57,7 @@ export function Header({
         ))}
       </nav>
       <div className="catalog-tools">
-        <CaptureSetSwitcher
-          sets={catalog.variants}
-          active={variant}
-          position={variantPosition}
-          onNavigate={onVariant}
-          onSelect={onVariantSelect}
-        />
+        <CaptureSetSwitcher sets={catalog.variants} active={variant} onSelect={onVariantSelect} />
         <div className="catalog-search">
           <span aria-hidden="true">⌕</span>
           <input

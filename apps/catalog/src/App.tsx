@@ -83,13 +83,13 @@ function uiReducer(state: UiState, action: UiAction): UiState {
     case "search":
       return { ...state, query: action.query }
     case "toggle-taxonomy": {
+      // Palette stays open so stacked filter selections read as additive.
       const key = action.taxonomy === "screen" ? "screenLabels" : "uiElements"
       return {
         ...state,
         mode: action.taxonomy === "screen" ? "screens" : "ui-elements",
         [key]: toggle(state[key], action.value),
         viewerOpen: false,
-        paletteOpen: false,
         selectedScreenId: undefined,
         gridFocusTick: state.gridFocusTick + 1,
       }
@@ -103,7 +103,6 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         ...state,
         facets: { ...state.facets, [action.facet]: toggle(state.facets[action.facet], action.value) },
         viewerOpen: false,
-        paletteOpen: false,
         selectedScreenId: undefined,
         gridFocusTick: state.gridFocusTick + 1,
       }
@@ -419,12 +418,10 @@ export function App({ catalog }: AppProps) {
           resultCount={ui.mode === "flows" ? flows.length : screens.length}
           searchRef={searchRef}
           variant={activeVariant}
-          variantPosition={variantIndex + 1}
           onMode={(mode) => dispatch({ type: "set-mode", mode })}
           onQuery={(query) => dispatch({ type: "search", query })}
           onClearSearch={() => dispatch({ type: "clear-search" })}
           onOpenPalette={() => dispatch({ type: "open-palette" })}
-          onVariant={navigateVariant}
           onVariantSelect={(id) => setVariantIndex(Math.max(0, catalog.variants.findIndex((variant) => variant.id === id)))}
         />
         {ui.mode !== "flows" ? (
@@ -486,7 +483,6 @@ export function App({ catalog }: AppProps) {
           deepLink={deepLinkFor(selectedScreen.id, ui.mode === "flows" ? activeFlow?.id : undefined)}
           variant={activeVariant}
           variants={catalog.variants}
-          variantPosition={variantIndex + 1}
           screenTaxonomy={catalog.screenTaxonomy}
           uiElementTaxonomy={catalog.uiElementTaxonomy}
           position={viewerScreens.findIndex((screen) => screen.id === selectedScreen.id) + 1}
@@ -507,6 +503,7 @@ export function App({ catalog }: AppProps) {
         <CommandPalette
           catalog={catalog}
           facetIndex={facetIndex}
+          selections={{ screenLabels: ui.screenLabels, uiElements: ui.uiElements, facets: ui.facets }}
           onClose={() => dispatch({ type: "close-palette" })}
           onFacet={(filter) => dispatch({ type: "toggle-facet", ...filter })}
           onTaxonomy={(taxonomy, value) => dispatch({ type: "toggle-taxonomy", taxonomy, value })}

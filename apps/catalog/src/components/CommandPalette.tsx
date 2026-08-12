@@ -1,6 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react"
 import { useEffect, useRef, useState } from "react"
-import type { Catalog, Facet, FacetIndex, Filter, Taxonomy } from "../catalog"
+import type { Catalog, CatalogSelections, Facet, FacetIndex, Filter, Taxonomy } from "../catalog"
 import { label, taxonomyLabel } from "../catalog"
 
 interface CommandResult {
@@ -8,12 +8,14 @@ interface CommandResult {
   readonly group: string
   readonly label: string
   readonly meta: string
+  readonly selected?: boolean
   readonly run: () => void
 }
 
 interface CommandPaletteProps {
   readonly catalog: Catalog
   readonly facetIndex: FacetIndex
+  readonly selections: CatalogSelections
   readonly onClose: () => void
   readonly onFacet: (filter: Filter) => void
   readonly onTaxonomy: (taxonomy: Taxonomy, value: string) => void
@@ -36,6 +38,7 @@ const groupOrder = [
 export function CommandPalette({
   catalog,
   facetIndex,
+  selections,
   onClose,
   onFacet,
   onTaxonomy,
@@ -53,6 +56,7 @@ export function CommandPalette({
   const results = buildResults({
     catalog,
     facetIndex,
+    selections,
     query,
     onFacet,
     onTaxonomy,
@@ -133,11 +137,14 @@ export function CommandPalette({
                       type="button"
                       role="option"
                       aria-selected={isActive}
-                      className={`command-result${isActive ? " active" : ""}`}
+                      className={`command-result${isActive ? " active" : ""}${result.selected ? " selected" : ""}`}
                       onClick={result.run}
                       onPointerEnter={() => setIndex(resultIndex)}
                     >
-                      <span>{result.label}</span>
+                      <span>
+                        {result.label}
+                        {result.selected ? <span className="command-selected">✓ selected</span> : undefined}
+                      </span>
                       <small>{result.meta}</small>
                     </button>
                   )
@@ -147,6 +154,7 @@ export function CommandPalette({
           })
         )}
       </div>
+      <p className="command-hint">Filters stack as you select them. Select one again to remove it.</p>
     </dialog>
   )
 }
@@ -154,6 +162,7 @@ export function CommandPalette({
 interface BuildResultsInput {
   readonly catalog: Catalog
   readonly facetIndex: FacetIndex
+  readonly selections: CatalogSelections
   readonly query: string
   readonly onFacet: (filter: Filter) => void
   readonly onTaxonomy: (taxonomy: Taxonomy, value: string) => void
@@ -164,6 +173,7 @@ interface BuildResultsInput {
 function buildResults({
   catalog,
   facetIndex,
+  selections,
   query,
   onFacet,
   onTaxonomy,
@@ -184,6 +194,7 @@ function buildResults({
         group: "Screen labels",
         label: item.label,
         meta: count(total, "screen"),
+        selected: selections.screenLabels.includes(item.id),
         run: () => onTaxonomy("screen", item.id),
       })
     }
@@ -198,6 +209,7 @@ function buildResults({
         group: "UI Elements",
         label: item.label,
         meta: count(total, "screen"),
+        selected: selections.uiElements.includes(item.id),
         run: () => onTaxonomy("ui-element", item.id),
       })
     }
@@ -217,6 +229,7 @@ function buildResults({
         group,
         label: label(value),
         meta: count(facetIndex.get(facet)?.get(value)?.size ?? 0, "screen"),
+        selected: selections.facets[facet].includes(value),
         run: () => onFacet({ facet, value }),
       })
     }
