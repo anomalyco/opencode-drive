@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { Facet, Filter, Screen, Taxonomy, TaxonomyGroup, Variant } from "../catalog"
 import { facetValues, frameFor, label, taxonomyLabel } from "../catalog"
-import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
 import { CaptureSetSwitcher } from "./CaptureSetSwitcher"
 import { CaptureContextMenu } from "./CaptureContextMenu"
 import { feedbackIssueUrl } from "../feedback"
+import { CaptureActionsMenu } from "./CaptureActionsMenu"
 
 interface ViewerProps {
   readonly screen: Screen
@@ -100,8 +100,7 @@ export function Viewer({
           <button type="button" className="viewer-button" onClick={() => onNavigate(1)} aria-label="Next flow step">→</button>
         </span>
         <div className="viewer-actions">
-          <a className="viewer-button" href={issueLink} target="_blank" rel="noreferrer">Report issue</a>
-          <IdChip id={identifier} className="viewer-button" />
+          <CaptureActionsMenu identifier={identifier} deepLink={deepLink} issueLink={issueLink} />
           <CaptureSetSwitcher
             sets={variants}
             active={variant}

@@ -1,9 +1,9 @@
 import type { Catalog, Flow } from "../catalog"
 import { frameFor } from "../catalog"
-import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
 import { CaptureContextMenu } from "./CaptureContextMenu"
 import { feedbackIssueUrl } from "../feedback"
+import { CaptureActionsMenu } from "./CaptureActionsMenu"
 
 interface FlowBrowserProps {
   readonly catalog: Catalog
@@ -111,11 +111,12 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
                 <footer className="flow-step-meta">
                   <span className="flow-step-number">{String(index + 1).padStart(2, "0")}</span>
                   <span className="flow-step-text">
-                    <span className="flow-step-title">
-                      <strong>{step.title}</strong>
-                    <IdChip
-                      id={activeFlow.replayable ? `${activeFlow.id}/${screen.id}` : screen.id}
-                      className="id-chip-end"
+                  <span className="flow-step-title">
+                    <strong>{step.title}</strong>
+                    <CaptureActionsMenu
+                      identifier={identifier}
+                      deepLink={deepLink}
+                      issueLink={feedbackIssueUrl({ title: screen.title, identifier, deepLink, variant: variantId })}
                     />
                     </span>
                     {step.trigger ? <small>{step.trigger}</small> : undefined}

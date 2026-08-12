@@ -12,6 +12,7 @@ describe("catalog feedback", () => {
 
     expect(`${url.origin}${url.pathname}`).toBe("https://github.com/anomalyco/opencode-drive/issues/new")
     expect(url.searchParams.get("title")).toBe("[Catalog feedback] Skill picker")
+    expect(url.searchParams.get("labels")).toBe("catalog,design-feedback")
     expect(url.searchParams.get("body")).toContain("`skill-picker`")
     expect(url.searchParams.get("body")).toContain("screen=skill-picker&set=baseline")
   })

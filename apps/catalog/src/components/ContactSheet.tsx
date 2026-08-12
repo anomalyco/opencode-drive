@@ -2,9 +2,9 @@ import { useEffect, useEffectEvent, useRef } from "react"
 import type { Screen } from "../catalog"
 import { frameFor, screenFamily } from "../catalog"
 import { CaptureContextMenu } from "./CaptureContextMenu"
-import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
 import { feedbackIssueUrl } from "../feedback"
+import { CaptureActionsMenu } from "./CaptureActionsMenu"
 
 interface ContactSheetProps {
   readonly screens: ReadonlyArray<Screen>
@@ -139,10 +139,7 @@ export function ContactSheet({
                           <span className="capture-state">{screen.states.filter((state) => state !== "default").join(" · ")}</span>
                         ) : undefined}
                       </span>
-                      <span className="capture-caption-actions">
-                        <a href={issueLink} target="_blank" rel="noreferrer">Report</a>
-                        <IdChip id={screen.id} className="id-chip-end" />
-                      </span>
+                      <CaptureActionsMenu identifier={screen.id} deepLink={deepLink} issueLink={issueLink} />
                     </footer>
                   </article>
                 )

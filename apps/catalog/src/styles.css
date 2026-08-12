@@ -716,20 +716,65 @@ kbd {
   flex: 0 1 auto;
 }
 
-.capture-caption-actions {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
+.capture-actions {
+  position: relative;
+  flex: 0 0 auto;
 }
 
-.capture-caption-actions > a {
+.capture-actions > summary {
+  display: grid;
+  width: 1.8rem;
+  height: 1.5rem;
+  place-items: center;
   color: var(--kit-fg-faint);
   font-family: var(--kit-mono);
-  font-size: 0.56rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  list-style: none;
+  cursor: pointer;
 }
 
-.capture-caption-actions > a:hover,
-.capture-caption-actions > a:focus-visible {
+.capture-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.capture-actions > summary:hover,
+.capture-actions > summary:focus-visible,
+.capture-actions[open] > summary {
+  color: var(--kit-fg-strong);
+  background: var(--kit-bg-hover);
+}
+
+.capture-actions-menu {
+  position: absolute;
+  z-index: 90;
+  right: 0;
+  bottom: calc(100% + 0.35rem);
+  display: grid;
+  width: 10.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--kit-line-strong);
+  background: #202020;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 60%);
+}
+
+.capture-actions-menu button,
+.capture-actions-menu a {
+  display: flex;
+  min-height: 2.2rem;
+  align-items: center;
+  padding: 0 0.7rem;
+  color: var(--kit-fg);
+  font-family: var(--kit-mono);
+  font-size: 0.65rem;
+  text-align: left;
+}
+
+.capture-actions-menu button:hover,
+.capture-actions-menu button:focus-visible,
+.capture-actions-menu a:hover,
+.capture-actions-menu a:focus-visible {
+  background: rgb(255 255 255 / 7%);
   color: var(--kit-fg-strong);
 }
 
@@ -1151,7 +1196,13 @@ kbd {
 
 .viewer-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+}
+
+.viewer-actions .capture-actions {
+  align-self: center;
+  margin-inline: 0.4rem;
 }
 
 .viewer-button {

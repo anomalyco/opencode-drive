@@ -8,6 +8,7 @@ interface FeedbackIssue {
 export function feedbackIssueUrl(issue: FeedbackIssue) {
   const url = new URL("https://github.com/anomalyco/opencode-drive/issues/new")
   url.searchParams.set("title", `[Catalog feedback] ${issue.title}`)
+  url.searchParams.set("labels", "catalog,design-feedback")
   url.searchParams.set("body", [
     "## Feedback",
     "",
