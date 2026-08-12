@@ -62,7 +62,9 @@ export function FilterBar({
             groups={[{
               id: facet,
               label: label(facet),
-              items: facetOptions[facet].map((value) => ({ id: `${facet}:${value}`, label: label(value) })),
+              items: facetOptions[facet]
+                .filter((value) => (facetCounts.get(`${facet}:${value}`) ?? 0) > 0 || facets[facet].includes(value))
+                .map((value) => ({ id: `${facet}:${value}`, label: label(value) })),
             }]}
             selected={facets[facet].map((value) => `${facet}:${value}`)}
             counts={facetCounts}
