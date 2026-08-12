@@ -395,8 +395,8 @@ opencode-drive stop --name demo
 - `--command.ui.matches '{"text":"OpenCode"}'`
 - `--command.ui.recording.finish`
 
-Use `meta` for the terminal Alt modifier and OpenTUI names such as `arrow_down`
-for modified special keys. For example: `--command.ui.press '{"key":"arrow_down","modifiers":{"meta":true}}'`.
+Use `meta` for the terminal Alt modifier. For example:
+`--command.ui.press '{"key":"down","modifiers":{"meta":true}}'`.
 
 Start with `--record` to record a headless live instance. `stop` finishes the recording, exports the MP4, performs owner cleanup, and prints the path.
 

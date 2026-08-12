@@ -240,6 +240,9 @@ export const make = Effect.fn("OpenCodeRpcProtocol.make")(function* (
             )
 
           const wireId = nextWireId++
+          const payload = message.tag === "ui.press"
+            ? encodePressPayload(message.payload)
+            : message.payload
           pending.set(wireId, {
             clientId,
             method: message.tag,
@@ -253,9 +256,9 @@ export const make = Effect.fn("OpenCodeRpcProtocol.make")(function* (
                   jsonrpc: "2.0",
                   id: wireId,
                   method: message.tag,
-                  ...(message.payload === undefined || message.payload === null
+                  ...(payload === undefined || payload === null
                     ? {}
-                    : { params: message.payload }),
+                    : { params: payload }),
                 }),
               )
             },
@@ -274,6 +277,57 @@ export const make = Effect.fn("OpenCodeRpcProtocol.make")(function* (
     }),
   )
 })
+
+const arrows = {
+  up: { final: "A", kitty: 57_352 },
+  down: { final: "B", kitty: 57_353 },
+  right: { final: "C", kitty: 57_351 },
+  left: { final: "D", kitty: 57_350 },
+} as const
+
+function encodePressPayload(payload: unknown) {
+  if (typeof payload !== "object" || payload === null) return payload
+  const key = Reflect.get(payload, "key")
+  if (typeof key !== "string") return payload
+  const modifiers = Reflect.get(payload, "modifiers")
+  const modifier = modifierMask(modifiers)
+  const named = key.toLowerCase()
+  const arrowName = named.startsWith("arrow_") ? named.slice(6) : named
+  const arrow = arrowName === "up"
+    ? arrows.up
+    : arrowName === "down"
+      ? arrows.down
+      : arrowName === "right"
+        ? arrows.right
+        : arrowName === "left"
+          ? arrows.left
+          : undefined
+  if (arrow !== undefined) {
+    if (modifier & 24)
+      return { key: kittySequence(arrow.kitty, modifier) }
+    return {
+      key: modifier === 0
+        ? `\u001b[${arrow.final}`
+        : `\u001b[1;${modifier + 1}${arrow.final}`,
+    }
+  }
+  if (named === "tab" && modifier !== 0)
+    return { key: kittySequence(9, modifier) }
+  return payload
+}
+
+function modifierMask(value: unknown) {
+  if (typeof value !== "object" || value === null) return 0
+  return (Reflect.get(value, "shift") === true ? 1 : 0) |
+    (Reflect.get(value, "meta") === true ? 2 : 0) |
+    (Reflect.get(value, "ctrl") === true ? 4 : 0) |
+    (Reflect.get(value, "super") === true ? 8 : 0) |
+    (Reflect.get(value, "hyper") === true ? 16 : 0)
+}
+
+function kittySequence(codepoint: number, modifier: number) {
+  return `\u001b[${codepoint};${modifier + 1}u`
+}
 
 function open(endpoint: string) {
   return Effect.callback<WebSocket, RpcClientError.RpcClientError>((resume) => {

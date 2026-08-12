@@ -67,9 +67,15 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
     ])
     expect(ctrlTab.status).toBe(0)
 
+    const right = await send(root, [
+      "--command.ui.press",
+      '{"key":"right"}',
+    ])
+    expect(right.status).toBe(0)
+
     const altDown = await send(root, [
       "--command.ui.press",
-      '{"key":"arrow_down","modifiers":{"meta":true}}',
+      '{"key":"down","modifiers":{"meta":true}}',
     ])
     expect(altDown.status).toBe(0)
 
@@ -89,13 +95,19 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
         jsonrpc: "2.0",
         id: 1,
         method: "ui.press",
-        params: { key: "tab", modifiers: { ctrl: true } },
+        params: { key: "\u001b[9;5u" },
       },
       {
         jsonrpc: "2.0",
         id: 1,
         method: "ui.press",
-        params: { key: "arrow_down", modifiers: { meta: true } },
+        params: { key: "\u001b[C" },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ui.press",
+        params: { key: "\u001b[1;3B" },
       },
     ])
   } finally {

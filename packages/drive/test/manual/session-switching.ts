@@ -24,6 +24,9 @@ export default defineScript({
           )
         }
 
+        if (JSON.stringify(request.body).includes("ALT_DOWN_ROUTE_PROBE"))
+          return Stream.make(Llm.text("Alt-down route probe complete."))
+
         if (phase === 0) {
           phase++
           return Stream.make(
@@ -85,8 +88,10 @@ export default defineScript({
       yield* ui.press("tab", { ctrl: true })
       yield* ui.waitFor("Session one complete")
 
-      yield* ui.press("arrow_down", { meta: true })
+      yield* ui.press("down", { meta: true })
       yield* ui.waitFor("Session two complete")
+      yield* ui.submit("ALT_DOWN_ROUTE_PROBE")
+      yield* ui.waitFor("Alt-down route probe complete", { timeout: 20_000 })
 
       yield* leader(ui, "l")
       yield* ui.waitFor("Sessions")
