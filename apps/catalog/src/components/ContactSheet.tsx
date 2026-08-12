@@ -4,6 +4,7 @@ import { frameFor, screenFamily } from "../catalog"
 import { CaptureContextMenu } from "./CaptureContextMenu"
 import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
+import { feedbackIssueUrl } from "../feedback"
 
 interface ContactSheetProps {
   readonly screens: ReadonlyArray<Screen>
@@ -102,6 +103,13 @@ export function ContactSheet({
               {categoryScreens.map((screen) => {
                 const frame = frameFor(screen, variantId)
                 if (!frame) return undefined
+                const deepLink = deepLinkFor(screen.id)
+                const issueLink = feedbackIssueUrl({
+                  title: screen.title,
+                  identifier: screen.id,
+                  deepLink,
+                  variant: variantId,
+                })
                 return (
                   <article
                     key={screen.id}
@@ -118,7 +126,7 @@ export function ContactSheet({
                         if (screen.id !== selectedId) onSelect(screen.id)
                       }}
                     >
-                      <CaptureContextMenu identifier={screen.id} deepLink={deepLinkFor(screen.id)}>
+                      <CaptureContextMenu identifier={screen.id} deepLink={deepLink} issueLink={issueLink}>
                         <span className="capture-frame">
                           <TerminalFrame frame={frame} label={screen.title} />
                         </span>
@@ -127,9 +135,14 @@ export function ContactSheet({
                     <footer className="capture-caption">
                       <span className="capture-title-wrap">
                         <span className="capture-title">{screen.title}</span>
-                        <span className="capture-state">{screen.states.join(" · ")}</span>
+                        {screen.states.some((state) => state !== "default") ? (
+                          <span className="capture-state">{screen.states.filter((state) => state !== "default").join(" · ")}</span>
+                        ) : undefined}
                       </span>
-                      <IdChip id={screen.id} className="id-chip-end" />
+                      <span className="capture-caption-actions">
+                        <a href={issueLink} target="_blank" rel="noreferrer">Report</a>
+                        <IdChip id={screen.id} className="id-chip-end" />
+                      </span>
                     </footer>
                   </article>
                 )

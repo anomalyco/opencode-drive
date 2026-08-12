@@ -5,6 +5,7 @@ import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
 import { CaptureSetSwitcher } from "./CaptureSetSwitcher"
 import { CaptureContextMenu } from "./CaptureContextMenu"
+import { feedbackIssueUrl } from "../feedback"
 
 interface ViewerProps {
   readonly screen: Screen
@@ -50,6 +51,7 @@ export function Viewer({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frame = frameFor(screen, variant.id)
   if (!frame) throw new Error(`Capture ${screen.id} is unavailable in set ${variant.id}`)
+  const issueLink = feedbackIssueUrl({ title: screen.title, identifier, deepLink, variant: variant.id })
 
   useEffect(() => {
     dialogRef.current?.showModal()
@@ -98,6 +100,7 @@ export function Viewer({
           <button type="button" className="viewer-button" onClick={() => onNavigate(1)} aria-label="Next flow step">→</button>
         </span>
         <div className="viewer-actions">
+          <a className="viewer-button" href={issueLink} target="_blank" rel="noreferrer">Report issue</a>
           <IdChip id={identifier} className="viewer-button" />
           <CaptureSetSwitcher
             sets={variants}
@@ -111,7 +114,7 @@ export function Viewer({
       <div className="viewer-body">
         <div className="viewer-stage">
           <figure className="viewer-figure">
-            <CaptureContextMenu identifier={identifier} deepLink={deepLink}>
+            <CaptureContextMenu identifier={identifier} deepLink={deepLink} issueLink={issueLink}>
               <div className="viewer-image-wrap">
                 <TerminalFrame frame={frame} label={`${screen.title}, ${variant.label}`} />
               </div>

@@ -4,10 +4,11 @@ import { createPortal } from "react-dom"
 interface CaptureContextMenuProps {
   readonly identifier: string
   readonly deepLink: string
+  readonly issueLink: string
   readonly children: ReactNode
 }
 
-export function CaptureContextMenu({ identifier, deepLink, children }: CaptureContextMenuProps) {
+export function CaptureContextMenu({ identifier, deepLink, issueLink, children }: CaptureContextMenuProps) {
   const [position, setPosition] = useState<{ readonly x: number; readonly y: number }>()
   const targetRef = useRef<HTMLSpanElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -65,6 +66,7 @@ export function CaptureContextMenu({ identifier, deepLink, children }: CaptureCo
         >
           <button type="button" role="menuitem" onClick={() => copy(identifier)}>Copy ID</button>
           <button type="button" role="menuitem" onClick={() => copy(deepLink)}>Copy deep link</button>
+          <a role="menuitem" href={issueLink} target="_blank" rel="noreferrer">Report issue</a>
         </div>,
         targetRef.current?.closest("dialog") ?? document.body,
       ) : undefined}

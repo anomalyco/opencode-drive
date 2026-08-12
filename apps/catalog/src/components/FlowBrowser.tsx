@@ -3,6 +3,7 @@ import { frameFor } from "../catalog"
 import { IdChip } from "./IdChip"
 import { TerminalFrame } from "./TerminalFrame"
 import { CaptureContextMenu } from "./CaptureContextMenu"
+import { feedbackIssueUrl } from "../feedback"
 
 interface FlowBrowserProps {
   readonly catalog: Catalog
@@ -87,6 +88,8 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
                 </li>
               )
             }
+            const identifier = activeFlow.replayable ? `${activeFlow.id}/${screen.id}` : screen.id
+            const deepLink = deepLinkFor(screen.id, activeFlow.id)
             return (
               <li key={`${activeFlow.id}:${index}:${step.screenId}`} className="flow-step">
                 <button
@@ -96,8 +99,9 @@ export function FlowBrowser({ catalog, flows, activeFlow, variantId, onFlow, onO
                   onClick={() => onOpen(screen.id)}
                 >
                     <CaptureContextMenu
-                      identifier={activeFlow.replayable ? `${activeFlow.id}/${screen.id}` : screen.id}
-                      deepLink={deepLinkFor(screen.id, activeFlow.id)}
+                      identifier={identifier}
+                      deepLink={deepLink}
+                      issueLink={feedbackIssueUrl({ title: screen.title, identifier, deepLink, variant: variantId })}
                     >
                       <span className="flow-frame">
                         <TerminalFrame frame={frame} label={screen.title} lazy />

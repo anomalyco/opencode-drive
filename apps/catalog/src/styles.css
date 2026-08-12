@@ -82,7 +82,11 @@ button {
   box-shadow: 0 16px 48px rgb(0 0 0 / 60%);
 }
 
-.capture-context-menu button {
+.capture-context-menu button,
+.capture-context-menu a {
+  display: flex;
+  align-items: center;
+  width: 100%;
   min-height: 2.2rem;
   padding: 0 0.7rem;
   color: var(--kit-fg);
@@ -92,7 +96,9 @@ button {
 }
 
 .capture-context-menu button:hover,
-.capture-context-menu button:focus-visible {
+.capture-context-menu button:focus-visible,
+.capture-context-menu a:hover,
+.capture-context-menu a:focus-visible {
   background: rgb(255 255 255 / 7%);
   color: var(--kit-fg-strong);
 }
@@ -708,6 +714,23 @@ kbd {
 
 .capture-caption .id-chip {
   flex: 0 1 auto;
+}
+
+.capture-caption-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.capture-caption-actions > a {
+  color: var(--kit-fg-faint);
+  font-family: var(--kit-mono);
+  font-size: 0.56rem;
+}
+
+.capture-caption-actions > a:hover,
+.capture-caption-actions > a:focus-visible {
+  color: var(--kit-fg-strong);
 }
 
 .capture-title {
