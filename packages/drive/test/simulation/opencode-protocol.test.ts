@@ -44,6 +44,13 @@ describe("OpenCode Effect RPC compatibility protocol", () => {
       expect(yield* client["ui.state"]()).toEqual(state)
       expect(yield* client["ui.screenshot"](undefined)).toBe("/tmp/screen.png")
       expect(yield* client["ui.screenshot"]({ name: "home" })).toBe("/tmp/home.png")
+      expect(yield* client["ui.press"]({ key: "right" })).toEqual(state)
+      expect(
+        yield* client["ui.press"]({ key: "down", modifiers: { meta: true } }),
+      ).toEqual(state)
+      expect(
+        yield* client["ui.press"]({ key: "tab", modifiers: { ctrl: true } }),
+      ).toEqual(state)
 
       const error = yield* client["ui.matches"]({ text: "fail" }).pipe(Effect.flip)
       expect(error).toBeInstanceOf(SimulationRequestError)
@@ -72,6 +79,24 @@ describe("OpenCode Effect RPC compatibility protocol", () => {
         {
           jsonrpc: "2.0",
           id: firstId + 3,
+          method: "ui.press",
+          params: { key: "\u001b[C" },
+        },
+        {
+          jsonrpc: "2.0",
+          id: firstId + 4,
+          method: "ui.press",
+          params: { key: "\u001b[1;3B" },
+        },
+        {
+          jsonrpc: "2.0",
+          id: firstId + 5,
+          method: "ui.press",
+          params: { key: "\u001b[9;5u" },
+        },
+        {
+          jsonrpc: "2.0",
+          id: firstId + 6,
           method: "ui.matches",
           params: { text: "fail" },
         },

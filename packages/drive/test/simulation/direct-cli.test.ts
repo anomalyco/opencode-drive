@@ -61,10 +61,54 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
     expect(screenshot.status).toBe(0)
     expect(screenshot.stdout.trim()).toBe("/tmp/home.png")
 
+    const ctrlTab = await send(root, [
+      "--command.ui.press",
+      '{"key":"tab","modifiers":{"ctrl":true}}',
+    ])
+    expect(ctrlTab.status).toBe(0)
+
+    const right = await send(root, [
+      "--command.ui.press",
+      '{"key":"right"}',
+    ])
+    expect(right.status).toBe(0)
+
+    const altDown = await send(root, [
+      "--command.ui.press",
+      '{"key":"down","modifiers":{"meta":true}}',
+    ])
+    expect(altDown.status).toBe(0)
+
+    const invalidAlt = await send(root, [
+      "--command.ui.press",
+      '{"key":"down","modifiers":{"alt":true}}',
+    ])
+    expect(invalidAlt.status).toBe(1)
+    expect(invalidAlt.stderr).toContain("alt")
+    expect(invalidAlt.stderr).toContain("Unexpected key with value true")
+
     expect(requests).toEqual([
       { jsonrpc: "2.0", id: 1, method: "ui.state" },
       { jsonrpc: "2.0", id: 1, method: "ui.state" },
       { jsonrpc: "2.0", id: 1, method: "ui.screenshot", params: { name: "home" } },
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ui.press",
+        params: { key: "\u001b[9;5u" },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ui.press",
+        params: { key: "\u001b[C" },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ui.press",
+        params: { key: "\u001b[1;3B" },
+      },
     ])
   } finally {
     await server.stop(true)
