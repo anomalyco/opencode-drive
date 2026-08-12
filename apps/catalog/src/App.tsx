@@ -15,7 +15,7 @@ import { MatrixNavigation } from "./components/MatrixNavigation"
 import { SelectionBar } from "./components/SelectionBar"
 import { Viewer } from "./components/Viewer"
 import { preloadFrame } from "./components/TerminalFrame"
-import { catalogDeepLink, catalogRootUrl, readCatalogLocation } from "./deep-link"
+import { catalogBrowseUrl, catalogDeepLink, catalogRootUrl, readCatalogLocation } from "./deep-link"
 
 interface AppProps {
   readonly catalog: Catalog
@@ -53,7 +53,16 @@ type UiAction =
   | { readonly type: "open-palette" }
   | { readonly type: "close-palette" }
   | { readonly type: "toggle-palette" }
-  | { readonly type: "restore-location"; readonly screenId?: string; readonly flowId?: string }
+  | {
+      readonly type: "restore-location"
+      readonly screenId?: string
+      readonly flowId?: string
+      readonly mode: BrowseMode
+      readonly query: string
+      readonly screenLabels: ReadonlyArray<string>
+      readonly uiElements: ReadonlyArray<string>
+      readonly facets: FacetSelections
+    }
 
 function toggle(values: ReadonlyArray<string>, value: string): ReadonlyArray<string> {
   return values.includes(value) ? values.filter((candidate) => candidate !== value) : [...values, value]
@@ -155,7 +164,11 @@ function uiReducer(state: UiState, action: UiAction): UiState {
     case "restore-location":
       return {
         ...state,
-        mode: action.flowId ? "flows" : state.mode,
+        mode: action.flowId ? "flows" : action.mode,
+        query: action.query,
+        screenLabels: action.screenLabels,
+        uiElements: action.uiElements,
+        facets: action.facets,
         activeFlowId: action.flowId ?? state.activeFlowId,
         selectedScreenId: action.screenId,
         viewerOpen: action.screenId !== undefined,
@@ -171,12 +184,22 @@ export function App({ catalog }: AppProps) {
   const initialFlow = catalog.flows.some((flow) => flow.id === initialLocation.flowId)
     ? initialLocation.flowId
     : undefined
+  const initialMode = initialFlow
+    ? "flows"
+    : initialLocation.mode === "ui-elements" || initialLocation.mode === "flows"
+      ? initialLocation.mode
+      : "screens"
   const [ui, dispatch] = useReducer(uiReducer, {
-    mode: initialFlow ? "flows" : "screens",
-    query: "",
-    screenLabels: [],
-    uiElements: [],
-    facets: emptyFacetSelections,
+    mode: initialMode,
+    query: initialLocation.query,
+    screenLabels: initialLocation.screenLabels,
+    uiElements: initialLocation.uiElements,
+    facets: {
+      surface: initialLocation.surfaces,
+      pattern: initialLocation.patterns,
+      feature: initialLocation.features,
+      state: initialLocation.states,
+    },
     activeFlowId: initialFlow ?? catalog.flows[0]?.id,
     selectedScreenId: initialScreen ?? catalog.screens[0]?.id,
     viewerOpen: initialScreen !== undefined,
@@ -185,7 +208,11 @@ export function App({ catalog }: AppProps) {
   })
   const [variantIndex, setVariantIndex] = useState(() => {
     const index = catalog.variants.findIndex((variant) => variant.id === initialLocation.variantId)
-    return Math.max(0, index)
+    if (index >= 0) return index
+    const coverage = catalog.variants.map((variant) =>
+      catalog.screens.filter((screen) => frameFor(screen, variant.id) !== undefined).length,
+    )
+    return coverage.indexOf(Math.max(...coverage))
   })
   const searchRef = useRef<HTMLInputElement>(null)
   const activeVariant = catalog.variants[variantIndex] ?? catalog.variants[0]
@@ -290,6 +317,20 @@ export function App({ catalog }: AppProps) {
   }, [])
 
   useEffect(() => {
+    window.history.replaceState(null, "", catalogBrowseUrl({
+      variantId: activeVariant.id,
+      mode: ui.mode,
+      query: ui.query,
+      screenLabels: ui.screenLabels,
+      uiElements: ui.uiElements,
+      surfaces: ui.facets.surface,
+      patterns: ui.facets.pattern,
+      features: ui.facets.feature,
+      states: ui.facets.state,
+    }))
+  }, [activeVariant.id, ui.facets, ui.mode, ui.query, ui.screenLabels, ui.uiElements])
+
+  useEffect(() => {
     if (!ui.viewerOpen || !selectedScreen) return
     window.history.replaceState(
       null,
@@ -322,7 +363,26 @@ export function App({ catalog }: AppProps) {
         : undefined
       const nextVariant = catalog.variants.findIndex((variant) => variant.id === location.variantId)
       if (nextVariant >= 0) setVariantIndex(nextVariant)
-      dispatch({ type: "restore-location", screenId, flowId })
+      const mode = flowId
+        ? "flows"
+        : location.mode === "ui-elements" || location.mode === "flows"
+          ? location.mode
+          : "screens"
+      dispatch({
+        type: "restore-location",
+        screenId,
+        flowId,
+        mode,
+        query: location.query,
+        screenLabels: location.screenLabels,
+        uiElements: location.uiElements,
+        facets: {
+          surface: location.surfaces,
+          pattern: location.patterns,
+          feature: location.features,
+          state: location.states,
+        },
+      })
     }
     window.addEventListener("popstate", restore)
     return () => window.removeEventListener("popstate", restore)
