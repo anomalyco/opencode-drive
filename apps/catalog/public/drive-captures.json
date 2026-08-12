@@ -3,45 +3,31 @@
   "generatedBy": "scripts/capture-opencode-drive.ts",
   "variants": [
     {
-      "id": "2a0ccdbfd458",
-      "label": "2a0ccdb",
+      "id": "opencode",
+      "label": "Opencode",
       "source": "opencode",
       "revision": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
       "ref": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
-      "committedAt": "2026-08-12T12:45:43-04:00"
+      "committedAt": "2026-08-12T12:45:43-04:00",
+      "theme": "opencode"
     },
     {
-      "id": "f05d2ab551fb",
-      "label": "f05d2ab",
+      "id": "tokyonight",
+      "label": "Tokyo Night",
       "source": "opencode",
-      "revision": "f05d2ab551fbfcc47ecdac0c5541a1af9a769a8d",
-      "ref": "f05d2ab551fbfcc47ecdac0c5541a1af9a769a8d",
-      "committedAt": "2026-07-19T16:32:32Z"
+      "revision": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "ref": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "committedAt": "2026-08-12T12:45:43-04:00",
+      "theme": "tokyonight"
     },
     {
-      "id": "5d5b33f195cc",
-      "label": "5d5b33f",
-      "source": "opencode-v2-latest",
-      "revision": "5d5b33f195cc664d376ea85503f49433a05a3049",
-      "ref": "5d5b33f195cc664d376ea85503f49433a05a3049",
-      "committedAt": "2026-07-17T19:04:40+02:00"
-    },
-    {
-      "id": "baseline",
-      "label": "baseline",
-      "source": "opencode-effect-beta-98",
-      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
-      "ref": "801f019fef49",
-      "committedAt": "2026-07-17T10:17:51-04:00"
-    },
-    {
-      "id": "rosepine",
-      "label": "rosepine",
-      "source": "opencode-effect-beta-98",
-      "revision": "801f019fef495aabf6c82c8f6e34d41482724ff4",
-      "ref": "801f019fef49",
-      "committedAt": "2026-07-17T10:17:51-04:00",
-      "theme": "rosepine"
+      "id": "everforest",
+      "label": "Everforest",
+      "source": "opencode",
+      "revision": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "ref": "2a0ccdbfd4589ba2181624f25c55ed4ac0546b2d",
+      "committedAt": "2026-08-12T12:45:43-04:00",
+      "theme": "everforest"
     }
   ],
   "captures": [
@@ -51,26 +37,20 @@
       "category": "system",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/home.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/home.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/home.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/home.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/home.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/home.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/home.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -82,26 +62,20 @@
       "category": "navigation",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/command-palette.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/command-palette.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/command-palette.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/command-palette.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/command-palette.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/command-palette.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/command-palette.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -113,26 +87,20 @@
       "category": "picker",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/model-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/model-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/model-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/model-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/model-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/model-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/model-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -144,26 +112,20 @@
       "category": "picker",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/agent-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/agent-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/agent-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/agent-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/agent-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/agent-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/agent-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -175,26 +137,20 @@
       "category": "picker",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/integration-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/integration-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/integration-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/integration-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/integration-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/integration-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/integration-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -206,26 +162,20 @@
       "category": "picker",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/theme-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/theme-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/theme-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/theme-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/theme-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/theme-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/theme-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -237,26 +187,20 @@
       "category": "status",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/mcp-list.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/mcp-list.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/mcp-list.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/mcp-list.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/mcp-list.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/mcp-list.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/mcp-list.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -268,26 +212,20 @@
       "category": "status",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/status.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/status.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/status.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/status.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/status.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/status.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/status.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -299,26 +237,20 @@
       "category": "information",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/debug.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/debug.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/debug.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/debug.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/debug.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/debug.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/debug.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -330,26 +262,20 @@
       "category": "information",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/help.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/help.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/help.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/help.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/help.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/help.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/help.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -361,26 +287,20 @@
       "category": "information",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/pair.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/pair.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/pair.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/pair.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/pair.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/pair.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/pair.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -392,26 +312,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/session-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/session-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/session-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/session-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/session-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/session-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -423,26 +337,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/skill-picker.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/skill-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/skill-picker.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/skill-picker.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "baseline",
-          "src": "captures/baseline/skill-picker.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/skill-picker.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/skill-picker.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -454,32 +362,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/patch-input-streaming.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-input-streaming.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-input-streaming.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-input-streaming.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/patch-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/patch-input-streaming.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-input-streaming.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -491,932 +387,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/permission-prompt.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/permission-prompt.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/permission-prompt.frame.json",
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/permission-prompt.frame.json",
           "cols": 118,
           "rows": 34
         },
         {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/permission-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/permission-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/permission-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "patch-success",
-      "title": "Patch succeeded",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/patch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/patch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/patch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "session-rename",
-      "title": "Rename session",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/session-rename.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/session-rename.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/session-rename.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/session-rename.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "session-fork",
-      "title": "Fork session",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/session-fork.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/session-fork.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/session-fork.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/session-fork.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "session-export",
-      "title": "Export session",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/session-export.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/session-export.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/session-export.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/session-export.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-prompt",
-      "title": "Question prompt",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/question-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/question-prompt.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "session-picker-populated",
-      "title": "Session picker (populated)",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/session-picker-populated.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/session-picker-populated.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/session-picker-populated.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/session-picker-populated.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "toast-success",
-      "title": "Success toast",
-      "category": "system",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/toast-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/toast-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/toast-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/toast-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "diff-viewer",
-      "title": "Diff viewer",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "baseline",
-          "src": "captures/baseline/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "rosepine",
-          "src": "captures/rosepine/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "thinking-streaming",
-      "title": "Thinking streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/thinking-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/thinking-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "shell-input-streaming",
-      "title": "Shell input streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/shell-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/shell-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "shell-output-streaming",
-      "title": "Shell output streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/shell-output-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/shell-output-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "shell-execute-succeeded",
-      "title": "Shell execution succeeded",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/shell-execute-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/shell-execute-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "shell-execute-failed",
-      "title": "Shell execution failed",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/shell-execute-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/shell-execute-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "glob-success",
-      "title": "Glob finds files",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/glob-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/glob-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "glob-empty",
-      "title": "Glob finds no files",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/glob-empty.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/glob-empty.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "grouped-exploration",
-      "title": "Grouped project exploration",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/grouped-exploration.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/grouped-exploration.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "grep-success",
-      "title": "Grep finds matches",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/grep-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/grep-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "grep-empty",
-      "title": "Grep finds no matches",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/grep-empty.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/grep-empty.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "grep-failure",
-      "title": "Grep pattern fails",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/grep-failure.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/grep-failure.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "webfetch-streaming",
-      "title": "WebFetch streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/webfetch-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/webfetch-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "webfetch-success",
-      "title": "WebFetch succeeds",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/webfetch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/webfetch-success.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "websearch-running",
-      "title": "WebSearch running",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/websearch-running.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/websearch-running.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "websearch-failure",
-      "title": "WebSearch fails",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/websearch-failure.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/websearch-failure.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-input-streaming",
-      "title": "Question input streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-awaiting-form",
-      "title": "Question awaiting form",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-awaiting-form.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-awaiting-form.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-review",
-      "title": "Question review",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-review.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-review.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-succeeded",
-      "title": "Question succeeded",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "question-denied",
-      "title": "Question denied",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/question-denied.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/question-denied.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "patch-created",
-      "title": "Patch created file",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-created.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-created.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "patch-updated",
-      "title": "Patch updated file",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-updated.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-updated.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "patch-deleted",
-      "title": "Patch deleted file",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-deleted.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-deleted.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "patch-failed",
-      "title": "Patch failed",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/patch-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/patch-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "assistant-response-succeeded",
-      "title": "Assistant response succeeded",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/assistant-response-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/assistant-response-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "assistant-response-failed",
-      "title": "Assistant response failed",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/assistant-response-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/assistant-response-failed.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "assistant-response-interrupted",
-      "title": "Assistant response interrupted",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/assistant-response-interrupted.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/assistant-response-interrupted.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "read-input-streaming",
-      "title": "Read input streaming",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/read-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/read-input-streaming.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "read-permission",
-      "title": "Read permission",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/read-permission.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/read-permission.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "read-succeeded",
-      "title": "Read succeeded",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/read-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/read-succeeded.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "read-denied",
-      "title": "Read denied",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/read-denied.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/read-denied.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "subagent-running",
-      "title": "Subagent running",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/subagent-running.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/subagent-running.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "subagent-completed",
-      "title": "Subagent completed",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/subagent-completed.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/subagent-completed.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "subagent-session",
-      "title": "Subagent session",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "f05d2ab551fb",
-          "src": "captures/f05d2ab551fb/subagent-session.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "5d5b33f195cc",
-          "src": "captures/5d5b33f195cc/subagent-session.frame.json",
+          "variantId": "everforest",
+          "src": "captures/everforest/permission-prompt.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1428,8 +412,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/permission-always-selected.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/permission-always-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/permission-always-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/permission-always-selected.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1441,8 +437,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/permission-always-confirmation.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/permission-always-confirmation.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/permission-always-confirmation.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/permission-always-confirmation.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1454,8 +462,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/permission-reject-selected.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/permission-reject-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/permission-reject-selected.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/permission-reject-selected.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1467,8 +487,1045 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/permission-fullscreen.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/permission-fullscreen.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/permission-fullscreen.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/permission-fullscreen.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-success",
+      "title": "Patch succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-rename",
+      "title": "Rename session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/session-rename.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-rename.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-rename.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-fork",
+      "title": "Fork session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/session-fork.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-fork.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-fork.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-export",
+      "title": "Export session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/session-export.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-export.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-export.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-prompt",
+      "title": "Question prompt",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-prompt.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "session-picker-populated",
+      "title": "Session picker (populated)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/session-picker-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-picker-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-picker-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "toast-success",
+      "title": "Success toast",
+      "category": "system",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/toast-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/toast-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/toast-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "toast-error",
+      "title": "Error toast",
+      "category": "system",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/toast-error.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/toast-error.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/toast-error.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "toast-info",
+      "title": "Info toast",
+      "category": "system",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/toast-info.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/toast-info.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/toast-info.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "diff-viewer",
+      "title": "Diff viewer",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "thinking-streaming",
+      "title": "Thinking streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/thinking-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/thinking-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/thinking-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-input-streaming",
+      "title": "Shell input streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-output-streaming",
+      "title": "Shell output streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-output-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-output-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-output-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-execute-succeeded",
+      "title": "Shell execution succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-execute-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-execute-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-execute-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-execute-failed",
+      "title": "Shell execution failed",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-execute-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-execute-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-execute-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "glob-success",
+      "title": "Glob finds files",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/glob-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/glob-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/glob-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "glob-empty",
+      "title": "Glob finds no files",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/glob-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/glob-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/glob-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "grouped-exploration",
+      "title": "Grouped project exploration",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/grouped-exploration.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/grouped-exploration.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/grouped-exploration.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "grep-success",
+      "title": "Grep finds matches",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/grep-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/grep-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/grep-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "grep-empty",
+      "title": "Grep finds no matches",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/grep-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/grep-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/grep-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "grep-failure",
+      "title": "Grep pattern fails",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/grep-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/grep-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/grep-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "webfetch-streaming",
+      "title": "WebFetch streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/webfetch-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/webfetch-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/webfetch-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "webfetch-success",
+      "title": "WebFetch succeeds",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/webfetch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/webfetch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/webfetch-success.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "websearch-running",
+      "title": "WebSearch running",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/websearch-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/websearch-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/websearch-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "websearch-failure",
+      "title": "WebSearch fails",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/websearch-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/websearch-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/websearch-failure.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "assistant-response-succeeded",
+      "title": "Assistant response succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/assistant-response-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/assistant-response-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/assistant-response-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "assistant-response-failed",
+      "title": "Assistant response failed",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/assistant-response-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/assistant-response-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/assistant-response-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "assistant-response-interrupted",
+      "title": "Assistant response interrupted",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/assistant-response-interrupted.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/assistant-response-interrupted.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/assistant-response-interrupted.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-input-streaming",
+      "title": "Question input streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-awaiting-form",
+      "title": "Question awaiting form",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-awaiting-form.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-awaiting-form.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-awaiting-form.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-review",
+      "title": "Question review",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-review.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-review.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-review.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-succeeded",
+      "title": "Question succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "question-denied",
+      "title": "Question denied",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/question-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/question-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/question-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "read-input-streaming",
+      "title": "Read input streaming",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/read-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/read-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/read-input-streaming.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "read-permission",
+      "title": "Read permission",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/read-permission.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/read-permission.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/read-permission.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "read-succeeded",
+      "title": "Read succeeded",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/read-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/read-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/read-succeeded.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "read-denied",
+      "title": "Read denied",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/read-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/read-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/read-denied.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-created",
+      "title": "Patch created file",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-created.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-created.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-created.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-updated",
+      "title": "Patch updated file",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-updated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-updated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-updated.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-deleted",
+      "title": "Patch deleted file",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-deleted.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-deleted.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-deleted.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "patch-failed",
+      "title": "Patch failed",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/patch-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/patch-failed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/patch-failed.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1480,8 +1537,20 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/session-tabs-running.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/session-tabs-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-tabs-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-tabs-running.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1493,8 +1562,95 @@
       "category": "session",
       "frames": [
         {
-          "variantId": "2a0ccdbfd458",
-          "src": "captures/2a0ccdbfd458/session-tabs-idle.frame.json",
+          "variantId": "opencode",
+          "src": "captures/opencode/session-tabs-idle.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/session-tabs-idle.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/session-tabs-idle.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "subagent-running",
+      "title": "Subagent running",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "subagent-completed",
+      "title": "Subagent completed",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-completed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-completed.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-completed.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "subagent-session",
+      "title": "Subagent session",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-session.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-session.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-session.frame.json",
           "cols": 118,
           "rows": 34
         }

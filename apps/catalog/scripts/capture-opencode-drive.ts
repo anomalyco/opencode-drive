@@ -9,12 +9,12 @@ import { executeFlow, type ExecutableScenario } from "../catalog/flow"
 import { patchSuccessFlow } from "../scenarios/tools/patch-success"
 import { executableScenarios } from "../scenarios"
 import { catalogScenarioRuntime, catalogViewport } from "../scenarios/runtime"
-import type { DriveManifest, Variant as CaptureSet } from "../catalog/schema"
+import type { Variant as CaptureSet } from "../catalog/schema"
 import {
   captureSetId,
   captureSetLabel,
+  captureMatrixManifest,
   captureSource,
-  mergeCaptureHistory,
   parseCaptureOptions,
 } from "./capture-sets"
 
@@ -65,7 +65,10 @@ const captureVariant = (variant: Variant) => Effect.gen(function* () {
 
   const queued = lifecycleScenarios.filter((scenario) => scenario.llmMode === "queue")
   const served = lifecycleScenarios.filter((scenario) => scenario.llmMode === "serve")
-  const captures = yield* captureScenarioProcess(variant, queued, false, true)
+  const captures = yield* captureScenarioProcess(variant, [], false, true)
+  for (const scenario of queued) {
+    captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
+  }
   for (const scenario of served) {
     captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
   }
@@ -263,6 +266,16 @@ const captureBaseline = (driver: OpenCodeDriver.Driver, variant: Variant) =>
       yield* capture("toast-success")
       yield* Effect.sleep(200)
 
+      yield* driver.ui.submit("/share")
+      yield* driver.ui.waitFor("Sharing is not implemented for V2 sessions yet")
+      yield* capture("toast-error")
+
+      yield* openSlash("/debug", "Debug")
+      yield* driver.ui.enter()
+      yield* driver.ui.waitFor("Debug info copied to clipboard")
+      yield* capture("toast-info")
+      yield* close()
+
       yield* openSlash("/diff", "Diff working tree")
       yield* driver.ui.waitFor("No changes to show")
       yield* capture("diff-viewer")
@@ -326,9 +339,16 @@ function isCaptureId(value: string): value is CaptureId {
 }
 
 try {
-  const captured = await Effect.runPromise(
-    Effect.forEach(variants, captureVariant, { concurrency: Math.min(variants.length, 2) }),
-  )
+  const captured = options.workerOutput === undefined && variants.length > 1 && options.jobs > 1
+    ? await captureVariantProcesses(options, variants)
+    : await Effect.runPromise(Effect.forEach(variants, captureVariant, { concurrency: 1 }))
+  const expectedIds = captured[0]?.map((capture) => capture.id) ?? []
+  for (const [index, variantCaptures] of captured.entries()) {
+    const actualIds = variantCaptures.map((capture) => capture.id)
+    if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
+      throw new Error(`Variant ${variants[index]?.id ?? index} captured a different ordered screen set`)
+    }
+  }
   const captures = captured[0]?.map((first) => ({
     id: first.id,
     title: first.title,
@@ -341,6 +361,17 @@ try {
     for (const capture of captures) {
       for (const frame of capture.frames) console.log(frame.src)
     }
+  } else if (options.workerOutput !== undefined) {
+    const [variant] = variants
+    if (!variant) throw new Error("Capture worker requires one variant")
+    const target = join(options.workerOutput, variant.id)
+    await rm(target, { recursive: true, force: true })
+    await mkdir(options.workerOutput, { recursive: true })
+    await rename(join(stagingRoot, variant.id), target)
+    await Bun.write(
+      join(options.workerOutput, `${variant.id}.json`),
+      `${JSON.stringify({ variant: (({ path: _, ...value }) => value)(variant), captures: captured[0] ?? [] })}\n`,
+    )
   } else {
     for (const variant of variants) {
       const target = fileURLToPath(new URL(`../public/captures/${variant.id}/`, import.meta.url))
@@ -349,9 +380,8 @@ try {
       await rename(join(stagingRoot, variant.id), target)
     }
     const manifestFile = new URL("../public/drive-captures.json", import.meta.url)
-    const previous = await readPreviousManifest(manifestFile)
     const captureSets = variants.map(({ path: _, ...variant }) => variant satisfies CaptureSet)
-    const manifest = mergeCaptureHistory(previous, captureSets, captures)
+    const manifest = captureMatrixManifest(captureSets, captures)
     await Bun.write(manifestFile, `${JSON.stringify(manifest, undefined, 2)}\n`)
   }
   captureSucceeded = true
@@ -360,6 +390,48 @@ try {
   if (captureSucceeded) await rm(stagingRoot, { recursive: true, force: true })
   else console.error(`Retained staged capture frames: ${stagingRoot}`)
   await prepared.cleanup(captureSucceeded)
+}
+
+async function captureVariantProcesses(
+  captureOptions: ReturnType<typeof parseCaptureOptions>,
+  planned: ReadonlyArray<Variant>,
+): Promise<Array<Array<Capture>>> {
+  const output = fileURLToPath(new URL(`../.tmp/capture-workers/${crypto.randomUUID()}/`, import.meta.url))
+  await mkdir(output, { recursive: true })
+  let next = 0
+  const results = Array.from<Array<Capture> | undefined>({ length: planned.length })
+
+  await Promise.all(Array.from({ length: Math.min(captureOptions.jobs, planned.length) }, async () => {
+    while (true) {
+      const index = next++
+      const variant = planned[index]
+      if (!variant) return
+      const args = [
+        process.execPath,
+        fileURLToPath(import.meta.url),
+        "--opencode", captureOptions.opencode,
+        "--revision", variant.revision,
+        "--theme", variant.theme ?? "default",
+        "--jobs", "1",
+        "--worker-output", output,
+      ]
+      const child = Bun.spawn(args, { cwd: fileURLToPath(new URL("..", import.meta.url)), stdout: "inherit", stderr: "inherit" })
+      if (await child.exited !== 0) throw new Error(`Capture worker ${variant.id} failed`)
+      const result = await Bun.file(join(output, `${variant.id}.json`)).json() as { captures: Array<Capture> }
+      results[index] = result.captures
+    }
+  }))
+
+  for (const variant of planned) {
+    const target = join(stagingRoot, variant.id)
+    await mkdir(dirname(target), { recursive: true })
+    await rename(join(output, variant.id), target)
+  }
+  await rm(output, { recursive: true, force: true })
+  return results.map((result, index) => {
+    if (!result) throw new Error(`Capture worker ${planned[index]?.id ?? index} produced no result`)
+    return result
+  })
 }
 
 async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions>) {
@@ -425,11 +497,6 @@ async function preparedWorktreeRevision(path: string) {
 
 function metric(name: string, startedAt: number) {
   console.log(`METRIC ${name}=${Math.round(performance.now() - startedAt)}`)
-}
-
-async function readPreviousManifest(file: URL): Promise<DriveManifest | undefined> {
-  const source = Bun.file(file)
-  return (await source.exists()) ? source.json() as Promise<DriveManifest> : undefined
 }
 
 async function git(cwd: string, ...args: ReadonlyArray<string>): Promise<string> {

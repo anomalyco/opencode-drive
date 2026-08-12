@@ -29,6 +29,14 @@ export const taxonomies = defineTaxonomies({
         "export-session": "Export session",
       },
     },
+    notifications: {
+      label: "Notifications",
+      items: {
+        "toast-info": "Info toast",
+        "toast-success": "Success toast",
+        "toast-error": "Error toast",
+      },
+    },
     "models-and-agents": {
       label: "Models & agents",
       items: {

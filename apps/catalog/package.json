@@ -14,6 +14,7 @@
     "deploy": "bun run generate && bun run build && bunx wrangler deploy",
     "doctor": "bunx -y react-doctor@latest .",
     "bench:capture-flow": "bun ./scripts/bench-capture-flow.ts",
+    "bench:capture-matrix": "bun ./scripts/bench-capture-matrix.ts",
     "test": "bun test ./catalog",
     "check": "bun run generate && git diff --exit-code -- public/catalog.json && bun run lint && bun run typecheck && bun run test && bun build ./src/index.html --outdir .tmp/build && bun build ./scripts/generate-catalog.ts --target=bun --outdir .tmp/scripts",
     "drive:capture": "bun run capture"

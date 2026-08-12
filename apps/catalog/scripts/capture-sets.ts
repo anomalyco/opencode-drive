@@ -7,6 +7,8 @@ export interface CaptureOptions {
   readonly themes: ReadonlyArray<string | undefined>
   readonly flow: string | undefined
   readonly fresh: boolean
+  readonly jobs: number
+  readonly workerOutput: string | undefined
 }
 
 export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode: string): CaptureOptions {
@@ -15,6 +17,8 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
   const themes: Array<string | undefined> = []
   let flow: string | undefined
   let fresh = false
+  let jobs = 3
+  let workerOutput: string | undefined
 
   for (let index = 0; index < args.length; index++) {
     const argument = args[index]
@@ -28,8 +32,12 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
     else if (argument === "--revision") revisions.push(value)
     else if (argument === "--theme") themes.push(value === "default" ? undefined : value)
     else if (argument === "--flow") flow = value
+    else if (argument === "--jobs") jobs = Number(value)
+    else if (argument === "--worker-output") workerOutput = resolve(value)
     else throw new Error(`Unknown capture argument: ${argument}`)
   }
+
+  if (!Number.isInteger(jobs) || jobs < 1) throw new Error("--jobs must be a positive integer")
 
   return {
     opencode: resolve(opencode),
@@ -37,47 +45,32 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
     themes: themes.length === 0 ? [undefined] : themes,
     flow,
     fresh,
+    jobs,
+    workerOutput,
   }
 }
 
 export function captureSetId(revision: string, theme: string | undefined): string {
-  const suffix = theme === undefined ? "" : `-${slug(theme)}`
-  return `${revision.slice(0, 12).toLowerCase()}${suffix}`
+  return theme === undefined ? revision.slice(0, 12).toLowerCase() : slug(theme)
 }
 
 export function captureSetLabel(revision: string, theme: string | undefined): string {
-  return `${revision.slice(0, 7)}${theme === undefined ? "" : ` / ${theme}`}`
+  if (theme === undefined) return revision.slice(0, 7)
+  if (theme === "opencode") return "Opencode"
+  if (theme === "tokyonight") return "Tokyo Night"
+  if (theme === "everforest") return "Everforest"
+  return theme
 }
 
-export function sortCaptureSets(sets: ReadonlyArray<Variant>): Array<Variant> {
-  return [...sets].sort((left, right) => {
-    const byCommit = Date.parse(right.committedAt) - Date.parse(left.committedAt)
-    return byCommit || left.label.localeCompare(right.label)
-  })
-}
-
-export function mergeCaptureHistory(
-  current: DriveManifest | undefined,
+export function captureMatrixManifest(
   variants: ReadonlyArray<Variant>,
   captures: ReadonlyArray<DriveCapture>,
 ): DriveManifest {
-  const replaced = new Set(variants.map((variant) => variant.id))
-  const previousVariants = current?.variants.filter((variant) => !replaced.has(variant.id)) ?? []
-  const previousFrames = new Map(
-    current?.captures.map((capture) => [capture.id, capture.frames.filter((frame) => !replaced.has(frame.variantId))]) ?? [],
-  )
-
   return {
     format: "opencode-terminal-frame-captures-v1",
     generatedBy: "scripts/capture-opencode-drive.ts",
-    variants: sortCaptureSets([...previousVariants, ...variants]) as [Variant, ...Array<Variant>],
-    captures: captures.map((capture) => {
-      const [first, ...rest] = capture.frames
-      return {
-        ...capture,
-        frames: [first, ...rest, ...(previousFrames.get(capture.id) ?? [])] as const,
-      }
-    }),
+    variants: variants as [Variant, ...Array<Variant>],
+    captures,
   }
 }
 

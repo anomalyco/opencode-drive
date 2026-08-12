@@ -35,20 +35,24 @@ export const readLifecycleFlow = defineExecutableFlow(
         Llm.toolCall({ index: 0, id: "call_read_success", name: "read", input: { path: "fixture.txt" } }, { delay: 100, chunkSize: 4 }),
         Llm.finish("tool-calls"),
       )
-      yield* driver.llm.queue(
-        Llm.toolCall({ index: 0, id: "call_read_failure", name: "read", input: { path: "missing-fixture.txt" } }),
-        Llm.finish("tool-calls"),
-      )
-      yield* driver.llm.queue(Llm.text("The missing-file read failed as expected."))
-
-      yield* driver.ui.submit("Read the fixture, try a missing file, then read the ledger.")
+      yield* driver.llm.queue(Llm.text("The fixture read succeeded."))
+      yield* driver.ui.submit("Read the fixture file.")
       yield* Effect.sleep(350)
       yield* checkpoint(input)
       yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
       yield* checkpoint(permission)
       yield* driver.ui.enter()
-      yield* Effect.sleep(300)
+      yield* driver.ui.waitFor("The fixture read succeeded.", { timeout: 15_000 })
       yield* checkpoint(succeeded)
+
+      yield* driver.llm.queue(
+        Llm.toolCall({ index: 0, id: "call_read_failure", name: "read", input: { path: "missing-fixture.txt" } }),
+        Llm.finish("tool-calls"),
+      )
+      yield* driver.llm.queue(Llm.text("The missing-file read failed as expected."))
+      yield* driver.ui.submit("Now try to read a missing file.")
+      yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
+      yield* driver.ui.enter()
       yield* driver.ui.waitFor("The missing-file read failed as expected.", { timeout: 15_000 })
       yield* driver.llm.queue(
         Llm.toolCall({ index: 0, id: "call_read_denied", name: "read", input: { path: "src/ledger.ts" } }),

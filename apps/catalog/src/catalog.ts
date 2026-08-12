@@ -23,7 +23,7 @@ export function frameFor(screen: Screen, variantId: string): Frame | undefined {
   return screen.frames.find((frame) => frame.variantId === variantId)
 }
 
-const rendererFamilies = ["shell", "patch", "read", "web", "search", "question", "subagent", "assistant"]
+const rendererFamilies = ["notification", "shell", "patch", "read", "web", "search", "question", "subagent", "assistant"]
 
 export function screenFamily(screen: Screen): string {
   return rendererFamilies.find((family) => screen.features.includes(family)) ?? screen.category

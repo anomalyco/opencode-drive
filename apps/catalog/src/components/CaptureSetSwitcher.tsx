@@ -8,9 +8,9 @@ interface CaptureSetSwitcherProps {
 
 export function CaptureSetSwitcher({ sets, active, onSelect }: CaptureSetSwitcherProps) {
   return (
-    <label className="variant-switcher" title={`${active.revision}${active.theme ? ` / ${active.theme}` : ""}`}>
-      <span className="sr-only">Capture set</span>
-      <select aria-label="Select capture set" value={active.id} onChange={(event) => onSelect(event.target.value)}>
+    <label className="variant-switcher" title={active.label}>
+      <span className="sr-only">Theme</span>
+      <select aria-label="Select theme" value={active.id} onChange={(event) => onSelect(event.target.value)}>
         {sets.map((set) => (
           <option key={set.id} value={set.id}>{set.label}</option>
         ))}

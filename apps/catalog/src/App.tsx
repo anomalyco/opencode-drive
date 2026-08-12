@@ -216,6 +216,8 @@ export function App({ catalog }: AppProps) {
   const [variantIndex, setVariantIndex] = useState(() => {
     const index = catalog.variants.findIndex((variant) => variant.id === initialLocation.variantId)
     if (index >= 0) return index
+    const opencode = catalog.variants.findIndex((variant) => variant.id === "opencode")
+    if (opencode >= 0) return opencode
     const coverage = catalog.variants.map((variant) =>
       catalog.screens.filter((screen) => frameFor(screen, variant.id) !== undefined).length,
     )

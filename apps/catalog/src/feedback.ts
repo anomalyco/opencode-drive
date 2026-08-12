@@ -17,7 +17,7 @@ export function feedbackIssueUrl(issue: FeedbackIssue) {
     "## Catalog state",
     "",
     `- Screen: \`${issue.identifier}\``,
-    `- Capture set: \`${issue.variant}\``,
+    `- Theme: \`${issue.variant}\``,
     `- Link: ${issue.deepLink}`,
   ].join("\n"))
   return url.href
