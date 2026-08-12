@@ -22,6 +22,7 @@ export function FilterMenu({
 }: FilterMenuProps) {
   const [query, setQuery] = useState("")
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  const searchable = groups.reduce((total, group) => total + group.items.length, 0) > 7
   const needle = query.trim().toLowerCase()
   const selectedValues = new Set(selected)
   const visibleGroups: Array<TaxonomyGroup> = []
@@ -65,23 +66,25 @@ export function FilterMenu({
         </span>
       </summary>
       <div className="filter-popover">
-        <div className="filter-search">
-          <span aria-hidden="true">⌕</span>
-          <input
-            name={`${label.toLowerCase().replaceAll(" ", "-")}-search`}
-            value={query}
-            placeholder={searchLabel}
-            aria-label={searchLabel}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        {searchable ? (
+          <div className="filter-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              name={`${label.toLowerCase().replaceAll(" ", "-")}-search`}
+              value={query}
+              placeholder={searchLabel}
+              aria-label={searchLabel}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        ) : undefined}
         <div className="filter-options">
           {visibleGroups.length === 0 ? (
             <p className="filter-empty">No matching labels.</p>
           ) : (
             visibleGroups.map((group) => (
               <section className="filter-group" key={group.id}>
-                <h2>{group.label}</h2>
+                {groups.length > 1 ? <h2>{group.label}</h2> : undefined}
                 {group.items.map((item) => (
                   <label key={item.id} className="filter-option">
                     <input

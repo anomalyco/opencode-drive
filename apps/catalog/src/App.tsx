@@ -6,13 +6,13 @@ import type {
   FacetSelections,
   Taxonomy,
 } from "./catalog"
-import { buildFacetIndex, emptyFacetSelections, filterFlows, filterScreens, frameFor } from "./catalog"
+import { buildFacetIndex, emptyFacetSelections, facetValues, filterFlows, filterScreens, frameFor } from "./catalog"
 import { CommandPalette } from "./components/CommandPalette"
 import { ContactSheet } from "./components/ContactSheet"
+import { FilterBar } from "./components/FilterBar"
 import { FlowBrowser } from "./components/FlowBrowser"
 import { Header } from "./components/Header"
 import { MatrixNavigation } from "./components/MatrixNavigation"
-import { SelectionBar } from "./components/SelectionBar"
 import { Viewer } from "./components/Viewer"
 import { preloadFrame } from "./components/TerminalFrame"
 import { catalogBrowseUrl, catalogDeepLink, catalogRootUrl, readCatalogLocation } from "./deep-link"
@@ -40,6 +40,7 @@ type UiAction =
   | { readonly type: "toggle-taxonomy"; readonly taxonomy: Taxonomy; readonly value: string }
   | { readonly type: "clear-taxonomy"; readonly taxonomy: Taxonomy }
   | { readonly type: "toggle-facet"; readonly facet: Facet; readonly value: string }
+  | { readonly type: "clear-facet"; readonly facet: Facet }
   | { readonly type: "clear-facets" }
   | { readonly type: "reset-view" }
   | { readonly type: "clear-search" }
@@ -71,10 +72,10 @@ function toggle(values: ReadonlyArray<string>, value: string): ReadonlyArray<str
 function uiReducer(state: UiState, action: UiAction): UiState {
   switch (action.type) {
     case "set-mode":
+      // Filters and query survive tab switches, matching Mobbin's browse behavior.
       return {
         ...state,
         mode: action.mode,
-        query: "",
         viewerOpen: false,
         selectedScreenId: undefined,
         gridFocusTick: state.gridFocusTick + 1,
@@ -106,14 +107,21 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         selectedScreenId: undefined,
         gridFocusTick: state.gridFocusTick + 1,
       }
+    case "clear-facet":
+      return {
+        ...state,
+        facets: { ...state.facets, [action.facet]: [] },
+        selectedScreenId: undefined,
+        gridFocusTick: state.gridFocusTick + 1,
+      }
     case "clear-facets":
       return { ...state, facets: emptyFacetSelections, selectedScreenId: undefined, gridFocusTick: state.gridFocusTick + 1 }
     case "reset-view":
       return {
         ...state,
         query: "",
-        screenLabels: state.mode === "screens" ? [] : state.screenLabels,
-        uiElements: state.mode === "ui-elements" ? [] : state.uiElements,
+        screenLabels: [],
+        uiElements: [],
         facets: emptyFacetSelections,
         selectedScreenId: undefined,
         gridFocusTick: state.gridFocusTick + 1,
@@ -258,12 +266,23 @@ export function App({ catalog }: AppProps) {
   const taxonomyValues = ui.mode === "screens" ? ui.screenLabels : ui.uiElements
   const taxonomyCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const screen of catalog.screens) {
+    for (const screen of availableScreens) {
       const values = ui.mode === "screens" ? screen.screenLabels : screen.uiElements
       for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
     }
     return counts
-  }, [catalog.screens, ui.mode])
+  }, [availableScreens, ui.mode])
+  const facetCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const screen of availableScreens) {
+      for (const facet of ["surface", "pattern", "feature", "state"] as ReadonlyArray<Facet>) {
+        for (const value of facetValues(screen, facet)) {
+          counts.set(`${facet}:${value}`, (counts.get(`${facet}:${value}`) ?? 0) + 1)
+        }
+      }
+    }
+    return counts
+  }, [availableScreens])
 
   const navigateViewer = (direction: 1 | -1) => {
     if (viewerScreens.length === 0) return
@@ -396,20 +415,13 @@ export function App({ catalog }: AppProps) {
         <Header
           catalog={catalog}
           mode={ui.mode}
-          taxonomyValues={taxonomyValues}
-          facets={ui.facets}
           query={ui.query}
           resultCount={ui.mode === "flows" ? flows.length : screens.length}
-          taxonomyCounts={taxonomyCounts}
           searchRef={searchRef}
           variant={activeVariant}
           variantPosition={variantIndex + 1}
           onMode={(mode) => dispatch({ type: "set-mode", mode })}
           onQuery={(query) => dispatch({ type: "search", query })}
-          onTaxonomy={(value) => dispatch({ type: "toggle-taxonomy", taxonomy: taxonomyType, value })}
-          onClearTaxonomy={() => dispatch({ type: "clear-taxonomy", taxonomy: taxonomyType })}
-          onFacet={(facet, value) => dispatch({ type: "toggle-facet", facet, value })}
-          onClearFacets={() => dispatch({ type: "clear-facets" })}
           onClearSearch={() => dispatch({ type: "clear-search" })}
           onOpenPalette={() => dispatch({ type: "open-palette" })}
           onVariant={navigateVariant}
@@ -417,23 +429,29 @@ export function App({ catalog }: AppProps) {
         />
         {ui.mode !== "flows" ? (
           <>
-            <SelectionBar
+            <FilterBar
+              taxonomyName={ui.mode === "screens" ? "Screen patterns" : "UI elements"}
               taxonomy={taxonomy}
               taxonomyValues={taxonomyValues}
+              taxonomyCounts={taxonomyCounts}
+              facetOptions={{
+                surface: catalog.surfaces,
+                pattern: catalog.patterns,
+                feature: catalog.features,
+                state: catalog.states,
+              }}
               facets={ui.facets}
+              facetCounts={facetCounts}
               query={ui.query}
               resultCount={screens.length}
               onTaxonomy={(value) => dispatch({ type: "toggle-taxonomy", taxonomy: taxonomyType, value })}
+              onClearTaxonomy={() => dispatch({ type: "clear-taxonomy", taxonomy: taxonomyType })}
               onFacet={(facet, value) => dispatch({ type: "toggle-facet", facet, value })}
+              onClearFacet={(facet) => dispatch({ type: "clear-facet", facet })}
               onClearQuery={() => dispatch({ type: "clear-search" })}
-              onClear={() => dispatch({ type: "reset-view" })}
+              onClearAll={() => dispatch({ type: "reset-view" })}
             />
-            <MatrixNavigation
-              screens={screens}
-              states={catalog.states}
-              selectedStates={ui.facets.state}
-              onState={(value) => dispatch({ type: "toggle-facet", facet: "state", value })}
-            />
+            <MatrixNavigation screens={screens} />
           </>
         ) : undefined}
         {ui.mode === "flows" ? (
