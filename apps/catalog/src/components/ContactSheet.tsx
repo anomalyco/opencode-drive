@@ -14,6 +14,7 @@ interface ContactSheetProps {
   readonly variantId: string
   readonly onSelect: (id: string) => void
   readonly onOpen: (id: string) => void
+  readonly onClearFilters: () => void
   readonly deepLinkFor: (id: string) => string
 }
 
@@ -25,6 +26,7 @@ export function ContactSheet({
   variantId,
   onSelect,
   onOpen,
+  onClearFilters,
   deepLinkFor,
 }: ContactSheetProps) {
   const gridRef = useRef<HTMLElement>(null)
@@ -91,7 +93,10 @@ export function ContactSheet({
   return (
     <section className="contact-sheet" aria-label="Terminal captures" ref={gridRef}>
       {screens.length === 0 ? (
-        <p className="empty-state">No captures match.</p>
+        <div className="empty-state">
+          <p>No captures match this combination of filters.</p>
+          <button type="button" onClick={onClearFilters}>Clear all filters</button>
+        </div>
       ) : (
         Array.from(Map.groupBy(screens, screenFamily), ([category, categoryScreens]) => (
           <section className="capture-family" id={`family-${category}`} key={category}>

@@ -878,13 +878,32 @@ kbd {
 }
 
 .empty-state {
+  display: grid;
   grid-column: 1 / -1;
   margin: 0;
   padding: 6rem 0;
+  justify-items: center;
+  gap: 1rem;
   color: var(--kit-fg-muted);
   font-family: var(--kit-mono);
   font-size: 0.72rem;
   text-align: center;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.empty-state button {
+  min-height: 2.1rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--kit-line-strong);
+  color: var(--kit-fg-muted);
+}
+
+.empty-state button:hover {
+  background: var(--kit-bg-hover);
+  color: var(--kit-fg-strong);
 }
 
 /* ---------------------------------- flows --------------------------------- */

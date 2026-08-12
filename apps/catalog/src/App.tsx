@@ -470,6 +470,7 @@ export function App({ catalog }: AppProps) {
             variantId={activeVariant.id}
             onSelect={(id) => dispatch({ type: "select-screen", id })}
             onOpen={(id) => openViewer(id)}
+            onClearFilters={() => dispatch({ type: "reset-view" })}
             deepLinkFor={deepLinkFor}
           />
         )}
