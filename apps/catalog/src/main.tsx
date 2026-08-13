@@ -1,6 +1,5 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { domAnimation, LazyMotion } from "motion/react"
 import "@fontsource/commit-mono/400.css"
 import "@fontsource/commit-mono/400-italic.css"
 import "@fontsource/commit-mono/700.css"
@@ -12,8 +11,9 @@ import "@fontsource/noto-sans-math/math-400.css"
 import "./styles.css"
 import { App } from "./App"
 import type { Catalog } from "./catalog"
+import { catalogBasePath } from "./base-path"
 
-const catalog = await fetch("/catalog.json").then((response) => {
+const catalog = await fetch(`${catalogBasePath()}catalog.json`).then((response) => {
   if (!response.ok) throw new Error(`Failed to load catalog: ${response.status}`)
   return response.json() as Promise<Catalog>
 })
@@ -23,8 +23,6 @@ if (!root) throw new Error("Missing #root element")
 
 createRoot(root).render(
   <StrictMode>
-    <LazyMotion features={domAnimation}>
-      <App catalog={catalog} />
-    </LazyMotion>
+    <App catalog={catalog} />
   </StrictMode>,
 )

@@ -17,7 +17,7 @@ instance.
 Browse and copy OpenCode terminal state IDs from:
 
 ```text
-https://catalog.kitlangton.dev
+https://dev.opencode.ai/lab/catalog
 ```
 
 Replayable flow states expose canonical `<flow-id>/<state-id>` addresses, for example:

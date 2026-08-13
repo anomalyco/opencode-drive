@@ -11,6 +11,7 @@ import {
 } from "opencode-drive/frame"
 import { useEffect, useRef } from "react"
 import type { Frame, FrameArtifact } from "../../catalog/schema"
+import { catalogBasePath } from "../base-path"
 
 interface TerminalFrameProps {
   readonly frame: Frame
@@ -53,11 +54,14 @@ export function TerminalFrame({ frame, label, lazy = false }: TerminalFrameProps
     }
     let observer: IntersectionObserver | undefined
     observer = lazy
-      ? new IntersectionObserver((entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return
-          observer?.disconnect()
-          void render()
-        }, { rootMargin: "300px" })
+      ? new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return
+            observer?.disconnect()
+            void render()
+          },
+          { rootMargin: "300px" },
+        )
       : undefined
     if (observer) observer.observe(canvas)
     else void render()
@@ -81,7 +85,7 @@ export function TerminalFrame({ frame, label, lazy = false }: TerminalFrameProps
 function loadFrame(src: string) {
   const existing = cache.get(src)
   if (existing) return existing
-  const pending = fetch(`/${src}`).then(async (response) => {
+  const pending = fetch(`${catalogBasePath()}${src}`).then(async (response) => {
     if (!response.ok) throw new Error(`Failed to load terminal frame: ${response.status}`)
     return response.json() as Promise<FrameArtifact>
   })
@@ -121,12 +125,7 @@ function drawFrame(canvas: HTMLCanvasElement, frame: FrameArtifact) {
           if (!drawBlockGlyph(context, char, x, y, cells)) {
             const font = `${attributes & TextStyle.italic ? "italic " : ""}${attributes & TextStyle.bold ? "700 " : "400 "}${FontSize}px ${FontStack}`
             context.font = font
-            context.fillText(
-              char,
-              x + (cells * CellWidth) / 2,
-              y + baselineOffset(context, font),
-              cells * CellWidth,
-            )
+            context.fillText(char, x + (cells * CellWidth) / 2, y + baselineOffset(context, font), cells * CellWidth)
           }
           if (attributes & TextStyle.underline) context.fillRect(x, y + UnderlineOffset, cells * CellWidth, 1)
           if (attributes & TextStyle.strikethrough) context.fillRect(x, y + StrikethroughOffset, cells * CellWidth, 1)

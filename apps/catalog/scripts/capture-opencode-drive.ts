@@ -41,7 +41,7 @@ type Variant = {
   readonly theme?: string
 }
 
-const defaultOpenCode = fileURLToPath(new URL("../../../../opencode-v2-latest/", import.meta.url))
+const defaultOpenCode = fileURLToPath(new URL("../../../../opencode/", import.meta.url))
 const options = parseCaptureOptions(process.argv.slice(2), defaultOpenCode)
 const processStartedAt = performance.now()
 const stagingRoot = fileURLToPath(new URL(`../.tmp/capture-staging/${crypto.randomUUID()}/`, import.meta.url))
@@ -51,29 +51,30 @@ const variants = prepared.variants
 let captureSucceeded = false
 const lifecycleScenarios = executableScenarios.filter((scenario) => scenario.id !== patchSuccessFlow.id)
 
-const captureVariant = (variant: Variant) => Effect.gen(function* () {
-  if (options.flow !== undefined) {
-    const selected = executableScenarios.find((scenario) => scenario.id === options.flow)
-    if (!selected) {
-      const known = executableScenarios.map((scenario) => scenario.id).join(", ")
-      return yield* Effect.fail(
-        new Error(`Unknown executable flow ${JSON.stringify(options.flow)}. Known flows: ${known}`),
-      )
+const captureVariant = (variant: Variant) =>
+  Effect.gen(function* () {
+    if (options.flow !== undefined) {
+      const selected = executableScenarios.find((scenario) => scenario.id === options.flow)
+      if (!selected) {
+        const known = executableScenarios.map((scenario) => scenario.id).join(", ")
+        return yield* Effect.fail(
+          new Error(`Unknown executable flow ${JSON.stringify(options.flow)}. Known flows: ${known}`),
+        )
+      }
+      return yield* captureScenarioProcess(variant, [selected], true)
     }
-    return yield* captureScenarioProcess(variant, [selected], true)
-  }
 
-  const queued = lifecycleScenarios.filter((scenario) => scenario.llmMode === "queue")
-  const served = lifecycleScenarios.filter((scenario) => scenario.llmMode === "serve")
-  const captures = yield* captureScenarioProcess(variant, [], false, true)
-  for (const scenario of queued) {
-    captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
-  }
-  for (const scenario of served) {
-    captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
-  }
-  return captures
-})
+    const queued = lifecycleScenarios.filter((scenario) => scenario.llmMode === "queue")
+    const served = lifecycleScenarios.filter((scenario) => scenario.llmMode === "serve")
+    const captures = yield* captureScenarioProcess(variant, [], false, true)
+    for (const scenario of queued) {
+      captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
+    }
+    for (const scenario of served) {
+      captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
+    }
+    return captures
+  })
 
 function captureScenarioProcess(
   variant: Variant,
@@ -82,8 +83,13 @@ function captureScenarioProcess(
   baseline = false,
 ) {
   return OpenCodeDriver.use(
-    catalogScenarioRuntime({ opencode: variant.path, theme: variant.theme }),
-    (driver) => Effect.gen(function* () {
+    catalogScenarioRuntime({
+      opencode: variant.path,
+      theme: variant.theme,
+      git: scenarios.some((scenario) => scenario.id === "diff-viewer-lifecycle"),
+    }),
+    (driver) =>
+    Effect.gen(function* () {
       const captures = baseline ? [...(yield* captureBaseline(driver, variant))] : []
       const shared = scenarios.filter((scenario) => scenario.clientIsolation === "shared")
       if (shared.length > 0) {
@@ -106,18 +112,19 @@ function captureScenarioClient(
   const clientName = `catalog-${scenarios[0]?.id ?? "empty"}-${scenarios.length}`
   return Effect.acquireUseRelease(
     driver.tuis.launch(clientName, { viewport: catalogViewport }),
-    (client) => Effect.gen(function* () {
-      const captures: Array<Capture> = []
-      for (const scenario of scenarios) {
-        yield* openNewSession(client.ui)
-        yield* resetProjectFiles(driver)
-        const startedAt = performance.now()
-        console.error(`Capturing ${scenario.id}`)
-        captures.push(...(yield* captureScenario({ ...driver, ui: client.ui }, variant, scenario, preview)))
-        metric(`capture_scenario_${scenario.id}_ms`, startedAt)
-      }
-      return captures
-    }),
+    (client) =>
+      Effect.gen(function* () {
+        const captures: Array<Capture> = []
+        for (const scenario of scenarios) {
+          yield* openNewSession(client.ui)
+          yield* resetProjectFiles(driver)
+          const startedAt = performance.now()
+          console.error(`Capturing ${scenario.id}`)
+          captures.push(...(yield* captureScenario({ ...driver, ui: client.ui }, variant, scenario, preview)))
+          metric(`capture_scenario_${scenario.id}_ms`, startedAt)
+        }
+        return captures
+      }),
     (client) => client.close(),
   )
 }
@@ -133,155 +140,155 @@ const openNewSession = Effect.fn("Catalog.openNewSession")(function* (ui: OpenCo
 
 const captureBaseline = (driver: OpenCodeDriver.Driver, variant: Variant) =>
   Effect.gen(function* () {
-      const captures: Capture[] = []
-      const outputDirectory = join(stagingRoot, variant.id)
-      yield* Effect.promise(() => mkdir(outputDirectory, { recursive: true }))
+    const captures: Capture[] = []
+    const outputDirectory = join(stagingRoot, variant.id)
+    yield* Effect.promise(() => mkdir(outputDirectory, { recursive: true }))
 
-      const capture = Effect.fn("Catalog.capture")(function* (id: CaptureId) {
-        const screen = screens[id]
-        const frame = yield* driver.ui.capture()
-        const src = `captures/${variant.id}/${id}.frame.json`
-        yield* Effect.promise(() =>
-          Bun.write(
-            join(outputDirectory, `${id}.frame.json`),
-            `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`,
-          ),
-        )
-        captures.push({
-          id,
-          title: screen.title,
-          category: screen.category,
-          frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
-        })
-      })
-
-      const close = Effect.fn("Catalog.closeDialog")(function* () {
-        yield* driver.ui.press("\u001b")
-        yield* Effect.sleep(150)
-      })
-
-      const openSlash = Effect.fn("Catalog.openSlash")(function* (
-        slash: string,
-        marker: string,
-      ) {
-        yield* driver.ui.submit(slash)
-        yield* driver.ui.waitFor(marker)
-      })
-
-      yield* driver.ui.waitFor((state) => state.elements.length > 0)
-      yield* Effect.sleep(400)
-      yield* capture("home")
-
-      yield* driver.ui.press("p", { ctrl: true })
-      yield* driver.ui.waitFor("Commands")
-      yield* capture("command-palette")
-      yield* close()
-
-      const dialogs = [
-        ["/models", "Select model", "model-picker"],
-        ["/agents", "Select agent", "agent-picker"],
-        ["/connect", "Connect an integration", "integration-picker"],
-        ["/themes", "Themes", "theme-picker"],
-        ["/mcps", "MCP servers", "mcp-list"],
-        ["/status", "No MCP servers", "status"],
-        ["/debug", "Debug", "debug"],
-        ["/help", "Press ctrl+p", "help"],
-        ["/pair", "Pair", "pair"],
-        ["/sessions", "Sessions", "session-picker"],
-        ["/skills", "Skills", "skill-picker"],
-      ] as const
-
-      for (const [slash, marker, id] of dialogs) {
-        yield* openSlash(slash, marker)
-        yield* capture(id)
-        yield* close()
-      }
-
-      yield* executeFlow(patchSuccessFlow, {
-        driver,
-        capture: (state) => capture(state.id),
-      })
-
-      const sessionDialogs = [
-        ["/rename", "Rename session", "session-rename"],
-        ["/fork", "Full session", "session-fork"],
-        ["/export", "Export as", "session-export"],
-      ] as const
-
-      for (const [slash, marker, id] of sessionDialogs) {
-        yield* openSlash(slash, marker)
-        yield* capture(id)
-        yield* close()
-      }
-
-      yield* driver.llm.queue(
-        Llm.toolCall({
-          index: 0,
-          id: "call_question_capture",
-          name: "question",
-          input: {
-            questions: [
-              {
-                question: "Which direction should the fixture take?",
-                header: "Fixture",
-                options: [
-                  {
-                    label: "Keep it minimal (Recommended)",
-                    description: "Small deterministic fixture",
-                  },
-                  {
-                    label: "Expand coverage",
-                    description: "Add more scripted states",
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-        Llm.finish("tool-calls"),
+    const capture = Effect.fn("Catalog.capture")(function* (id: CaptureId) {
+      const screen = screens[id]
+      const frame = yield* driver.ui.capture()
+      const src = `captures/${variant.id}/${id}.frame.json`
+      yield* Effect.promise(() =>
+        Bun.write(
+          join(outputDirectory, `${id}.frame.json`),
+          `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`,
+        ),
       )
-      yield* driver.llm.queue(Llm.text("Keeping the fixture minimal."))
-      yield* driver.ui.submit("Ask me about the fixture direction.")
-      yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
-      yield* driver.ui.enter()
-      yield* driver.ui.waitFor("Which direction should the fixture take?", { timeout: 15_000 })
-      yield* capture("question-prompt")
-      yield* driver.ui.enter()
-      yield* driver.ui.waitFor("Keeping the fixture minimal.", { timeout: 15_000 })
+      captures.push({
+        id,
+        title: screen.title,
+        category: screen.category,
+        frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
+      })
+    })
 
-      yield* openSlash("/rename", "Rename session")
-      yield* driver.ui.type("Catalog capture session")
-      yield* driver.ui.enter()
-      yield* Effect.sleep(300)
+    const close = Effect.fn("Catalog.closeDialog")(function* () {
+      yield* driver.ui.press("\u001b")
+      yield* Effect.sleep(150)
+    })
 
-      yield* openSlash("/sessions", "Sessions")
-      yield* driver.ui.waitFor("Catalog capture session")
-      yield* capture("session-picker-populated")
+    const openSlash = Effect.fn("Catalog.openSlash")(function* (slash: string, marker: string) {
+      yield* driver.ui.submit(slash)
+      yield* driver.ui.waitFor(marker)
+    })
+
+    yield* driver.ui.waitFor((state) => state.elements.length > 0)
+    yield* Effect.sleep(400)
+    yield* capture("home")
+
+    yield* driver.ui.press("p", { ctrl: true })
+    yield* driver.ui.waitFor("Commands")
+    yield* capture("command-palette")
+    yield* driver.ui.type("zzzz-no-catalog-results")
+    yield* driver.ui.waitFor("No results found")
+    yield* capture("command-palette-empty")
+    yield* close()
+
+    const dialogs = [
+      ["/models", "Select model", "model-picker", "model-picker-empty", "No results found"],
+      ["/agents", "Select agent", "agent-picker", "agent-picker-empty", "No results found"],
+      ["/connect", "Connect an integration", "integration-picker", "integration-picker-empty", "No integrations found"],
+      ["/themes", "Themes", "theme-picker", "theme-picker-empty", "No results found"],
+      ["/mcps", "MCP servers", "mcp-list", undefined, undefined],
+      ["/status", "No MCP servers", "status", undefined, undefined],
+      ["/debug", "Debug", "debug", undefined, undefined],
+      ["/help", "Press ctrl+p", "help", undefined, undefined],
+      ["/pair", "Pair", "pair", undefined, undefined],
+      ["/sessions", "Sessions", "session-picker", undefined, undefined],
+      ["/skills", "Skills", "skill-picker", "skill-picker-empty", "No skills found"],
+    ] as const
+
+    for (const [slash, marker, id, emptyId, emptyMarker] of dialogs) {
+      yield* openSlash(slash, marker)
+      yield* capture(id)
+      if (emptyId && emptyMarker) {
+        yield* driver.ui.type("zzzz-no-catalog-results")
+        yield* driver.ui.waitFor(emptyMarker)
+        yield* capture(emptyId)
+      }
       yield* close()
+    }
 
-      yield* driver.ui.type("/copy")
-      yield* driver.ui.waitFor("Copy session transcript")
-      yield* driver.ui.enter()
-      yield* Effect.sleep(600)
-      yield* capture("toast-success")
-      yield* Effect.sleep(200)
+    yield* executeFlow(patchSuccessFlow, {
+      driver,
+      capture: (state) => capture(state.id),
+    })
 
-      yield* driver.ui.submit("/share")
-      yield* driver.ui.waitFor("Sharing is not implemented for V2 sessions yet")
-      yield* capture("toast-error")
+    const sessionDialogs = [
+      ["/rename", "Rename session", "session-rename"],
+      ["/fork", "Full session", "session-fork"],
+      ["/export", "Export as", "session-export"],
+    ] as const
 
-      yield* openSlash("/debug", "Debug")
-      yield* driver.ui.enter()
-      yield* driver.ui.waitFor("Debug info copied to clipboard")
-      yield* capture("toast-info")
+    for (const [slash, marker, id] of sessionDialogs) {
+      yield* openSlash(slash, marker)
+      yield* capture(id)
       yield* close()
+    }
 
-      yield* openSlash("/diff", "Diff working tree")
-      yield* driver.ui.waitFor("No changes to show")
-      yield* capture("diff-viewer")
-      yield* close()
+    yield* driver.llm.queue(
+      Llm.toolCall({
+        index: 0,
+        id: "call_question_capture",
+        name: "question",
+        input: {
+          questions: [
+            {
+              question: "Which direction should the fixture take?",
+              header: "Fixture",
+              options: [
+                {
+                  label: "Keep it minimal (Recommended)",
+                  description: "Small deterministic fixture",
+                },
+                {
+                  label: "Expand coverage",
+                  description: "Add more scripted states",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      Llm.finish("tool-calls"),
+    )
+    yield* driver.llm.queue(Llm.text("Keeping the fixture minimal."))
+    yield* driver.ui.submit("Ask me about the fixture direction.")
+    yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
+    yield* driver.ui.enter()
+    yield* driver.ui.waitFor("Which direction should the fixture take?", { timeout: 15_000 })
+    yield* capture("question-prompt")
+    yield* driver.ui.enter()
+    yield* driver.ui.waitFor("Keeping the fixture minimal.", { timeout: 15_000 })
 
-      return captures
+    yield* openSlash("/rename", "Rename session")
+    yield* driver.ui.type("Catalog capture session")
+    yield* driver.ui.enter()
+    yield* Effect.sleep(300)
+
+    yield* openSlash("/sessions", "Sessions")
+    yield* driver.ui.waitFor("Catalog capture session")
+    yield* capture("session-picker-populated")
+    yield* close()
+
+    yield* driver.ui.type("/copy")
+    yield* driver.ui.waitFor("Copy session transcript")
+    yield* driver.ui.enter()
+    yield* Effect.sleep(600)
+    yield* capture("toast-success")
+    yield* Effect.sleep(200)
+
+    yield* driver.ui.submit("/share")
+    yield* driver.ui.waitFor("Sharing is not implemented for V2 sessions yet")
+    yield* capture("toast-error")
+
+    yield* openSlash("/debug", "Debug")
+    yield* driver.ui.enter()
+    yield* driver.ui.waitFor("Debug info copied to clipboard")
+    yield* capture("toast-info")
+    yield* close()
+
+    return captures
   })
 
 function captureScenario(
@@ -291,10 +298,11 @@ function captureScenario(
   preview = false,
 ) {
   return Effect.gen(function* () {
-      const captures: Array<Capture> = []
-      yield* scenario.run({
-        driver,
-        capture: (state) => Effect.gen(function* () {
+    const captures: Array<Capture> = []
+    yield* scenario.run({
+      driver,
+      capture: (state) =>
+        Effect.gen(function* () {
           if (!isCaptureId(state.id)) {
             return yield* Effect.fail(new Error(`Scenario ${scenario.id} references unknown screen ${state.id}`))
           }
@@ -309,10 +317,7 @@ function captureScenario(
             : join(stagingRoot, variant.id, `${id}.frame.json`)
           yield* Effect.promise(async () => {
             await mkdir(dirname(output), { recursive: true })
-            await Bun.write(
-              output,
-              `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`,
-            )
+            await Bun.write(output, `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`)
           })
           captures.push({
             id,
@@ -321,17 +326,16 @@ function captureScenario(
             frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
           })
         }),
-      })
-      return captures
+    })
+    return captures
   })
 }
 
 const resetProjectFiles = Effect.fn("Catalog.resetProjectFiles")(function* (driver: OpenCodeDriver.Driver) {
   const files = join(driver.artifacts, "files")
-  yield* Effect.promise(() => Promise.all([
-    Bun.write(join(files, "fixture.txt"), "before\n"),
-    rm(join(files, "patched.txt"), { force: true }),
-  ]))
+  yield* Effect.promise(() =>
+    Promise.all([Bun.write(join(files, "fixture.txt"), "before\n"), rm(join(files, "patched.txt"), { force: true })]),
+  )
 })
 
 function isCaptureId(value: string): value is CaptureId {
@@ -339,9 +343,10 @@ function isCaptureId(value: string): value is CaptureId {
 }
 
 try {
-  const captured = options.workerOutput === undefined && variants.length > 1 && options.jobs > 1
-    ? await captureVariantProcesses(options, variants)
-    : await Effect.runPromise(Effect.forEach(variants, captureVariant, { concurrency: 1 }))
+  const captured =
+    options.workerOutput === undefined && variants.length > 1 && options.jobs > 1
+      ? await captureVariantProcesses(options, variants)
+      : await Effect.runPromise(Effect.forEach(variants, captureVariant, { concurrency: 1 }))
   const expectedIds = captured[0]?.map((capture) => capture.id) ?? []
   for (const [index, variantCaptures] of captured.entries()) {
     const actualIds = variantCaptures.map((capture) => capture.id)
@@ -349,14 +354,15 @@ try {
       throw new Error(`Variant ${variants[index]?.id ?? index} captured a different ordered screen set`)
     }
   }
-  const captures = captured[0]?.map((first) => ({
-    id: first.id,
-    title: first.title,
-    category: first.category,
-    frames: captured.flatMap((variantCaptures) =>
-      variantCaptures.filter((capture) => capture.id === first.id).map((capture) => capture.frame),
-    ) as [Capture["frame"], ...Array<Capture["frame"]>],
-  })) ?? []
+  const captures =
+    captured[0]?.map((first) => ({
+      id: first.id,
+      title: first.title,
+      category: first.category,
+      frames: captured.flatMap((variantCaptures) =>
+        variantCaptures.filter((capture) => capture.id === first.id).map((capture) => capture.frame),
+      ) as [Capture["frame"], ...Array<Capture["frame"]>],
+    })) ?? []
   if (options.flow !== undefined) {
     for (const capture of captures) {
       for (const frame of capture.frames) console.log(frame.src)
@@ -401,26 +407,37 @@ async function captureVariantProcesses(
   let next = 0
   const results = Array.from<Array<Capture> | undefined>({ length: planned.length })
 
-  await Promise.all(Array.from({ length: Math.min(captureOptions.jobs, planned.length) }, async () => {
-    while (true) {
-      const index = next++
-      const variant = planned[index]
-      if (!variant) return
-      const args = [
-        process.execPath,
-        fileURLToPath(import.meta.url),
-        "--opencode", captureOptions.opencode,
-        "--revision", variant.revision,
-        "--theme", variant.theme ?? "default",
-        "--jobs", "1",
-        "--worker-output", output,
-      ]
-      const child = Bun.spawn(args, { cwd: fileURLToPath(new URL("..", import.meta.url)), stdout: "inherit", stderr: "inherit" })
-      if (await child.exited !== 0) throw new Error(`Capture worker ${variant.id} failed`)
-      const result = await Bun.file(join(output, `${variant.id}.json`)).json() as { captures: Array<Capture> }
-      results[index] = result.captures
-    }
-  }))
+  await Promise.all(
+    Array.from({ length: Math.min(captureOptions.jobs, planned.length) }, async () => {
+      while (true) {
+        const index = next++
+        const variant = planned[index]
+        if (!variant) return
+        const args = [
+          process.execPath,
+          fileURLToPath(import.meta.url),
+          "--opencode",
+          captureOptions.opencode,
+          "--revision",
+          variant.revision,
+          "--theme",
+          variant.theme ?? "default",
+          "--jobs",
+          "1",
+          "--worker-output",
+          output,
+        ]
+        const child = Bun.spawn(args, {
+          cwd: fileURLToPath(new URL("..", import.meta.url)),
+          stdout: "inherit",
+          stderr: "inherit",
+        })
+        if ((await child.exited) !== 0) throw new Error(`Capture worker ${variant.id} failed`)
+        const result = (await Bun.file(join(output, `${variant.id}.json`)).json()) as { captures: Array<Capture> }
+        results[index] = result.captures
+      }
+    }),
+  )
 
   for (const variant of planned) {
     const target = join(stagingRoot, variant.id)
@@ -444,16 +461,22 @@ async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions
       const revision = await git(options.opencode, "rev-parse", `${ref}^{commit}`)
       if (revisions.has(revision)) continue
       const committedAt = await git(options.opencode, "show", "-s", "--format=%cI", revision)
+      if (ref === "HEAD") {
+        revisions.set(revision, { ref, committedAt, path: options.opencode })
+        continue
+      }
       const path = fileURLToPath(new URL(`../.tmp/capture-worktrees/${revision}/`, import.meta.url))
       const preparedRevision = await preparedWorktreeRevision(path)
       if (options.fresh && preparedRevision !== undefined) {
-        await command(["git", "worktree", "remove", "--force", path], options.opencode)
-          .catch(() => rm(path, { recursive: true, force: true }))
+        await command(["git", "worktree", "remove", "--force", path], options.opencode).catch(() =>
+          rm(path, { recursive: true, force: true }),
+        )
       }
       if (options.fresh || preparedRevision !== revision) {
         if (preparedRevision !== undefined) {
-          await command(["git", "worktree", "remove", "--force", path], options.opencode)
-            .catch(() => rm(path, { recursive: true, force: true }))
+          await command(["git", "worktree", "remove", "--force", path], options.opencode).catch(() =>
+            rm(path, { recursive: true, force: true }),
+          )
         }
         await mkdir(dirname(path), { recursive: true })
         await command(["git", "worktree", "add", "--detach", path, revision], options.opencode)
@@ -467,7 +490,7 @@ async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions
     for (const [revision, preparedRevision] of revisions) {
       for (const theme of options.themes) {
         variants.push({
-          id: captureSetId(revision, theme),
+          id: captureSetId(revision, theme, revisions.size > 1),
           label: captureSetLabel(revision, theme),
           source: captureSource(options.opencode),
           revision,
@@ -506,6 +529,6 @@ async function git(cwd: string, ...args: ReadonlyArray<string>): Promise<string>
 async function command(argv: ReadonlyArray<string>, cwd: string): Promise<string> {
   const process = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "inherit" })
   const output = await new Response(process.stdout).text()
-  if (await process.exited !== 0) throw new Error(`${argv.join(" ")} failed`)
+  if ((await process.exited) !== 0) throw new Error(`${argv.join(" ")} failed`)
   return output
 }

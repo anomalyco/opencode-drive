@@ -10,7 +10,7 @@
     "dev": "bun ./server.ts",
     "lint": "oxlint src catalog scripts scenarios server.ts worker.ts",
     "typecheck": "tsc --noEmit",
-    "build": "rm -rf dist && bun build ./src/index.html --outdir dist --minify && cp -R public/captures public/catalog.json public/drive-captures.json dist/",
+    "build": "rm -rf dist && bun build ./src/index.html --outdir dist --public-path=/lab/catalog/ --minify && cp -R public/captures public/catalog.json public/drive-captures.json dist/ && bun ./scripts/generate-og.ts",
     "deploy": "bun run generate && bun run build && bunx wrangler deploy",
     "doctor": "bunx -y react-doctor@latest .",
     "bench:capture-flow": "bun ./scripts/bench-capture-flow.ts",
@@ -24,17 +24,18 @@
     "@fontsource/noto-sans-math": "5.2.8",
     "@fontsource/noto-sans-symbols": "5.2.8",
     "@fontsource/noto-sans-symbols-2": "5.2.8",
-    "motion": "^12.42.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "1.0.2",
     "@types/bun": "^1.3.14",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "effect": "4.0.0-beta.101",
     "opencode-drive": "workspace:*",
     "oxlint": "1.60.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "4.110.0"
   }
 }

@@ -1,20 +1,23 @@
 const flow = process.argv[2] ?? "search-lifecycle"
-const revision = process.argv[3] ?? "5d5b33f195cc664d376ea85503f49433a05a3049"
-const opencode = process.argv[4] ?? "/Users/kit/code/open-source/opencode-v2-latest"
+const revision = process.argv[3] ?? "HEAD"
+const opencode = process.argv[4] ?? new URL("../../../../opencode/", import.meta.url).pathname
 const runs = 8
 const measured: Array<{ prepare: number; total: number }> = []
 
 for (let index = 0; index < runs; index++) {
-  const child = Bun.spawn([
-    process.execPath,
-    "./scripts/capture-opencode-drive.ts",
-    "--opencode",
-    opencode,
-    "--revision",
-    revision,
-    "--flow",
-    flow,
-  ], { cwd: import.meta.dir + "/..", stdout: "pipe", stderr: "pipe" })
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      "./scripts/capture-opencode-drive.ts",
+      "--opencode",
+      opencode,
+      "--revision",
+      revision,
+      "--flow",
+      flow,
+    ],
+    { cwd: import.meta.dir + "/..", stdout: "pipe", stderr: "pipe" },
+  )
   const [stdout, stderr, exit] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
@@ -44,7 +47,5 @@ function metric(output: string, name: string) {
 function median(values: ReadonlyArray<number>) {
   const sorted = [...values].sort((left, right) => left - right)
   const middle = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? Math.round((sorted[middle - 1]! + sorted[middle]!) / 2)
-    : sorted[middle]!
+  return sorted.length % 2 === 0 ? Math.round((sorted[middle - 1]! + sorted[middle]!) / 2) : sorted[middle]!
 }

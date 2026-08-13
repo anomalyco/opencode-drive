@@ -497,7 +497,7 @@
         "palette",
         "commands",
         "navigation",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "command-navigation"
@@ -520,7 +520,7 @@
         "navigation"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -550,6 +550,76 @@
       ]
     },
     {
+      "id": "command-palette-empty",
+      "title": "Command palette (no results)",
+      "category": "navigation",
+      "summary": "",
+      "tags": [
+        "command-navigation",
+        "command-palette",
+        "search-field",
+        "list",
+        "keyboard-hints",
+        "dialog",
+        "empty-state",
+        "modal",
+        "palette",
+        "commands",
+        "navigation",
+        "empty"
+      ],
+      "screenLabels": [
+        "command-navigation"
+      ],
+      "uiElements": [
+        "command-palette",
+        "search-field",
+        "list",
+        "keyboard-hints",
+        "dialog",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "palette"
+      ],
+      "features": [
+        "commands",
+        "navigation"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "model-picker",
       "title": "Model picker",
       "category": "picker",
@@ -565,7 +635,7 @@
         "modal",
         "picker",
         "model",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "model-selection"
@@ -588,7 +658,7 @@
         "model"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -618,6 +688,76 @@
       ]
     },
     {
+      "id": "model-picker-empty",
+      "title": "Model picker (no results)",
+      "category": "picker",
+      "summary": "",
+      "tags": [
+        "model-selection",
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state",
+        "modal",
+        "picker",
+        "model",
+        "empty"
+      ],
+      "screenLabels": [
+        "model-selection"
+      ],
+      "uiElements": [
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "picker"
+      ],
+      "features": [
+        "model"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/model-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/model-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/model-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "agent-picker",
       "title": "Agent picker",
       "category": "picker",
@@ -633,7 +773,7 @@
         "modal",
         "picker",
         "agent",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "agent-selection"
@@ -656,7 +796,7 @@
         "agent"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -686,6 +826,76 @@
       ]
     },
     {
+      "id": "agent-picker-empty",
+      "title": "Agent picker (no results)",
+      "category": "picker",
+      "summary": "",
+      "tags": [
+        "agent-selection",
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state",
+        "modal",
+        "picker",
+        "agent",
+        "empty"
+      ],
+      "screenLabels": [
+        "agent-selection"
+      ],
+      "uiElements": [
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "picker"
+      ],
+      "features": [
+        "agent"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "integration-picker",
       "title": "Integrations",
       "category": "picker",
@@ -699,7 +909,7 @@
         "modal",
         "picker",
         "integration",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "integration-setup"
@@ -720,7 +930,7 @@
         "integration"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -750,6 +960,74 @@
       ]
     },
     {
+      "id": "integration-picker-empty",
+      "title": "Integrations (no results)",
+      "category": "picker",
+      "summary": "",
+      "tags": [
+        "integration-setup",
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "empty-state",
+        "modal",
+        "picker",
+        "integration",
+        "empty"
+      ],
+      "screenLabels": [
+        "integration-setup"
+      ],
+      "uiElements": [
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "picker"
+      ],
+      "features": [
+        "integration"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "theme-picker",
       "title": "Theme picker",
       "category": "picker",
@@ -763,7 +1041,7 @@
         "modal",
         "picker",
         "theme",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "theme-selection"
@@ -784,7 +1062,7 @@
         "theme"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -808,6 +1086,74 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/theme-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "theme-picker-empty",
+      "title": "Theme picker (no results)",
+      "category": "picker",
+      "summary": "",
+      "tags": [
+        "theme-selection",
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "empty-state",
+        "modal",
+        "picker",
+        "theme",
+        "empty"
+      ],
+      "screenLabels": [
+        "theme-selection"
+      ],
+      "uiElements": [
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "picker"
+      ],
+      "features": [
+        "theme"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/theme-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/theme-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/theme-picker-empty.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1223,7 +1569,7 @@
         "modal",
         "picker",
         "skill",
-        "default"
+        "populated"
       ],
       "screenLabels": [
         "skill-selection"
@@ -1246,7 +1592,7 @@
         "skill"
       ],
       "states": [
-        "default"
+        "populated"
       ],
       "dimensions": [],
       "viewport": {
@@ -1270,6 +1616,76 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/skill-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "skill-picker-empty",
+      "title": "Skill picker (no results)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "skill-selection",
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state",
+        "modal",
+        "picker",
+        "skill",
+        "empty"
+      ],
+      "screenLabels": [
+        "skill-selection"
+      ],
+      "uiElements": [
+        "picker",
+        "search-field",
+        "single-select",
+        "list",
+        "dialog",
+        "keyboard-hints",
+        "empty-state"
+      ],
+      "surfaces": [
+        "modal"
+      ],
+      "patterns": [
+        "picker"
+      ],
+      "features": [
+        "skill"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/skill-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/skill-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/skill-picker-empty.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -2278,72 +2694,6 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/toast-info.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "diff-viewer",
-      "title": "Diff viewer",
-      "category": "session",
-      "summary": "",
-      "tags": [
-        "diff-review",
-        "full-screen-view",
-        "list",
-        "keyboard-hints",
-        "empty-state",
-        "full-screen",
-        "list",
-        "diff",
-        "session",
-        "empty"
-      ],
-      "screenLabels": [
-        "diff-review"
-      ],
-      "uiElements": [
-        "full-screen-view",
-        "list",
-        "keyboard-hints",
-        "empty-state"
-      ],
-      "surfaces": [
-        "full-screen"
-      ],
-      "patterns": [
-        "list"
-      ],
-      "features": [
-        "diff",
-        "session"
-      ],
-      "states": [
-        "empty"
-      ],
-      "dimensions": [],
-      "viewport": {
-        "cols": 118,
-        "rows": 34
-      },
-      "variations": [],
-      "frames": [
-        {
-          "variantId": "opencode",
-          "src": "captures/opencode/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "tokyonight",
-          "src": "captures/tokyonight/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "everforest",
-          "src": "captures/everforest/diff-viewer.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -4508,6 +4858,136 @@
       ]
     },
     {
+      "id": "diff-viewer",
+      "title": "Diff viewer (empty)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "diff-review",
+        "full-screen-view",
+        "list",
+        "keyboard-hints",
+        "empty-state",
+        "full-screen",
+        "list",
+        "diff",
+        "session",
+        "empty"
+      ],
+      "screenLabels": [
+        "diff-review"
+      ],
+      "uiElements": [
+        "full-screen-view",
+        "list",
+        "keyboard-hints",
+        "empty-state"
+      ],
+      "surfaces": [
+        "full-screen"
+      ],
+      "patterns": [
+        "list"
+      ],
+      "features": [
+        "diff",
+        "session"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "diff-viewer-populated",
+      "title": "Diff viewer (populated)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "diff-review",
+        "full-screen-view",
+        "list",
+        "keyboard-hints",
+        "full-screen",
+        "list",
+        "diff",
+        "session",
+        "populated"
+      ],
+      "screenLabels": [
+        "diff-review"
+      ],
+      "uiElements": [
+        "full-screen-view",
+        "list",
+        "keyboard-hints"
+      ],
+      "surfaces": [
+        "full-screen"
+      ],
+      "patterns": [
+        "list"
+      ],
+      "features": [
+        "diff",
+        "session"
+      ],
+      "states": [
+        "populated"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "subagent-running",
       "title": "Subagent running",
       "category": "session",
@@ -4572,6 +5052,78 @@
       ]
     },
     {
+      "id": "subagent-panel-active",
+      "title": "Subagents panel (active)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "subagent-activity",
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "status-indicator",
+        "panel",
+        "status",
+        "agent",
+        "subagent",
+        "session",
+        "populated",
+        "running"
+      ],
+      "screenLabels": [
+        "subagent-activity"
+      ],
+      "uiElements": [
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "status-indicator"
+      ],
+      "surfaces": [
+        "panel"
+      ],
+      "patterns": [
+        "status"
+      ],
+      "features": [
+        "agent",
+        "subagent",
+        "session"
+      ],
+      "states": [
+        "populated",
+        "running"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "subagent-completed",
       "title": "Subagent completed",
       "category": "session",
@@ -4630,6 +5182,216 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/subagent-completed.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "subagent-panel-inactive",
+      "title": "Subagents panel (inactive)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "subagent-activity",
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "confirmation",
+        "panel",
+        "list",
+        "agent",
+        "subagent",
+        "session",
+        "populated",
+        "success"
+      ],
+      "screenLabels": [
+        "subagent-activity"
+      ],
+      "uiElements": [
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "confirmation"
+      ],
+      "surfaces": [
+        "panel"
+      ],
+      "patterns": [
+        "list"
+      ],
+      "features": [
+        "agent",
+        "subagent",
+        "session"
+      ],
+      "states": [
+        "populated",
+        "success"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-panel-empty",
+      "title": "Shell panel (empty)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "shell-activity",
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "empty-state",
+        "panel",
+        "list",
+        "shell",
+        "session",
+        "empty"
+      ],
+      "screenLabels": [
+        "shell-activity"
+      ],
+      "uiElements": [
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "empty-state"
+      ],
+      "surfaces": [
+        "panel"
+      ],
+      "patterns": [
+        "list"
+      ],
+      "features": [
+        "shell",
+        "session"
+      ],
+      "states": [
+        "empty"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-panel-running",
+      "title": "Shell panel (running)",
+      "category": "session",
+      "summary": "",
+      "tags": [
+        "shell-activity",
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "status-indicator",
+        "panel",
+        "status",
+        "shell",
+        "session",
+        "populated",
+        "running"
+      ],
+      "screenLabels": [
+        "shell-activity"
+      ],
+      "uiElements": [
+        "panel",
+        "tabs",
+        "list",
+        "keyboard-hints",
+        "status-indicator"
+      ],
+      "surfaces": [
+        "panel"
+      ],
+      "patterns": [
+        "status"
+      ],
+      "features": [
+        "shell",
+        "session"
+      ],
+      "states": [
+        "populated",
+        "running"
+      ],
+      "dimensions": [],
+      "viewport": {
+        "cols": 118,
+        "rows": 34
+      },
+      "variations": [],
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-panel-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-panel-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-panel-running.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -5061,8 +5823,27 @@
           "title": "Subagent runs"
         },
         {
+          "screenId": "subagent-panel-active",
+          "title": "Inspect active subagents",
+          "trigger": "Open the Subagents panel"
+        },
+        {
           "screenId": "subagent-completed",
           "title": "Subagent completes"
+        },
+        {
+          "screenId": "subagent-panel-inactive",
+          "title": "Inspect inactive subagents",
+          "trigger": "Toggle show inactive"
+        },
+        {
+          "screenId": "shell-panel-empty",
+          "title": "Inspect the empty Shell panel",
+          "trigger": "Switch to the Shell tab"
+        },
+        {
+          "screenId": "shell-panel-running",
+          "title": "Inspect a running shell command"
         },
         {
           "screenId": "subagent-session",
@@ -5139,16 +5920,21 @@
       ]
     },
     {
-      "id": "reviewing-a-diff",
-      "title": "Reviewing a diff",
+      "id": "diff-viewer-lifecycle",
+      "title": "Diff viewer",
       "group": "Review",
-      "description": "Inspect the working tree and verify whether files have changed.",
-      "replayable": false,
+      "description": "Compare the empty working-tree view with a populated file diff.",
+      "replayable": true,
       "steps": [
         {
           "screenId": "diff-viewer",
-          "title": "Open the diff viewer",
+          "title": "Open an empty diff",
           "trigger": "Run /diff"
+        },
+        {
+          "screenId": "diff-viewer-populated",
+          "title": "Inspect a changed file",
+          "trigger": "Modify a tracked file"
         }
       ]
     }
