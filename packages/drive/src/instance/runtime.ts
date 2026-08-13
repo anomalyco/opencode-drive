@@ -261,7 +261,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
         const serverCommand = [
           ...scriptedCommand,
           "serve",
-          "--service",
+          dev?.serviceFlag ?? "--service",
           "--port",
           String(yield* freePort),
         ]
