@@ -82,6 +82,31 @@
       ]
     },
     {
+      "id": "command-palette-empty",
+      "title": "Command palette (no results)",
+      "category": "navigation",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/command-palette-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "model-picker",
       "title": "Model picker",
       "category": "picker",
@@ -101,6 +126,31 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/model-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "model-picker-empty",
+      "title": "Model picker (no results)",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/model-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/model-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/model-picker-empty.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -132,6 +182,31 @@
       ]
     },
     {
+      "id": "agent-picker-empty",
+      "title": "Agent picker (no results)",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/agent-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "integration-picker",
       "title": "Integrations",
       "category": "picker",
@@ -157,6 +232,31 @@
       ]
     },
     {
+      "id": "integration-picker-empty",
+      "title": "Integrations (no results)",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/integration-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "theme-picker",
       "title": "Theme picker",
       "category": "picker",
@@ -176,6 +276,31 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/theme-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "theme-picker-empty",
+      "title": "Theme picker (no results)",
+      "category": "picker",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/theme-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/theme-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/theme-picker-empty.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -351,6 +476,31 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/skill-picker.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "skill-picker-empty",
+      "title": "Skill picker (no results)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/skill-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/skill-picker-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/skill-picker-empty.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -726,31 +876,6 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/toast-info.frame.json",
-          "cols": 118,
-          "rows": 34
-        }
-      ]
-    },
-    {
-      "id": "diff-viewer",
-      "title": "Diff viewer",
-      "category": "session",
-      "frames": [
-        {
-          "variantId": "opencode",
-          "src": "captures/opencode/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "tokyonight",
-          "src": "captures/tokyonight/diff-viewer.frame.json",
-          "cols": 118,
-          "rows": 34
-        },
-        {
-          "variantId": "everforest",
-          "src": "captures/everforest/diff-viewer.frame.json",
           "cols": 118,
           "rows": 34
         }
@@ -1582,6 +1707,56 @@
       ]
     },
     {
+      "id": "diff-viewer",
+      "title": "Diff viewer (empty)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/diff-viewer.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "diff-viewer-populated",
+      "title": "Diff viewer (populated)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/diff-viewer-populated.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "subagent-running",
       "title": "Subagent running",
       "category": "session",
@@ -1607,6 +1782,31 @@
       ]
     },
     {
+      "id": "subagent-panel-active",
+      "title": "Subagents panel (active)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-panel-active.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
       "id": "subagent-completed",
       "title": "Subagent completed",
       "category": "session",
@@ -1626,6 +1826,81 @@
         {
           "variantId": "everforest",
           "src": "captures/everforest/subagent-completed.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "subagent-panel-inactive",
+      "title": "Subagents panel (inactive)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/subagent-panel-inactive.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-panel-empty",
+      "title": "Shell panel (empty)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-panel-empty.frame.json",
+          "cols": 118,
+          "rows": 34
+        }
+      ]
+    },
+    {
+      "id": "shell-panel-running",
+      "title": "Shell panel (running)",
+      "category": "session",
+      "frames": [
+        {
+          "variantId": "opencode",
+          "src": "captures/opencode/shell-panel-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "tokyonight",
+          "src": "captures/tokyonight/shell-panel-running.frame.json",
+          "cols": 118,
+          "rows": 34
+        },
+        {
+          "variantId": "everforest",
+          "src": "captures/everforest/shell-panel-running.frame.json",
           "cols": 118,
           "rows": 34
         }

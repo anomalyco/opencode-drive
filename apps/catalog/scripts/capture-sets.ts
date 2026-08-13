@@ -50,8 +50,10 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
   }
 }
 
-export function captureSetId(revision: string, theme: string | undefined): string {
-  return theme === undefined ? revision.slice(0, 12).toLowerCase() : slug(theme)
+export function captureSetId(revision: string, theme: string | undefined, includeRevision = false): string {
+  const revisionId = revision.slice(0, 12).toLowerCase()
+  if (theme === undefined) return revisionId
+  return includeRevision ? `${revisionId}-${slug(theme)}` : slug(theme)
 }
 
 export function captureSetLabel(revision: string, theme: string | undefined): string {
@@ -79,7 +81,10 @@ export function captureSource(path: string): string {
 }
 
 function slug(value: string): string {
-  const result = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+  const result = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
   if (result === "") throw new Error(`Theme ${JSON.stringify(value)} cannot form a set ID`)
   return result
 }

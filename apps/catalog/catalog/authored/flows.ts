@@ -105,12 +105,6 @@ export const flowGroups = defineFlows(screens, {
   },
   review: {
     label: "Review",
-    flows: {
-      "reviewing-a-diff": {
-        title: "Reviewing a diff",
-        description: "Inspect the working tree and verify whether files have changed.",
-        steps: [{ capture: "diff-viewer", title: "Open the diff viewer", trigger: "Run /diff" }],
-      },
-    },
+    flows: executableFlowDefinitions("review"),
   },
 })

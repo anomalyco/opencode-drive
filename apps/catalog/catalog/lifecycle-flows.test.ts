@@ -5,6 +5,7 @@ import { shellLifecycleFlow } from "../scenarios/tools/shell-lifecycle"
 import { subagentLifecycleFlow } from "../scenarios/subagents/subagent-lifecycle"
 import { sessionTabsFlow } from "../scenarios/session-tabs"
 import { patchSuccessFlow } from "../scenarios/tools/patch-success"
+import { diffViewerFlow } from "../scenarios/review/diff-viewer"
 import { flowGroups } from "./authored/flows"
 import { screens } from "./authored/screens"
 
@@ -19,12 +20,20 @@ describe("catalog lifecycle scenarios", () => {
     ])
     expect(subagentLifecycleFlow.states.map((state) => state.address)).toEqual([
       "subagent-lifecycle/subagent-running",
+      "subagent-lifecycle/subagent-panel-active",
       "subagent-lifecycle/subagent-completed",
+      "subagent-lifecycle/subagent-panel-inactive",
+      "subagent-lifecycle/shell-panel-empty",
+      "subagent-lifecycle/shell-panel-running",
       "subagent-lifecycle/subagent-session",
     ])
     expect(sessionTabsFlow.states.map((state) => state.address)).toEqual([
       "session-tabs-lifecycle/session-tabs-running",
       "session-tabs-lifecycle/session-tabs-idle",
+    ])
+    expect(diffViewerFlow.states.map((state) => state.address)).toEqual([
+      "diff-viewer-lifecycle/diff-viewer",
+      "diff-viewer-lifecycle/diff-viewer-populated",
     ])
     expect(patchSuccessFlow.states.map((state) => state.address)).toContain(
       "patch-success-lifecycle/permission-fullscreen",
@@ -50,13 +59,21 @@ describe("catalog lifecycle scenarios", () => {
   })
 
   test("declares the one dynamic response-mode scenario", () => {
-    expect(executableScenarios.filter((scenario) => scenario.llmMode === "serve").map((scenario) => scenario.id))
-      .toEqual(["subagent-lifecycle"])
+    expect(
+      executableScenarios.filter((scenario) => scenario.llmMode === "serve").map((scenario) => scenario.id),
+    ).toEqual(["subagent-lifecycle"])
   })
 
   test("isolates scenarios that cannot safely reset their TUI client", () => {
-    expect(executableScenarios.filter((scenario) => scenario.clientIsolation === "isolated").map((scenario) => scenario.id))
-      .toEqual(["assistant-lifecycle", "question-lifecycle", "read-file-lifecycle", "session-tabs-lifecycle"])
+    expect(
+      executableScenarios.filter((scenario) => scenario.clientIsolation === "isolated").map((scenario) => scenario.id),
+    ).toEqual([
+      "assistant-lifecycle",
+      "question-lifecycle",
+      "read-file-lifecycle",
+      "session-tabs-lifecycle",
+      "diff-viewer-lifecycle",
+    ])
   })
 
   test("builds the shared capture and reproduce driver runtime", () => {
@@ -69,5 +86,9 @@ describe("catalog lifecycle scenarios", () => {
     })
     expect(runtime.tools).toBeFunction()
     expect(runtime.setup).toBeFunction()
+    expect(catalogScenarioRuntime({ opencode: "/tmp/opencode", git: true }).project).toMatchObject({
+      git: true,
+      files: { ".gitignore": ".opencode/\n" },
+    })
   })
 })
