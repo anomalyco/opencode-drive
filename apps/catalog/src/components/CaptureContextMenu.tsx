@@ -36,6 +36,16 @@ export function CaptureContextMenu({ identifier, deepLink, issueLink, children }
     setPosition(undefined)
   }
 
+  const copyImage = () => {
+    const canvas = targetRef.current?.querySelector("canvas")
+    if (!canvas) return
+    const image = new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Failed to encode capture image"))), "image/png")
+    })
+    void navigator.clipboard.write([new ClipboardItem({ "image/png": image })])
+    setPosition(undefined)
+  }
+
   return (
     <span
       ref={targetRef}
@@ -58,13 +68,16 @@ export function CaptureContextMenu({ identifier, deepLink, issueLink, children }
               tabIndex={-1}
               style={{
                 left: Math.max(8, Math.min(position.x, window.innerWidth - 176)),
-                top: Math.max(8, Math.min(position.y, window.innerHeight - 84)),
+                top: Math.max(8, Math.min(position.y, window.innerHeight - 160)),
               }}
               onKeyDown={(event) => {
                 if (event.key === "Escape") setPosition(undefined)
               }}
               onPointerDown={(event) => event.stopPropagation()}
             >
+              <button type="button" role="menuitem" onClick={copyImage}>
+                Copy image
+              </button>
               <button type="button" role="menuitem" onClick={() => copy(identifier)}>
                 Copy ID
               </button>
