@@ -14,12 +14,17 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
   const root = resolve(directory)
   const entrypoint = join(root, "packages", "cli", "src", "index.ts")
   const solid = join(root, "packages", "tui", "node_modules", "@opentui", "solid")
+  const simulation = join(root, "packages", "simulation", "package.json")
   const standalone = yield* Effect.tryPromise({
     try: async () => {
       if (!(await Bun.file(entrypoint).exists()))
         throw new Error(`OpenCode development entrypoint not found: ${entrypoint}`)
       if (!(await Bun.file(join(solid, "package.json")).exists()))
         throw new Error(`OpenCode development dependency not found: ${solid}; run bun install in ${root}`)
+      if (!(await Bun.file(simulation).exists()))
+        throw new Error(
+          `OpenCode development checkout does not include simulation support: ${simulation}; --dev requires a V2 checkout with packages/simulation`,
+        )
       const preload = join(artifacts, "node_modules", "@opentui", "solid")
       await mkdir(join(artifacts, "node_modules", "@opentui"), {
         recursive: true,
@@ -38,6 +43,7 @@ export const prepareDev = Effect.fn("OpenCodeInstance.prepareDev")(function* (
   return {
     command: [...base, ...(standalone ? ["--standalone"] : [])],
     scriptedCommand: base,
+    serviceFlag: standalone ? "--service" : "--register",
     preloads,
   }
 })

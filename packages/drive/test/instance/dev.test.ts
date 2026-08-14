@@ -17,18 +17,54 @@ test("uses standalone mode and inheritable preloads for V2 development checkouts
   directories.push(root, artifacts)
   await mkdir(join(root, "packages", "cli", "src", "services"), { recursive: true })
   await mkdir(join(root, "packages", "tui", "node_modules", "@opentui", "solid"), { recursive: true })
+  await mkdir(join(root, "packages", "simulation"), { recursive: true })
   await Promise.all([
     Bun.write(join(root, "packages", "cli", "src", "index.ts"), ""),
     Bun.write(join(root, "packages", "cli", "src", "services", "standalone.ts"), ""),
     Bun.write(join(root, "packages", "tui", "node_modules", "@opentui", "solid", "package.json"), "{}"),
+    Bun.write(join(root, "packages", "simulation", "package.json"), "{}"),
   ])
 
   const result = await Effect.runPromise(prepareDev(artifacts, root))
 
   expect(result.command.at(-1)).toBe("--standalone")
   expect(result.scriptedCommand.at(-1)).toBe(join(root, "packages", "cli", "src", "index.ts"))
+  expect(result.serviceFlag).toBe("--service")
   expect(result.preloads).toContain("--conditions=browser")
   expect(result.preloads).toContain(
     `--preload=${join(root, "packages", "tui", "node_modules", "@opentui", "solid", "scripts", "preload.js")}`,
   )
+})
+
+test("uses the register serve dialect for current V2 development checkouts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opencode-drive-dev-"))
+  const artifacts = await mkdtemp(join(tmpdir(), "opencode-drive-artifacts-"))
+  directories.push(root, artifacts)
+  await mkdir(join(root, "packages", "cli", "src"), { recursive: true })
+  await mkdir(join(root, "packages", "tui", "node_modules", "@opentui", "solid"), { recursive: true })
+  await mkdir(join(root, "packages", "simulation"), { recursive: true })
+  await Promise.all([
+    Bun.write(join(root, "packages", "cli", "src", "index.ts"), ""),
+    Bun.write(join(root, "packages", "tui", "node_modules", "@opentui", "solid", "package.json"), "{}"),
+    Bun.write(join(root, "packages", "simulation", "package.json"), "{}"),
+  ])
+
+  const result = await Effect.runPromise(prepareDev(artifacts, root))
+
+  expect(result.command.at(-1)).toBe(join(root, "packages", "cli", "src", "index.ts"))
+  expect(result.serviceFlag).toBe("--register")
+})
+
+test("rejects development checkouts without simulation support", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opencode-drive-dev-"))
+  const artifacts = await mkdtemp(join(tmpdir(), "opencode-drive-artifacts-"))
+  directories.push(root, artifacts)
+  await mkdir(join(root, "packages", "cli", "src"), { recursive: true })
+  await mkdir(join(root, "packages", "tui", "node_modules", "@opentui", "solid"), { recursive: true })
+  await Promise.all([
+    Bun.write(join(root, "packages", "cli", "src", "index.ts"), ""),
+    Bun.write(join(root, "packages", "tui", "node_modules", "@opentui", "solid", "package.json"), "{}"),
+  ])
+
+  await expect(Effect.runPromise(prepareDev(artifacts, root))).rejects.toThrow("does not include simulation support")
 })
