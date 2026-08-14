@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test"
-import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, realpath, rename, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import {
@@ -179,6 +179,17 @@ describe("opencode-drive", () => {
     expect(manifest.endpoints.ui).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
     expect(manifest.endpoints.backend).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
 
+    const runtimeManifest = join(manifest.artifacts, "drive", `${name}.json`)
+    const hiddenRuntimeManifest = `${runtimeManifest}.hidden`
+    await rename(runtimeManifest, hiddenRuntimeManifest)
+    const batch = spawn(
+      ["send", "--name", name, "--command.ui.state", "--command.ui.matches", '{"text":"Fake OpenCode"}'],
+      root,
+    )
+    expect(await batch.exited).toBe(0)
+    expect(await new Response(batch.stdout).text()).toBe("success\n")
+    await rename(hiddenRuntimeManifest, runtimeManifest)
+
     const state = spawn(["send", "--name", name, "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
     expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
@@ -204,6 +215,9 @@ describe("opencode-drive", () => {
     expect(dirname(screenshotPath)).toBe(runOutputDirectory(root, manifest.artifacts, 0))
     expect(basename(screenshotPath).startsWith("screenshot-")).toBe(true)
     expect(screenshotPath.endsWith(".png")).toBe(true)
+    expect(Buffer.from(await Bun.file(screenshotPath).arrayBuffer()).subarray(0, 8)).toEqual(
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    )
 
     const listed = spawn(["dir", "--name", name], root)
     expect(await listed.exited).toBe(0)
@@ -750,6 +764,12 @@ describe("opencode-drive", () => {
     const state = spawn(["send", "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
     expect(JSON.parse(await new Response(state.stdout).text()).focused.editor).toBe(true)
+
+    const screenshot = spawn(["send", "--command.ui.screenshot", '{"name":"visible"}'], root)
+    expect(await screenshot.exited).toBe(0)
+    expect((await new Response(screenshot.stdout).text()).trim()).toBe(
+      join(runOutputDirectory(root, manifest.artifacts, 0), "visible.png"),
+    )
 
     expect(await spawn(["stop"], root).exited).toBe(0)
     instances.pop()
@@ -1406,8 +1426,25 @@ describe("opencode-drive", () => {
     const manifest = await waitForManifest(root, name)
     await waitForLines(join(manifest.artifacts, "script-runs.txt"), 1)
 
+    const firstCliScreenshot = spawn(
+      ["send", "--name", name, "--command.ui.screenshot", '{"name":"cli-before-restart"}'],
+      root,
+    )
+    expect(await firstCliScreenshot.exited).toBe(0)
+    expect((await new Response(firstCliScreenshot.stdout).text()).trim()).toBe(
+      join(runOutputDirectory(root, manifest.artifacts, 0), "cli-before-restart.png"),
+    )
+
     expect(await spawn(["restart", "--name", name], root).exited).toBe(0)
     await waitForLines(join(manifest.artifacts, "script-runs.txt"), 2)
+    const secondCliScreenshot = spawn(
+      ["send", "--name", name, "--command.ui.screenshot", '{"name":"cli-after-restart"}'],
+      root,
+    )
+    expect(await secondCliScreenshot.exited).toBe(0)
+    expect((await new Response(secondCliScreenshot.stdout).text()).trim()).toBe(
+      join(runOutputDirectory(root, manifest.artifacts, 1), "cli-after-restart.png"),
+    )
     const screenshots = (await Bun.file(join(manifest.artifacts, "script-screenshots.txt")).text())
       .trim()
       .split("\n")

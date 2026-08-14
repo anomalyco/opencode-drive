@@ -8,6 +8,13 @@ const state = {
   elements: [],
 }
 
+const frame = {
+  cols: 2,
+  rows: 1,
+  cursor: [0, 0],
+  lines: [{ spans: [{ text: "ok", fg: [255, 255, 255, 255], bg: [0, 0, 0, 255], attributes: 0, width: 2 }] }],
+}
+
 test.sequential("CLI drives an externally owned OpenCode endpoint on the default port", async () => {
   const root = await mkdtemp(join(tmpdir(), "opencode-drive-direct-test-"))
   const requests: unknown[] = []
@@ -41,7 +48,7 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
           JSON.stringify({
             jsonrpc: "2.0",
             id: request.id,
-            result: request.method === "ui.screenshot" ? "/tmp/home.png" : state,
+            result: request.method === "ui.capture" ? frame : state,
           }),
         )
       },
@@ -59,7 +66,10 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
 
     const screenshot = await send(root, ["--command.ui.screenshot", '{"name":"home"}'])
     expect(screenshot.status).toBe(0)
-    expect(screenshot.stdout.trim()).toBe("/tmp/home.png")
+    expect(screenshot.stdout.trim()).toBe(join(root, "media", "home.png"))
+    expect(Buffer.from(await Bun.file(screenshot.stdout.trim()).arrayBuffer()).subarray(0, 8)).toEqual(
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    )
 
     const ctrlTab = await send(root, [
       "--command.ui.press",
@@ -90,7 +100,7 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
     expect(requests).toEqual([
       { jsonrpc: "2.0", id: 1, method: "ui.state" },
       { jsonrpc: "2.0", id: 1, method: "ui.state" },
-      { jsonrpc: "2.0", id: 1, method: "ui.screenshot", params: { name: "home" } },
+      { jsonrpc: "2.0", id: 1, method: "ui.capture" },
       {
         jsonrpc: "2.0",
         id: 1,
@@ -126,6 +136,7 @@ async function send(root: string, args: string[]) {
     env: {
       ...process.env,
       DRIVE_REGISTRY_DIR: join(root, "registry"),
+      OPENCODE_DRIVE_MEDIA_DIR: join(root, "media"),
       TMPDIR: root,
     },
     stdin: "ignore",

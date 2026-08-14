@@ -188,6 +188,7 @@ export {
   UiElementAmbiguousError,
   UiNodeAmbiguousError,
   UiPredicateError,
+  UiScreenshotError,
   UiTimeoutError,
   UiWaitOptionsError,
 } from "./ui.js"
@@ -210,7 +211,7 @@ export type {
 export type { Llm } from "./llm.js"
 export type { Target as OpenCodeTarget } from "./server.js"
 export type { OpenCode } from "./opencode.js"
-export type { Ui } from "./ui.js"
+export type { ScreenshotError, Ui } from "./ui.js"
 export type {
   Project,
   ProjectFileSystem,
