@@ -40,10 +40,6 @@ export const UiRpcs = RpcGroup.make(
     payload: Frontend.MatchesParams,
     success: Frontend.Matches,
   }),
-  request("ui.screenshot", {
-    payload: Schema.UndefinedOr(Frontend.ScreenshotParams),
-    success: Frontend.Screenshot,
-  }),
   request("ui.recording.finish", {
     success: Frontend.RecordingFinish,
   }),

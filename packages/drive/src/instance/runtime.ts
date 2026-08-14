@@ -52,6 +52,7 @@ export interface Options {
 
 export interface TuiProcess {
   readonly endpoint: string
+  readonly media: string
   readonly process: Process.Running
   readonly recording?: RecordingPaths
   readonly close: Effect.Effect<void, OpenCodeInstanceError>
@@ -193,6 +194,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           `${JSON.stringify(
             {
               endpoints: manifestEndpoints,
+              media,
               ...(viewport ? { viewport } : {}),
               ...(recording
                 ? { recording: { timeline: recording.timeline } }
@@ -384,10 +386,10 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           ...value,
           pendingTuis: new Map(value.pendingTuis).set(name, tui),
         }))
-        return { tui, tuiEndpoints, primary, recording }
+        return { tui, tuiEndpoints, primary, recording, media }
       }),
     )
-    const { tui, tuiEndpoints, primary, recording } = pending
+    const { tui, tuiEndpoints, primary, recording, media: tuiMedia } = pending
     const removePending = lock.withPermit(
       Ref.update(state, (value) => {
         if (value.pendingTuis.get(name) !== tui) return value
@@ -454,6 +456,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     })
     return {
       endpoint: tuiEndpoints.ui,
+      media: tuiMedia,
       process: tui,
       recording,
       close,
