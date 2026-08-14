@@ -1,5 +1,14 @@
 # opencode-drive
 
+## 1.4.4
+
+### Patch Changes
+
+- 30cbc47: Render screenshots locally from captured terminal frames instead of requiring OpenCode to own PNG rendering.
+- 3d451b5: Deliver named arrows and modified special keys through terminal escape sequences,
+  and reject unsupported UI command parameters instead of silently dropping them.
+- 72cc762: Support current OpenCode V2 development checkouts and reject checkouts without simulation support.
+
 ## 1.4.3
 
 ### Patch Changes
