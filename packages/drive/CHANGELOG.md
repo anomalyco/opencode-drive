@@ -1,5 +1,11 @@
 # opencode-drive
 
+## 1.4.5
+
+### Patch Changes
+
+- 74caec8: Resolve screenshot output directories directly from the active instance registry while retaining compatibility with already-running older instances.
+
 ## 1.4.4
 
 ### Patch Changes
