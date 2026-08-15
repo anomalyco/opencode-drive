@@ -2,6 +2,7 @@ import { executeCommands } from "./commands.js"
 import type { SendOptions } from "./types.js"
 import { defaultPort } from "../client/index.js"
 import { resolveInstance, resolveVisibleInstance } from "../instance/registry.js"
+import type { InstanceManifest } from "../instance/registry.js"
 import { configureLogFile } from "../log.js"
 import { readInstanceMediaDirectory } from "../instance/media.js"
 
@@ -41,25 +42,21 @@ export async function resolveSendEndpoint(name?: string) {
 }
 
 async function resolveSendTarget(name?: string, screenshot = false) {
-  if (name) {
-    const manifest = await resolveInstance(name)
-    configureLogFile(manifest.artifacts)
-    return {
-      endpoint: manifest.endpoints.ui,
-      ...(screenshot
-        ? { screenshotDirectory: await readInstanceMediaDirectory(manifest.artifacts, manifest.endpoints.ui) }
-        : {}),
-    }
-  }
-  const manifest = await resolveVisibleInstance()
+  const manifest = name ? await resolveInstance(name) : await resolveVisibleInstance()
   if (manifest) {
     configureLogFile(manifest.artifacts)
     return {
       endpoint: manifest.endpoints.ui,
       ...(screenshot
-        ? { screenshotDirectory: await readInstanceMediaDirectory(manifest.artifacts, manifest.endpoints.ui) }
+        ? { screenshotDirectory: await resolveScreenshotDirectory(manifest) }
         : {}),
     }
   }
   return { endpoint: `ws://127.0.0.1:${defaultPort}` }
+}
+
+async function resolveScreenshotDirectory(manifest: InstanceManifest) {
+  if (manifest.media) return manifest.media
+  // Older running instances only persisted this path in their TUI manifest.
+  return readInstanceMediaDirectory(manifest.artifacts, manifest.endpoints.ui)
 }

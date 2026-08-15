@@ -128,11 +128,11 @@ The DSL is applied in this order:
 UI operations are Effects:
 
 - `ui.submit(text)` types and presses Enter.
-- `ui.state()`, `ui.capture()`, and `ui.matches(text)` inspect the terminal.
+- `ui.state()`, `ui.capture()`, and `ui.matches(text)` inspect the terminal. `ui.capture()` returns the raw terminal frame as data.
 - `ui.snapshot()` returns the versioned semantic tree; `ui.getNode(query, options?)` polls for one exact semantic match.
 - `ui.waitFor(textOrPredicate, options?)` polls until a match.
 - `ui.getElement(query, options?)`, `ui.focus(...)`, and `ui.click(...)` target interactive elements.
-- `ui.screenshot(name?)` exports an image and returns its absolute path.
+- `ui.screenshot(name?)` asks OpenCode for the raw frame, saves it as a PNG inside Drive, and returns its absolute path. It requires no media-directory configuration.
 - `ui.resize({ cols, rows })`, `ui.press(...)`, and `ui.arrow(...)` control the TUI.
 
 Build deterministic simulated responses with the `Llm` namespace and schedule them through the driver's `llm` controller:
@@ -378,6 +378,13 @@ opencode-drive send --name demo --command.ui.capture
 opencode-drive send --name demo --command.ui.screenshot
 opencode-drive stop --name demo
 ```
+
+Image commands have one simple distinction:
+
+- `--command.ui.capture` prints the raw terminal frame as JSON.
+- `--command.ui.screenshot` saves that frame as a PNG and prints its absolute path.
+
+Drive chooses the PNG directory. Do not configure a media directory or expect the OpenCode endpoint to provide one. Run `--command.ui.screenshot` as its own `send` invocation when the path is needed on stdout; a multi-command batch reports only whether the batch succeeded.
 
 `send` executes command flags from left to right. JSON-valued commands take one JSON argument. Supported commands are:
 

@@ -12,6 +12,7 @@ export interface InstanceManifest {
   readonly visible: boolean
   readonly status: "starting" | "ready"
   readonly endpoints: { readonly ui: string; readonly backend: string }
+  readonly media?: string
   readonly control: string
 }
 
@@ -137,20 +138,20 @@ export async function register(manifest: InstanceManifest) {
   })
 }
 
-export async function markReady(name: string, pid: number) {
-  await markStatus(name, pid, "ready")
+export async function markReady(name: string, pid: number, media: string) {
+  await markStatus(name, pid, "ready", media)
 }
 
 export async function markStarting(name: string, pid: number) {
   await markStatus(name, pid, "starting")
 }
 
-async function markStatus(name: string, pid: number, status: InstanceManifest["status"]) {
+async function markStatus(name: string, pid: number, status: InstanceManifest["status"], media?: string) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
     if (!manifest || manifest.status === "initialized" || manifest.pid !== pid)
       throw new Error(`drive instance "${name}" changed ownership`)
-    await write({ ...manifest, status })
+    await write({ ...manifest, status, ...(media === undefined ? {} : { media }) })
   })
 }
 
@@ -328,6 +329,7 @@ function isManifest(value: unknown): value is Manifest {
   if (manifest.status === "initialized") return typeof manifest.artifacts === "string"
   const instance = value as Partial<InstanceManifest>
   const endpoints = instance.endpoints
+  if (instance.media !== undefined && typeof instance.media !== "string") return false
   return (
     typeof instance.pid === "number" &&
     typeof endpoints?.ui === "string" &&

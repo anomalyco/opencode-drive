@@ -66,6 +66,7 @@ export interface Instance {
     readonly ui: string
     readonly backend: string
   }
+  readonly media: Effect.Effect<string>
   readonly tools: Tool.StaticControls
   readonly toolNames: ReadonlySet<string>
   readonly recording: Effect.Effect<RecordingPaths | undefined>
@@ -582,6 +583,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     logs,
     visible: options.visible ?? false,
     endpoints,
+    media: Effect.sync(() => media),
     tools: toolController.controls,
     toolNames: toolController.names,
     recording: Ref.get(state).pipe(Effect.map((current) => current.recording)),

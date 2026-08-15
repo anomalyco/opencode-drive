@@ -174,10 +174,12 @@ describe("opencode-drive", () => {
     expect(startError).not.toContain(`opencode-drive: ${name}`)
     instances.push({ root, name })
 
-    const manifest = await Bun.file(join(root, "registry", `${name}.json`)).json()
+    const registryManifest = join(root, "registry", `${name}.json`)
+    const manifest = await Bun.file(registryManifest).json()
     expect(manifest.visible).toBe(false)
     expect(manifest.endpoints.ui).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
     expect(manifest.endpoints.backend).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/)
+    expect(manifest.media).toBe(runOutputDirectory(root, manifest.artifacts, 0))
 
     const runtimeManifest = join(manifest.artifacts, "drive", `${name}.json`)
     const hiddenRuntimeManifest = `${runtimeManifest}.hidden`
@@ -188,7 +190,6 @@ describe("opencode-drive", () => {
     )
     expect(await batch.exited).toBe(0)
     expect(await new Response(batch.stdout).text()).toBe("success\n")
-    await rename(hiddenRuntimeManifest, runtimeManifest)
 
     const state = spawn(["send", "--name", name, "--command.ui.state"], root)
     expect(await state.exited).toBe(0)
@@ -217,6 +218,18 @@ describe("opencode-drive", () => {
     expect(screenshotPath.endsWith(".png")).toBe(true)
     expect(Buffer.from(await Bun.file(screenshotPath).arrayBuffer()).subarray(0, 8)).toEqual(
       Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    )
+    await rename(hiddenRuntimeManifest, runtimeManifest)
+
+    Reflect.deleteProperty(manifest, "media")
+    await Bun.write(registryManifest, `${JSON.stringify(manifest, undefined, 2)}\n`)
+    const compatibleScreenshot = spawn(
+      ["send", "--name", name, "--command.ui.screenshot", '{"name":"compatible"}'],
+      root,
+    )
+    expect(await compatibleScreenshot.exited).toBe(0)
+    expect((await new Response(compatibleScreenshot.stdout).text()).trim()).toBe(
+      join(runOutputDirectory(root, manifest.artifacts, 0), "compatible.png"),
     )
 
     const listed = spawn(["dir", "--name", name], root)
@@ -1445,6 +1458,7 @@ describe("opencode-drive", () => {
     expect((await new Response(secondCliScreenshot.stdout).text()).trim()).toBe(
       join(runOutputDirectory(root, manifest.artifacts, 1), "cli-after-restart.png"),
     )
+    expect((await waitForManifest(root, name)).media).toBe(runOutputDirectory(root, manifest.artifacts, 1))
     const screenshots = (await Bun.file(join(manifest.artifacts, "script-screenshots.txt")).text())
       .trim()
       .split("\n")

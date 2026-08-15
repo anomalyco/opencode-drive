@@ -212,7 +212,7 @@ async function runLifecycle(
           )
           await current.ready
           driveReady = true
-          await markReady(options.name, process.pid)
+          await markReady(options.name, process.pid, await runEffect(instance.media))
           await logReadyPaths(instance.artifacts, {
             terminal: !options.visible,
           })
@@ -242,7 +242,7 @@ async function runLifecycle(
     await current.ready
     driveReady = true
     log(`ready ${options.name}`)
-    await markReady(options.name, process.pid)
+    await markReady(options.name, process.pid, await runEffect(instance.media))
     await logReadyPaths(instance.artifacts, { terminal: !options.visible })
     if (options.visible) {
       while (true) {
