@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Ref from "effect/Ref"
@@ -324,17 +323,8 @@ export const makeTuis = Effect.fn("OpenCodeTuis.make")(function* (
         : Effect.succeed(Exit.succeed<string | undefined>(undefined)), {
       concurrency: 2,
     })
-    let failure: Cause.Cause<
-      OpenCodeDriverError | OpenCodeUi.OperationError
-    > | undefined
-    for (const result of [...finished, ...exported]) {
-      if (!Exit.isFailure(result)) continue
-      failure = failure === undefined
-        ? result.cause
-        : Cause.combine(failure, result.cause)
-    }
-    if (failure !== undefined)
-      return yield* Effect.failCause(failure)
+    const settled = Exit.asVoidAll([...finished, ...exported])
+    if (Exit.isFailure(settled)) return yield* Effect.failCause(settled.cause)
     return exported.flatMap((result) =>
       Exit.isSuccess(result) && result.value !== undefined
         ? [result.value]

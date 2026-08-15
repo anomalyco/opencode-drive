@@ -33,7 +33,6 @@ export function ContactSheet({
   const focusedTick = useRef(0)
 
   const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    if (screens.length === 0) return
     if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return
     const target = event.target
     const editing =
@@ -41,19 +40,20 @@ export function ContactSheet({
       target instanceof HTMLTextAreaElement ||
       (target instanceof HTMLElement && target.isContentEditable)
     if (editing) return
+    const cards = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-screen]") ?? [])
+    if (cards.length === 0) return
     const current = Math.max(
       0,
-      screens.findIndex((screen) => screen.id === selectedId),
+      cards.findIndex((card) => card.dataset.screen === selectedId),
     )
     let next: number | undefined
     if (event.key === "Home") next = 0
-    if (event.key === "End") next = screens.length - 1
+    if (event.key === "End") next = cards.length - 1
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       const step = event.key === "ArrowLeft" ? -1 : 1
-      next = Math.min(screens.length - 1, Math.max(0, current + step))
+      next = Math.min(cards.length - 1, Math.max(0, current + step))
     }
     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-      const cards = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-screen]") ?? [])
       const active = cards.find((card) => card.dataset.screen === selectedId)
       if (active) {
         const origin = active.getBoundingClientRect()
@@ -71,8 +71,8 @@ export function ContactSheet({
     }
     if (next === undefined) return
     event.preventDefault()
-    const screen = screens[next]
-    if (screen) onSelect(screen.id)
+    const id = cards[next]?.dataset.screen
+    if (id) onSelect(id)
   })
 
   useEffect(() => {

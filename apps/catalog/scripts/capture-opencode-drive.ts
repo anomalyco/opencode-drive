@@ -142,21 +142,7 @@ const captureBaseline = (driver: OpenCodeDriver.Driver, variant: Variant) =>
     yield* Effect.promise(() => mkdir(outputDirectory, { recursive: true }))
 
     const capture = Effect.fn("Catalog.capture")(function* (id: CaptureId) {
-      const screen = screens[id]
-      const frame = yield* driver.ui.capture()
-      const src = `captures/${variant.id}/${id}.frame.json`
-      yield* Effect.promise(() =>
-        Bun.write(
-          join(outputDirectory, `${id}.frame.json`),
-          `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`,
-        ),
-      )
-      captures.push({
-        id,
-        title: screen.title,
-        category: screen.category,
-        frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
-      })
+      captures.push(yield* captureFrame(driver, variant, id, outputDirectory, "captures"))
     })
 
     const close = Effect.fn("Catalog.closeDialog")(function* () {
@@ -296,6 +282,10 @@ function captureScenario(
 ) {
   return Effect.gen(function* () {
     const captures: Array<Capture> = []
+    const outputDirectory = preview
+      ? fileURLToPath(new URL(`../.tmp/capture-runs/${variant.id}/`, import.meta.url))
+      : join(stagingRoot, variant.id)
+    yield* Effect.promise(() => mkdir(outputDirectory, { recursive: true }))
     yield* scenario.run({
       driver,
       capture: (state) =>
@@ -304,29 +294,36 @@ function captureScenario(
             return yield* Effect.fail(new Error(`Scenario ${scenario.id} references unknown screen ${state.id}`))
           }
           const id = state.id
-          const screen = screens[id]
-          const frame = yield* driver.ui.capture()
-          const src = preview
-            ? `.tmp/capture-runs/${variant.id}/${id}.frame.json`
-            : `captures/${variant.id}/${id}.frame.json`
-          const output = preview
-            ? fileURLToPath(new URL(`../${src}`, import.meta.url))
-            : join(stagingRoot, variant.id, `${id}.frame.json`)
-          yield* Effect.promise(async () => {
-            await mkdir(dirname(output), { recursive: true })
-            await Bun.write(output, `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`)
-          })
-          captures.push({
-            id,
-            title: screen.title,
-            category: screen.category,
-            frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
-          })
+          captures.push(yield* captureFrame(driver, variant, id, outputDirectory, preview ? ".tmp/capture-runs" : "captures"))
         }),
     })
     return captures
   })
 }
+
+const captureFrame = Effect.fn("Catalog.captureFrame")(function* (
+  driver: OpenCodeDriver.Driver,
+  variant: Variant,
+  id: CaptureId,
+  outputDirectory: string,
+  sourceRoot: string,
+) {
+  const screen = screens[id]
+  const frame = yield* driver.ui.capture()
+  const src = `${sourceRoot}/${variant.id}/${id}.frame.json`
+  yield* Effect.promise(() =>
+    Bun.write(
+      join(outputDirectory, `${id}.frame.json`),
+      `${JSON.stringify({ format: "opencode-terminal-frame-v1", ...frame })}\n`,
+    ),
+  )
+  return {
+    id,
+    title: screen.title,
+    category: screen.category,
+    frame: { variantId: variant.id, src, cols: frame.cols, rows: frame.rows },
+  } satisfies Capture
+})
 
 const resetProjectFiles = Effect.fn("Catalog.resetProjectFiles")(function* (driver: OpenCodeDriver.Driver) {
   const files = join(driver.artifacts, "files")
@@ -352,13 +349,17 @@ try {
     }
   }
   const captures =
-    captured[0]?.map((first) => ({
+    captured[0]?.map((first, index) => ({
       id: first.id,
       title: first.title,
       category: first.category,
-      frames: captured.flatMap((variantCaptures) =>
-        variantCaptures.filter((capture) => capture.id === first.id).map((capture) => capture.frame),
-      ) as [Capture["frame"], ...Array<Capture["frame"]>],
+      frames: [
+        first.frame,
+        ...captured.slice(1).flatMap((variantCaptures) => {
+          const capture = variantCaptures[index]
+          return capture ? [capture.frame] : []
+        }),
+      ] satisfies [Capture["frame"], ...Array<Capture["frame"]>],
     })) ?? []
   if (options.flow !== undefined) {
     for (const capture of captures) {
@@ -464,11 +465,6 @@ async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions
       }
       const path = fileURLToPath(new URL(`../.tmp/capture-worktrees/${revision}/`, import.meta.url))
       const preparedRevision = await preparedWorktreeRevision(path)
-      if (options.fresh && preparedRevision !== undefined) {
-        await command(["git", "worktree", "remove", "--force", path], options.opencode).catch(() =>
-          rm(path, { recursive: true, force: true }),
-        )
-      }
       if (options.fresh || preparedRevision !== revision) {
         if (preparedRevision !== undefined) {
           await command(["git", "worktree", "remove", "--force", path], options.opencode).catch(() =>

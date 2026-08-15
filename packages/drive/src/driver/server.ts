@@ -5,7 +5,6 @@ import * as Ref from "effect/Ref"
 import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
 import * as Exit from "effect/Exit"
-import { RpcClientError } from "effect/unstable/rpc"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import * as OpenCodeTui from "./client.js"
@@ -15,6 +14,7 @@ import * as LlmController from "./llm-controller.js"
 import * as ToolProducer from "../tool/producer.js"
 import type * as Tool from "../tool/index.js"
 import { LifecycleError } from "../tool/types.js"
+import { isTransientRpcClientError } from "../simulation/rpc.js"
 
 export interface Target {
   readonly command?: ReadonlyArray<string>
@@ -241,26 +241,13 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
 function isRetryableToolConnectionError(cause: unknown) {
   return (
     cause instanceof SimulationConnector.SimulationConnectionError ||
-    (cause instanceof RpcClientError.RpcClientError &&
-      isTransientRpcClientError(cause)) ||
+    isTransientRpcClientError(cause) ||
     (cause instanceof LifecycleError && cause.reason === "transport-interrupted")
   )
 }
 
 function isClosedToolConnectionError(cause: unknown) {
   return cause instanceof LifecycleError && cause.reason === "controller-closed"
-}
-
-function isTransientRpcClientError(error: RpcClientError.RpcClientError) {
-  if (error.reason._tag !== "RpcClientDefect") return true
-  const message = error.reason.message
-  return (
-    message.startsWith("cannot connect") ||
-    message === "connection closed" ||
-    message === "connection error" ||
-    message === "connection is not open" ||
-    message === "failed to send request"
-  )
 }
 
 export * as OpenCodeServer from "./server.js"

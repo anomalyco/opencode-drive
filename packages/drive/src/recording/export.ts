@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, extname } from "node:path"
 import { encodeFrames } from "./encode.js"
+import { progressReporter } from "./frame-rate.js"
 import { replayRecording, type ReplayOptions } from "./replay.js"
 import { CellHeight, CellWidth, renderFrame } from "./render.js"
 
@@ -75,16 +76,5 @@ export async function exportRecording(
     durationMs: final.atMs,
     width: cols * CellWidth,
     height: rows * CellHeight + (options.header ? 40 : 0),
-  }
-}
-
-function progressReporter(onProgress?: (percent: number) => void) {
-  let reported = 0
-  return (percent: number) => {
-    const target = Math.min(100, Math.floor(percent / 10) * 10)
-    while (reported < target) {
-      reported += 10
-      onProgress?.(reported)
-    }
   }
 }

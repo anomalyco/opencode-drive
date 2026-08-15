@@ -16,7 +16,7 @@ import {
   type BackendConnection,
 } from "../simulation/connector.js"
 import { Backend } from "../simulation/protocol.js"
-import { SimulationRequestError } from "../simulation/rpc.js"
+import { isTransientRpcClientError, SimulationRequestError } from "../simulation/rpc.js"
 import {
   LifecycleError,
   type AttachParams,
@@ -264,7 +264,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
         !(found.value instanceof SimulationConnectionError) &&
         !(
           found.value instanceof RpcClientError.RpcClientError &&
-          isTransientRpcError(found.value)
+          isTransientRpcClientError(found.value)
         )
       )
         return yield* Effect.fail(
@@ -973,19 +973,7 @@ function isTransientConnectionError(error: unknown) {
   return (
     error instanceof SimulationConnectionError ||
     (error instanceof RpcClientError.RpcClientError &&
-      isTransientRpcError(error))
-  )
-}
-
-function isTransientRpcError(error: RpcClientError.RpcClientError) {
-  if (error.reason._tag !== "RpcClientDefect") return true
-  const message = error.reason.message
-  return (
-    message.startsWith("cannot connect") ||
-    message === "connection closed" ||
-    message === "connection error" ||
-    message === "connection is not open" ||
-    message === "failed to send request"
+      isTransientRpcClientError(error))
   )
 }
 

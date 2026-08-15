@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { runFfmpeg } from "./ffmpeg.js"
-import { resolveFps } from "./frame-rate.js"
+import { progressReporter, resolveFps } from "./frame-rate.js"
 
 export interface ImageFrame {
   readonly atMs: number
@@ -87,16 +87,5 @@ export async function encodeFrames(
     progress(100)
   } finally {
     await rm(directory, { recursive: true, force: true })
-  }
-}
-
-function progressReporter(onProgress?: (percent: number) => void) {
-  let reported = 0
-  return (percent: number) => {
-    const target = Math.min(100, Math.floor(percent / 10) * 10)
-    while (reported < target) {
-      reported += 10
-      onProgress?.(reported)
-    }
   }
 }

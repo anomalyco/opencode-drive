@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { Rpc, RpcGroup } from "effect/unstable/rpc"
+import { Rpc, RpcClientError, RpcGroup } from "effect/unstable/rpc"
 import { Backend, Frontend, Handshake } from "./protocol.js"
 
 export class SimulationRequestError extends Schema.TaggedErrorClass<SimulationRequestError>()(
@@ -11,6 +11,19 @@ export class SimulationRequestError extends Schema.TaggedErrorClass<SimulationRe
     data: Schema.optionalKey(Schema.Json),
   },
 ) {}
+
+export function isTransientRpcClientError(error: unknown): error is RpcClientError.RpcClientError {
+  if (!(error instanceof RpcClientError.RpcClientError)) return false
+  if (error.reason._tag !== "RpcClientDefect") return true
+  const message = error.reason.message
+  return (
+    message.startsWith("cannot connect") ||
+    message === "connection closed" ||
+    message === "connection error" ||
+    message === "connection is not open" ||
+    message === "failed to send request"
+  )
+}
 
 const request = <
   const Tag extends string,
