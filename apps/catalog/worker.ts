@@ -20,22 +20,24 @@ export default {
     const path = assetPath(url.pathname)
     const assetUrl = new URL(url)
     assetUrl.pathname = path
+    const catalog = path === "/index.html"
+      ? catalogCache ??= env.ASSETS.fetch(new Request(new URL("/catalog.json", url.origin)))
+        .then((asset) => asset.json() as Promise<CatalogIndex>)
+        .catch((cause) => {
+          catalogCache = undefined
+          throw cause
+        })
+      : undefined
     const response = await env.ASSETS.fetch(new Request(assetUrl, request))
     if (path !== "/index.html" || !response.ok) return response
 
-    catalogCache ??= env.ASSETS.fetch(new Request(new URL("/catalog.json", url.origin)))
-      .then((asset) => asset.json() as Promise<CatalogIndex>)
-      .catch((cause) => {
-        catalogCache = undefined
-        throw cause
-      })
-    const catalog = await catalogCache.catch(() => undefined)
-    if (!catalog) return response
+    const index = await catalog?.catch(() => undefined)
+    if (!index) return response
 
     const html = await response.text()
     const headers = new Headers(response.headers)
     headers.delete("content-length")
-    return new Response(html.replace("</head>", `${metaTags(url, catalog)}</head>`), {
+    return new Response(html.replace("</head>", `${metaTags(url, index)}</head>`), {
       status: response.status,
       headers,
     })

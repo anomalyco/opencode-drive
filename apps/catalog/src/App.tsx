@@ -484,7 +484,7 @@ export function App({ catalog }: AppProps) {
       </main>
       {ui.viewerOpen && selectedScreen ? (
         <Viewer
-          key={`${selectedScreen.id}:${activeVariant.id}`}
+          key={`${selectedScreen.id}:${activeVariant.id}:${ui.mode}:${activeFlow?.id ?? ""}`}
           screen={selectedScreen}
           identifier={
             ui.mode === "flows" && activeFlow?.replayable ? `${activeFlow.id}/${selectedScreen.id}` : selectedScreen.id

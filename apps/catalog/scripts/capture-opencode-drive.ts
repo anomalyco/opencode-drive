@@ -67,10 +67,7 @@ const captureVariant = (variant: Variant) =>
     const queued = lifecycleScenarios.filter((scenario) => scenario.llmMode === "queue")
     const served = lifecycleScenarios.filter((scenario) => scenario.llmMode === "serve")
     const captures = yield* captureScenarioProcess(variant, [], false, true)
-    for (const scenario of queued) {
-      captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
-    }
-    for (const scenario of served) {
+    for (const scenario of [...queued, ...served]) {
       captures.push(...(yield* captureScenarioProcess(variant, [scenario])))
     }
     return captures

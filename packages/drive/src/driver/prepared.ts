@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as OpenCodeInstance from "../instance/runtime.js"
@@ -9,10 +8,7 @@ import type {
   Driver,
   Llm,
 } from "./index.js"
-import type {
-  LlmControllerError,
-  LlmSettlementError,
-} from "./llm-controller.js"
+import type { LlmControllerError } from "./llm-controller.js"
 import * as OpenCodeServer from "./server.js"
 import * as SharedEffect from "./shared.js"
 import type * as OpenCodeUi from "./ui.js"
@@ -75,26 +71,8 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
         )
         const shutdown = yield* Effect.exit(server.llm.shutdown())
         const tuiExit = yield* Effect.exit(tuis)
-        let failure: Cause.Cause<
-          | LlmControllerError
-          | LlmSettlementError
-          | OpenCodeDriverError
-          | OpenCodeUi.OperationError
-        > | undefined
-        if (Exit.isFailure(llm)) failure = llm.cause
-        if (Exit.isFailure(tools))
-          failure = failure === undefined
-            ? tools.cause
-            : Cause.combine(failure, tools.cause)
-        if (Exit.isFailure(shutdown))
-          failure = failure === undefined
-            ? shutdown.cause
-            : Cause.combine(failure, shutdown.cause)
-        if (Exit.isFailure(tuiExit))
-          failure = failure === undefined
-            ? tuiExit.cause
-            : Cause.combine(failure, tuiExit.cause)
-        if (failure !== undefined) return yield* Effect.failCause(failure)
+        const settled = Exit.asVoidAll([llm, tools, shutdown, tuiExit])
+        if (Exit.isFailure(settled)) return yield* Effect.failCause(settled.cause)
         const compatibility = [
           ...(yield* server.compatibility),
           ...(yield* server.tuis.compatibility),
