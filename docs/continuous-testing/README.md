@@ -194,6 +194,8 @@ needs them and only when they do not introduce OpenCode catalog vocabulary.
 9. [Deployment and operations](./09-deployment-and-operations.md) defines
    process topology, supervision, rollout, configuration, runbooks, and
    recovery.
+   [Elixir control-plane option](./09-elixir-control-plane-option.md) evaluates
+   a hybrid OTP/Oban/Phoenix control plane with Bun/Effect workload workers.
 10. [Security and safety](./10-security-and-safety.md) defines isolation,
     credentials, permissions, egress, resource limits, retention, and cost
     controls.
@@ -300,6 +302,10 @@ Every implementation phase preserves these rules:
 : One lifecycle and concurrency boundary containing an OpenCode server,
   project, database policy, model controller, and runner.
 
+**Lane generation**
+: One concrete lifetime of a lane's target, server, controllers, paths, ports,
+  configuration, and optional retained database.
+
 **Model**
 : In property-testing documents, the small expected-state machine maintained by
   the test. In inference documents, model means the language-model provider.
@@ -309,6 +315,11 @@ Every implementation phase preserves these rules:
 : A human grouping of attempts, such as one scheduled journey plus its
   diagnostic reproduction. Persisted APIs use the more precise word
   `attempt`.
+
+**Recycle**
+: Drain and replace a whole lane generation after a declared trigger such as a
+  target/configuration change, maximum age, failed health check, or resource
+  ceiling. It is not an attempt retry and does not erase failure evidence.
 
 **Synthetic user**
 : A controlled TUI or SDK client that performs real user-visible actions

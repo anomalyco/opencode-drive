@@ -5,6 +5,11 @@ first deployment favors a simple, inspectable topology over a large distributed
 platform. It can scale later without changing attempt, lane, and evidence
 contracts.
 
+The topology is implementable entirely in TypeScript/Effect. A hybrid Elixir
+implementation is evaluated separately in [Elixir control-plane
+option](./09-elixir-control-plane-option.md); it changes control-plane runtime,
+not Drive, provider, scenario, or evidence contracts.
+
 ## Operational Goals
 
 - useful smoke work completes continuously;
@@ -663,4 +668,3 @@ The deployment is ready for unattended 24/7 operation when:
   CLI protocol;
 - at least one last-known-good deterministic lane can be restored without
   depending on the failing candidate.
-

@@ -44,15 +44,72 @@ A lane owns:
 - one project fixture and OpenCode configuration;
 - one OpenCode server generation at a time;
 - one database policy;
-- one simulated-model controller mode;
-- one tool-control configuration;
+- one simulated-model controller with one active response-routing mode for its
+  lifetime;
+- one active Drive tool-controller attachment and registration generation;
 - zero or more attempt-owned TUI processes;
 - one concurrency limit;
-- one health and recycle policy.
+- one health policy and one set of rules for replacing the lane generation.
 
 A lane is deliberately narrower than “all tests for this revision.” It is the
 smallest unit that can be restarted, drained, compared, or declared unhealthy
 without creating response-routing ambiguity.
+
+### Response-routing mode, in plain language
+
+Drive can answer model requests in two fundamentally different ways:
+
+- **queued mode**: a scenario loads response A, response B, and response C;
+  model requests consume them in that order;
+- **served mode**: one request-aware function receives each model request and
+  decides what response to stream.
+
+The current `LlmController` does not allow a controller to start queueing
+responses and later install a served handler. Therefore a queued-journey lane
+and a reactive/property lane use different controller lifetimes. This bullet
+does **not** mean one real AI model or one provider per lane.
+
+### Tool-controller attachment, in plain language
+
+Drive can intercept selected OpenCode tools—currently built-in shapes such as
+`shell`, `webfetch`, `websearch`, and `write`—and let the test decide when each
+call reports progress, succeeds, fails, or is interrupted.
+
+The lane owns one active controller connection. At a clean attempt boundary it
+may install an attempt's complete tool profile, for example:
+
+```text
+ordinary smoke
+  no controlled tools
+
+tool-success journey
+  control write; return a deterministic result
+
+interruption journey
+  control shell; hold it open until the test interrupts it
+```
+
+Only one registration generation is active at a time, so one attempt cannot
+silently replace the handlers while another attempt is using them. The earlier
+phrase “one tool-control configuration” did not mean that every journey in the
+lane must use the same tools forever.
+
+### Replacing or recycling a lane, in plain language
+
+A persistent lane is long-lived, but not immortal. **Recycling** means:
+
+1. stop assigning new attempts;
+2. finish or explicitly interrupt the current attempt;
+3. collect required evidence;
+4. shut down the TUI, controllers, and OpenCode server;
+5. verify that processes, ports, and scoped resources are gone;
+6. start a new lane generation and run its bootstrap smoke.
+
+The rules that trigger this replacement are the recycle policy. Examples are a
+new OpenCode commit, changed configuration/protocol, a maximum lane age,
+resource growth, failed health checks, or a lane frozen after failure evidence
+is secured. Recycling is not retrying a scenario, and it never deletes or
+rewrites the failed attempt.
 
 ## Recommended Initial Lane Types
 

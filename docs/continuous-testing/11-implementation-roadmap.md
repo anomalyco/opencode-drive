@@ -208,6 +208,16 @@ Use a deterministic prompt-to-text smoke flow with:
 - the attempt can be diagnosed from its manifest and files;
 - no existing catalog capture behavior changes.
 
+### Control-plane technology decision gate
+
+After this finite worker contract exists, run the vertical slice in [Elixir
+control-plane option](./09-elixir-control-plane-option.md). This is the correct
+decision point: before implementing the durable scheduler, but after the Bun
+worker's job/event/result boundary is concrete.
+
+Do not choose Elixir by rewriting the finite worker. Compare an Elixir host and
+an Effect-only host around the same worker and attempt fixtures.
+
 ## Milestone 2: Log Viewer and Attempt Review
 
 ### Outcome
@@ -734,4 +744,3 @@ The project has reached its intended first mature state when:
 - operators can restore a last-known-good lane using documented runbooks;
 - `packages/drive` remains generic and the canonical OpenCode simulation
   protocol remains authoritative.
-

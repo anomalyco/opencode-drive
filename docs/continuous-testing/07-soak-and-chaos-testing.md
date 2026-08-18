@@ -146,7 +146,7 @@ Use progressive qualification:
 | Local qualification | 15–30 minutes | Find immediate lifecycle leaks and harness errors |
 | Pull-request extended | 1–2 hours, selected changes | Catch short accumulation regressions |
 | Nightly | 6–12 hours | Cross multiple maintenance and workload cycles |
-| Continuous | Indefinite with declared recycle policy | Detect long-age drift and rare interleavings |
+| Continuous | Repeated bounded attempts until a declared lane-replacement trigger | Detect long-age drift and rare interleavings |
 | Release qualification | 24–72 hours | Compare candidate against a stable baseline |
 
 Duration is configuration, not the success condition. A soak succeeds only if
@@ -201,6 +201,13 @@ healthy history establishes variance.
 ## Lane Maintenance and Recycling
 
 Continuous does not mean immortal. Lanes need declared lifecycle policy.
+
+Here, recycling means replacing the entire lane generation—server,
+controllers, attempt-owned clients, and optionally its retained database—not
+merely clearing a session. A continuous soak may keep a lane for days when lane
+age is the thing being tested, while ordinary smoke lanes may use a shorter
+scheduled maximum age. Both also recycle on revision/configuration changes or
+unhealthy state.
 
 Recycle reasons:
 
@@ -560,4 +567,3 @@ Soak and chaos testing is operational when:
   environment;
 - baseline and candidate soak comparisons record matched workload inputs;
 - the control plane detects a lane that is alive but no longer completing work.
-
