@@ -1,4 +1,4 @@
-import type * as Cause from "effect/Cause"
+import * as Cause from "effect/Cause"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -174,6 +174,14 @@ export const make = Effect.fn("LlmController.make")(function* (
     )
   })
 
+  // A response interrupted from below lost its backend mid-flight: the script
+  // killed or detached the server while the reply was streaming. The job is
+  // abandoned, not failed; recording it would poison the run with a phantom
+  // controller failure. The respond fiber itself survives to observe this, so
+  // a genuine responder error (any fail or defect reason) still records.
+  const abandoned = (cause: Cause.Cause<unknown>) =>
+    cause.reasons.length > 0 && cause.reasons.every(Cause.isInterruptReason)
+
   const runNormal = (job: NormalJob): Effect.Effect<void> => {
     const output = LlmState.NormalSource.$match(job.source, {
       Queued: ({ response }) =>
@@ -185,7 +193,9 @@ export const make = Effect.fn("LlmController.make")(function* (
     })
     return Effect.matchCauseEffect(output, {
       onFailure: (cause) =>
-        completeNormal(job, causeError("respond", cause, job.request.request.id)),
+        abandoned(cause)
+          ? completeNormal(job)
+          : completeNormal(job, causeError("respond", cause, job.request.request.id)),
       onSuccess: () => completeNormal(job),
     })
   }
@@ -240,10 +250,12 @@ export const make = Effect.fn("LlmController.make")(function* (
         tasks,
         Effect.matchCauseEffect(respond, {
           onFailure: (cause) =>
-            completeTitle(
-              completion,
-              causeError("title", cause, request.request.id),
-            ),
+            abandoned(cause)
+              ? completeTitle(completion)
+              : completeTitle(
+                  completion,
+                  causeError("title", cause, request.request.id),
+                ),
           onSuccess: () => completeTitle(completion),
         }),
       )
