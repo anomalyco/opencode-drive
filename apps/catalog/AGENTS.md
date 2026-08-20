@@ -140,6 +140,25 @@ For UI changes, verify in a real browser at desktop and mobile widths:
 
 For protocol changes, also run the OpenCode simulation tests and the full OpenCode Drive test suite.
 
+## Deployment
+
+The catalog deploys to <https://dev.opencode.ai/lab/catalog> through `.github/workflows/deploy-catalog.yml`. The workflow runs automatically for relevant changes merged to `main` and can be triggered manually from GitHub Actions or with:
+
+```bash
+gh workflow run deploy-catalog.yml --ref main -R anomalyco/opencode-drive
+```
+
+The workflow validates Drive and the catalog before deploying. It requires the repository Actions secret `CLOUDFLARE_API_TOKEN`, scoped to edit Workers and routes in the Anomaly Cloudflare account. `wrangler.jsonc` pins that account; do not remove or replace the account ID with a secret.
+
+After triggering a deployment, wait for the workflow and verify the live route:
+
+```bash
+gh run watch --exit-status -R anomalyco/opencode-drive
+curl --fail --silent --show-error --output /dev/null https://dev.opencode.ai/lab/catalog
+```
+
+Do not deploy from a feature branch. For an exceptional local deployment, run `bun run deploy` from `apps/catalog` only after `bun run check`, and confirm `bunx wrangler whoami` has access to the Anomaly account.
+
 ## Dependencies
 
 The catalog consumes OpenCode Drive as a Bun workspace dependency (`"opencode-drive": "workspace:*"`) and imports only its published entry points (`opencode-drive`, `opencode-drive/driver`, `opencode-drive/client` for protocol schemas, and the browser-safe `opencode-drive/frame` for renderer geometry). Never import package-internal `src/` paths.
