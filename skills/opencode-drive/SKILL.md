@@ -175,6 +175,49 @@ const secondary = yield* tuis.launch({
 yield* secondary.ui.screenshot("secondary")
 ```
 
+### Network Chaos
+
+Set `network: true` in `defineScript` to route every TUI through a chaos TCP
+proxy (the TUI is pinned with `--server`, so reconnects always cross the
+proxy). The Drive control plane and the `opencode` SDK stay clean; only the
+TUI's HTTP and SSE traffic degrades.
+
+```ts
+export default defineScript({
+  network: true,
+  run: ({ ui, network }) =>
+    Effect.gen(function* () {
+      yield* network.set({ latencyMs: 400, jitterMs: 200 })
+      yield* network.set({ blackhole: true }) // buffer all bytes until clear
+      yield* network.set({ refuseNew: true }) // refuse new connections
+      yield* network.killConnections() // drop every open connection
+      yield* network.clear() // heal; buffered bytes flush
+    }),
+})
+```
+
+A quiet blackhole does not raise the TUI's reconnect overlay; that needs a
+dropped connection (`killConnections`) while traffic is pending.
+
+### Script-Writing Rules Of Thumb
+
+- Timeout severity is split: `UiWaitTimeoutError` (a `waitFor`/`getElement`/
+  `getNode` deadline passed) is catchable — branch on "did X appear in time?"
+  with `Effect.catchTag("UiWaitTimeoutError", ...)`. `UiTimeoutError` (an
+  unanswered UI RPC) aborts the whole run even when caught.
+- LLM request bodies carry the entire conversation. Route reply markers by
+  which appears **last** in the serialized body (`lastIndexOf`), never by the
+  first `includes` hit.
+- The server projection (`opencode.message.list`) is the ground truth for
+  whether a prompt landed. The screen and the instance's
+  `prompt-history.jsonl` can both mislead.
+- `ctrl+c` on an empty composer exits the TUI and kills the run
+  (`RpcClientDefect: connection closed`); use `ctrl+u` to clear leftover
+  composer text.
+- Effect v4: it is `Effect.catch`, not `Effect.catchAll`.
+- Isolated-instance state lives under `$artifacts/home/...`; screenshots land
+  under the run's `output/.../generation-N/` directory.
+
 ### Reports And Paths
 
 `OpenCodeDriver` exports a branded `AbsolutePath` schema and a compact `RunReport` containing the artifact root, retention, recording paths, and endpoint compatibility. It also exports `decodeAbsolutePath` and `decodeRunReport` for validating unknown values.
