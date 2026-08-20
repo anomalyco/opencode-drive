@@ -18,6 +18,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     const path = assetPath(url.pathname)
+    if (path === undefined) return new Response("Not found", { status: 404 })
     const assetUrl = new URL(url)
     assetUrl.pathname = path
     const catalog = path === "/index.html"
@@ -45,7 +46,9 @@ export default {
 }
 
 export function assetPath(pathname: string) {
-  const path = pathname.slice("/lab/catalog".length)
+  const prefix = "/lab/catalog"
+  if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) return undefined
+  const path = pathname.slice(prefix.length)
   return path === "" || path === "/" || !path.includes(".") ? "/index.html" : path
 }
 

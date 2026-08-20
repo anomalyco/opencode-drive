@@ -22,6 +22,7 @@ describe("catalog worker", () => {
     expect(assetPath("/lab/catalog")).toBe("/index.html")
     expect(assetPath("/lab/catalog/")).toBe("/index.html")
     expect(assetPath("/lab/catalog/deep-link")).toBe("/index.html")
+    expect(assetPath("/lab/catalogue")).toBeUndefined()
   })
 
   test("strips the catalog prefix from assets", () => {

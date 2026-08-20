@@ -9,6 +9,7 @@ export interface CaptureOptions {
   readonly fresh: boolean
   readonly jobs: number
   readonly workerOutput: string | undefined
+  readonly workerVariantId: string | undefined
 }
 
 export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode: string): CaptureOptions {
@@ -19,6 +20,7 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
   let fresh = false
   let jobs = 3
   let workerOutput: string | undefined
+  let workerVariantId: string | undefined
 
   for (let index = 0; index < args.length; index++) {
     const argument = args[index]
@@ -34,6 +36,7 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
     else if (argument === "--flow") flow = value
     else if (argument === "--jobs") jobs = Number(value)
     else if (argument === "--worker-output") workerOutput = resolve(value)
+    else if (argument === "--worker-variant-id") workerVariantId = value
     else throw new Error(`Unknown capture argument: ${argument}`)
   }
 
@@ -47,6 +50,7 @@ export function parseCaptureOptions(args: ReadonlyArray<string>, defaultOpenCode
     fresh,
     jobs,
     workerOutput,
+    workerVariantId,
   }
 }
 
