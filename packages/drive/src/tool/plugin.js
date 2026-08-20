@@ -19,8 +19,9 @@ const content = (result) => [
   ...(result.status === "running" ? [{ type: "text", text: BACKGROUND_INSTRUCTION }] : []),
 ]
 
+// Drive tools declare no output schema, so the result must not carry an
+// `output` value: opencode's tool runtime dies on undeclared structured output.
 const output = (result) => ({
-  output: result,
   content: content(result),
 })
 

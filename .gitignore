@@ -6,3 +6,4 @@ dist/
 **/.tmp/
 .build/
 .sst/
+.drive-output/

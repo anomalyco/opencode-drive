@@ -702,12 +702,9 @@ it.effect("notifies OpenCode when a registered background shell completes", () =
         { command: "plugin", background: true },
         { sessionID: "ses_plugin", id: "call_plugin" },
       )
+      // No `output` value: drive tools declare no output schema, and opencode's
+      // tool runtime rejects undeclared structured output.
       expect(started).toEqual({
-        output: {
-          output: "The command was moved to the background.",
-          shellID: "call_plugin",
-          status: "running",
-        },
         content: [
           { type: "text", text: "The command was moved to the background." },
           {

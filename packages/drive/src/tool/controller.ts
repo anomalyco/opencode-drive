@@ -299,6 +299,10 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
             return new Response("Not found", { status: 404 })
           if (definition === undefined)
             return new Response("Tool handler not registered", { status: 404 })
+          // A controlled tool may legitimately stay silent longer than Bun's idle
+          // ceiling (255s); executions must only end through script control or
+          // controller shutdown, never an idle disconnect.
+          server.timeout(request, 0)
           return execute(request, name, definition, indexes, active, background)
         },
       }),

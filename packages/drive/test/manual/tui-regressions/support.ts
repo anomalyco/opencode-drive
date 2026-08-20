@@ -101,6 +101,61 @@ export const admissions = (opencode: OpenCode, text: string) =>
     ).length
   })
 
+/**
+ * Requires the terminal to stop changing within a deadline. A settled UI
+ * (reply finished, interrupt processed, reconnect healed) must render
+ * identically across consecutive samples: any animating spinner, ticking
+ * timer, or lingering busy indicator shows up as differing rows. The cursor
+ * cell is masked so a blinking caret cannot count as motion. Returns stable
+ * once `samples` consecutive captures match; otherwise reports the rows that
+ * were still changing when the deadline passed.
+ */
+export const settled = (
+  ui: Ui,
+  options?: {
+    readonly samples?: number
+    readonly intervalMs?: number
+    readonly deadlineMs?: number
+  },
+) =>
+  Effect.gen(function* () {
+    const samples = options?.samples ?? 3
+    const interval = options?.intervalMs ?? 400
+    const deadline = options?.deadlineMs ?? 10_000
+    const startedAt = Date.now()
+    const capture = Effect.gen(function* () {
+      const frame = yield* ui.capture()
+      const [cursorX, cursorY] = frame.cursor
+      return frame.lines.map((line, row) => {
+        let text = line.spans.map((span) => span.text).join("")
+        if (row === cursorY && cursorX < text.length)
+          text = `${text.slice(0, cursorX)} ${text.slice(cursorX + 1)}`
+        return text.trimEnd()
+      })
+    })
+    const diff = (window: ReadonlyArray<ReadonlyArray<string>>) => {
+      const unstable: Array<{ row: number; samples: Array<string> }> = []
+      const rows = Math.max(...window.map((capture) => capture.length))
+      for (let row = 0; row < rows; row++) {
+        const texts = window.map((capture) => capture[row] ?? "")
+        if (texts.some((text) => text !== texts[0]))
+          unstable.push({ row, samples: texts })
+      }
+      return unstable
+    }
+    const window: Array<ReadonlyArray<string>> = [yield* capture]
+    while (true) {
+      yield* Effect.sleep(interval)
+      window.push(yield* capture)
+      if (window.length > samples) window.shift()
+      const unstable = diff(window)
+      if (window.length === samples && unstable.length === 0)
+        return { stable: true as const, unstable, waitedMs: Date.now() - startedAt }
+      if (Date.now() - startedAt >= deadline)
+        return { stable: false as const, unstable, waitedMs: Date.now() - startedAt }
+    }
+  })
+
 /** Parsed prompt-history entries from the instance's isolated home. */
 export const promptHistory = (artifacts: string) =>
   Effect.promise(() =>
