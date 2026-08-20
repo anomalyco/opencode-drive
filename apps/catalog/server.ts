@@ -1,6 +1,8 @@
+import { fileURLToPath } from "node:url"
+import { publicFilePath } from "./catalog/public-path"
 import index from "./src/index.html"
 
-const publicDirectory = new URL("./public/", import.meta.url)
+const publicDirectory = fileURLToPath(new URL("./public/", import.meta.url))
 const port = Number(process.env.PORT ?? "4187")
 
 const contentTypes = new Map([
@@ -20,29 +22,22 @@ const server = Bun.serve({
   },
   async fetch(request) {
     const url = new URL(request.url)
-    const path = normalizePath(url.pathname)
+    const path = publicFilePath(publicDirectory, url.pathname)
     if (!path) return new Response("Not found", { status: 404 })
 
-    const file = Bun.file(new URL(path, publicDirectory))
+    const file = Bun.file(path)
     if (!(await file.exists())) return new Response("Not found", { status: 404 })
 
     return new Response(file, {
       headers: {
         "cache-control": "no-store",
-        "content-type": contentType(path),
+        "content-type": contentType(url.pathname),
       },
     })
   },
 })
 
 console.log(`OpenCode terminal catalog: http://localhost:${server.port}`)
-
-function normalizePath(pathname: string) {
-  const decoded = decodeURIComponent(pathname)
-  const path = decoded.replace(/^\/+/, "")
-  if (path === "" || path.includes("..") || path.includes("\\")) return undefined
-  return path
-}
 
 function contentType(path: string) {
   const dot = path.lastIndexOf(".")

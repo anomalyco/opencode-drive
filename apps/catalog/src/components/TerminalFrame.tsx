@@ -85,10 +85,15 @@ export function TerminalFrame({ frame, label, lazy = false }: TerminalFrameProps
 function loadFrame(src: string) {
   const existing = cache.get(src)
   if (existing) return existing
-  const pending = fetch(`${catalogBasePath()}${src}`).then(async (response) => {
-    if (!response.ok) throw new Error(`Failed to load terminal frame: ${response.status}`)
-    return response.json() as Promise<FrameArtifact>
-  })
+  const pending = fetch(`${catalogBasePath()}${src}`)
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Failed to load terminal frame: ${response.status}`)
+      return response.json() as Promise<FrameArtifact>
+    })
+    .catch((cause) => {
+      if (cache.get(src) === pending) cache.delete(src)
+      throw cause
+    })
   cache.set(src, pending)
   return pending
 }

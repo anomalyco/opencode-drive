@@ -338,7 +338,7 @@ function isCaptureId(value: string): value is CaptureId {
 
 try {
   const captured =
-    options.workerOutput === undefined && variants.length > 1 && options.jobs > 1
+    options.workerOutput === undefined && options.flow === undefined && variants.length > 1 && options.jobs > 1
       ? await captureVariantProcesses(options, variants)
       : await Effect.runPromise(Effect.forEach(variants, captureVariant, { concurrency: 1 }))
   const expectedIds = captured[0]?.map((capture) => capture.id) ?? []
@@ -424,6 +424,8 @@ async function captureVariantProcesses(
           "1",
           "--worker-output",
           output,
+          "--worker-variant-id",
+          variant.id,
         ]
         const child = Bun.spawn(args, {
           cwd: fileURLToPath(new URL("..", import.meta.url)),
@@ -459,10 +461,6 @@ async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions
       const revision = await git(options.opencode, "rev-parse", `${ref}^{commit}`)
       if (revisions.has(revision)) continue
       const committedAt = await git(options.opencode, "show", "-s", "--format=%cI", revision)
-      if (ref === "HEAD") {
-        revisions.set(revision, { ref, committedAt, path: options.opencode })
-        continue
-      }
       const path = fileURLToPath(new URL(`../.tmp/capture-worktrees/${revision}/`, import.meta.url))
       const preparedRevision = await preparedWorktreeRevision(path)
       if (options.fresh || preparedRevision !== revision) {
@@ -483,7 +481,7 @@ async function prepareCaptureSets(options: ReturnType<typeof parseCaptureOptions
     for (const [revision, preparedRevision] of revisions) {
       for (const theme of options.themes) {
         variants.push({
-          id: captureSetId(revision, theme, revisions.size > 1),
+          id: options.workerVariantId ?? captureSetId(revision, theme, revisions.size > 1),
           label: captureSetLabel(revision, theme),
           source: captureSource(options.opencode),
           revision,

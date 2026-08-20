@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises"
-import { connect, createServer } from "node:net"
+import { connect, createServer, type Socket } from "node:net"
 import type {
   ResponseConfiguration,
   ResponseUpdate,
@@ -20,7 +20,12 @@ export async function listenControl(
     ) => Promise<ResponseConfiguration>
   },
 ) {
+  const idleSockets = new Set<Socket>()
   const server = createServer((socket) => {
+    idleSockets.add(socket)
+    socket.on("close", () => idleSockets.delete(socket))
+    socket.on("error", () => idleSockets.delete(socket))
+    socket.setTimeout(30_000, () => socket.destroy())
     let buffer = ""
     socket.setEncoding("utf8")
     socket.on("data", (data) => {
@@ -31,6 +36,7 @@ export async function listenControl(
         return
       }
       if (!buffer.includes("\n")) return
+      idleSockets.delete(socket)
       socket.removeAllListeners("data")
       const progress = (percent: number) => socket.write(`progress ${percent}\n`)
       void handle(buffer.slice(0, buffer.indexOf("\n")), progress).then(
@@ -55,6 +61,7 @@ export async function listenControl(
   }
   await listen(server, path)
   return async () => {
+    for (const socket of idleSockets) socket.destroy()
     await new Promise<void>((resolve) => server.close(() => resolve()))
     await rm(path, { force: true })
   }

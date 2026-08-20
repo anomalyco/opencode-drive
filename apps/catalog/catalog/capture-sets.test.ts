@@ -28,7 +28,17 @@ describe("capture revision sets", () => {
       fresh: false,
       jobs: 3,
       workerOutput: undefined,
+      workerVariantId: undefined,
     })
+  })
+
+  test("accepts the parent-planned worker variant ID", () => {
+    expect(
+      parseCaptureOptions(
+        ["--worker-output", ".tmp/workers", "--worker-variant-id", "abc123-opencode"],
+        "/tmp/opencode",
+      ).workerVariantId,
+    ).toBe("abc123-opencode")
   })
 
   test("defaults to the canonical v2 branch instead of a stale checkout HEAD", () => {

@@ -58,6 +58,8 @@ function isServiceInfo(value: unknown): value is { readonly pid: number } {
     typeof value === "object" &&
     value !== null &&
     "pid" in value &&
-    typeof value.pid === "number"
+    typeof value.pid === "number" &&
+    Number.isSafeInteger(value.pid) &&
+    value.pid > 1
   )
 }
