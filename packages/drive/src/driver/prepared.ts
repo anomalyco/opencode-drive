@@ -8,7 +8,9 @@ import type {
   Driver,
   Llm,
 } from "./index.js"
+import type * as LlmController from "./llm-controller.js"
 import type { LlmControllerError } from "./llm-controller.js"
+import * as OpenCodeNetwork from "./network.js"
 import * as OpenCodeServer from "./server.js"
 import * as SharedEffect from "./shared.js"
 import type * as OpenCodeUi from "./ui.js"
@@ -21,12 +23,14 @@ export interface Options {
   readonly tuiName?: string
   readonly artifactsRetained?: boolean
   readonly compatibility?: SimulationConnector.CompatibilityPolicy
+  readonly llm?: LlmController.Options
 }
 
 export interface Prepared {
   readonly driver: Driver | undefined
   readonly primary: OpenCodeTui.Tui | undefined
   readonly llm: Llm
+  readonly network: OpenCodeNetwork.Network
   readonly tools: Driver["tools"]
   readonly tuis: OpenCodeTui.Tuis
   readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
@@ -47,7 +51,9 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
         visible: options.visible,
         compatibility: options.compatibility,
       },
+      ...(options.llm === undefined ? {} : { llm: options.llm }),
     })
+    const network = OpenCodeNetwork.make(instance.network)
     const opencode = (options.launch ?? "automatic") === "automatic"
       ? yield* server.launch()
       : undefined
@@ -98,6 +104,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
           tui: primary,
           ui: primary.ui,
           llm,
+          network,
           tools: server.tools,
           tuis: server.tuis,
           artifacts: instance.artifacts,
@@ -107,6 +114,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       driver,
       primary,
       llm,
+      network,
       tools: server.tools,
       tuis: server.tuis,
       server,

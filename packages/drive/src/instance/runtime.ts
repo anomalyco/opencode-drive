@@ -9,7 +9,9 @@ import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import { prepareDev } from "./dev.js"
+import { discoverRegistration } from "./discovery.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
+import { makeChaosProxy, type ChaosProxy } from "./proxy.js"
 import { runMediaDirectory } from "./media.js"
 import { prepareInstanceProject } from "./instance.js"
 import * as Process from "./process.js"
@@ -42,6 +44,12 @@ export interface Options {
   readonly record?: boolean
   readonly viewport?: Viewport
   readonly env?: Readonly<Record<string, string>>
+  /**
+   * Routes every launched TUI through a chaos network proxy. TUIs connect
+   * with an explicit `--server` pointing at the proxy instead of managed
+   * service discovery.
+   */
+  readonly network?: boolean
   readonly project?: Project
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
@@ -67,6 +75,8 @@ export interface Instance {
     readonly backend: string
   }
   readonly media: Effect.Effect<string>
+  /** The chaos network proxy, present when the network option is enabled. */
+  readonly network: ChaosProxy | undefined
   readonly tools: Tool.StaticControls
   readonly toolNames: ReadonlySet<string>
   readonly recording: Effect.Effect<RecordingPaths | undefined>
@@ -171,6 +181,35 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
       ? [...options.command]
       : ["opencode2"]
   const scriptedCommand = dev?.scriptedCommand ?? command
+  const stateDirectory = join(artifacts, "home", ".local", "state")
+  const network = options.network
+    ? makeChaosProxy({
+        resolveTarget: async () => {
+          const registration = await discoverRegistration(stateDirectory)
+          if (registration === undefined) return undefined
+          const url = new URL(registration.url)
+          return {
+            hostname: url.hostname,
+            port: url.port === ""
+              ? url.protocol === "https:" ? 443 : 80
+              : Number(url.port),
+          }
+        },
+      })
+    : undefined
+  const awaitRegistration = Effect.tryPromise({
+    try: async () => {
+      const deadline = Date.now() + 10_000
+      for (;;) {
+        const registration = await discoverRegistration(stateDirectory)
+        if (registration !== undefined) return registration
+        if (Date.now() > deadline)
+          throw new Error("the OpenCode service registration was not found")
+        await Bun.sleep(50)
+      }
+    },
+    catch: (cause) => instanceError("discover service registration", cause),
+  })
   const initialRecording = options.record ? recordingPaths(media) : undefined
   const processSpawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const fileSystem = yield* FileSystem.FileSystem
@@ -214,12 +253,14 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     appCommand: ReadonlyArray<string>,
     logName: string,
     visible: boolean,
+    extraEnv?: Readonly<Record<string, string>>,
   ) {
     options.log?.(`launching ${logName}`)
     return yield* Process.spawn(appCommand, {
       cwd: files,
       env: {
         ...environment,
+        ...extraEnv,
         OPENCODE_DRIVE: driveName,
         OPENCODE_DRIVE_MEDIA_DIR: media,
       },
@@ -381,8 +422,26 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           recording,
           tuiOptions.viewport ?? options.viewport,
         )
+        // With the chaos proxy, TUIs pin to the proxy URL: reconnects always
+        // cross the proxy and the TUI never elects a replacement server. The
+        // registered password rides OPENCODE_PASSWORD because explicit
+        // --server connections skip registration-based credentials.
+        const registration = network === undefined
+          ? undefined
+          : yield* awaitRegistration
+        const tuiCommand = network === undefined
+          ? scriptedCommand
+          : [...scriptedCommand, "--server", network.url]
         options.log?.(`launching TUI ${name}`)
-        const tui = yield* spawn(driveName, scriptedCommand, `tui-${name}`, options.visible ?? false)
+        const tui = yield* spawn(
+          driveName,
+          tuiCommand,
+          `tui-${name}`,
+          options.visible ?? false,
+          registration?.password === undefined
+            ? undefined
+            : { OPENCODE_PASSWORD: registration.password },
+        )
         yield* Ref.update(state, (value) => ({
           ...value,
           pendingTuis: new Map(value.pendingTuis).set(name, tui),
@@ -554,9 +613,8 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
         Effect.exit(process.terminate), {
         concurrency: "unbounded",
       })
-      const serviceExit = yield* Effect.exit(
-        stopService(join(artifacts, "home", ".local", "state")),
-      )
+      yield* Effect.sync(() => network?.close())
+      const serviceExit = yield* Effect.exit(stopService(stateDirectory))
       yield* Ref.set(state, State.Stopped({
         recording: current.recording,
         tuis: new Map(),
@@ -584,6 +642,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     visible: options.visible ?? false,
     endpoints,
     media: Effect.sync(() => media),
+    network,
     tools: toolController.controls,
     toolNames: toolController.names,
     recording: Ref.get(state).pipe(Effect.map((current) => current.recording)),

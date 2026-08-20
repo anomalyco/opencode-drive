@@ -15,10 +15,12 @@ import type {
 import * as OpenCodeTui from "./client.js"
 import type * as OpenCodeSdk from "./opencode.js"
 import { error, type OpenCodeDriverError } from "./error.js"
+import type * as LlmController from "./llm-controller.js"
 import type {
   LlmControllerError,
   LlmSettlementError,
 } from "./llm-controller.js"
+import type * as OpenCodeNetwork from "./network.js"
 import * as OpenCodeProject from "./project.js"
 import * as PreparedDriver from "./prepared.js"
 import * as OpenCodeServer from "./server.js"
@@ -36,6 +38,10 @@ export interface Options {
   readonly tools?: Tool.Configuration
   readonly tui?: OpenCodeTui.TuiOptions
   readonly opencode?: OpenCodeServer.Target
+  /** Routes every launched TUI through a controllable chaos network proxy. */
+  readonly network?: boolean
+  /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
+  readonly llm?: LlmController.Options
   readonly keepArtifacts?: boolean
 }
 
@@ -46,6 +52,8 @@ export interface Driver {
   /** Convenience alias for the primary TUI's UI. */
   readonly ui: OpenCodeUi.Ui
   readonly llm: Llm
+  /** Chaos network controls. Operations require the network option. */
+  readonly network: OpenCodeNetwork.Network
   /** Runtime controls for tools declared by name in the driver options. */
   readonly tools: Tool.Controls
   readonly tuis: OpenCodeTui.Tuis
@@ -77,6 +85,7 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
       command: options.opencode?.command,
       dev: options.opencode?.dev,
       env: options.opencode?.env,
+      network: options.network,
       visible: options.opencode?.visible,
     }, toolController).pipe(Effect.mapError((cause) => error("server.prepare", cause)))
     const prepared = yield* PreparedDriver.makeWithServices(instance, {
@@ -84,6 +93,7 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
       tui: options.tui,
       artifactsRetained: options.keepArtifacts ?? false,
       compatibility: options.opencode?.compatibility,
+      ...(options.llm === undefined ? {} : { llm: options.llm }),
     })
     if (prepared.driver === undefined)
       return yield* Effect.die(
@@ -209,6 +219,7 @@ export type {
   Tuis,
 } from "./client.js"
 export type { Llm } from "./llm.js"
+export type { Network, NetworkConditions } from "./network.js"
 export type { Target as OpenCodeTarget } from "./server.js"
 export type { OpenCode } from "./opencode.js"
 export type { ScreenshotError, Ui } from "./ui.js"

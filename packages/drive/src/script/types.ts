@@ -3,6 +3,8 @@ import type * as Tool from "../tool/index.js"
 import type * as OpenCodeUi from "../driver/ui.js"
 import type * as OpenCodeTui from "../driver/client.js"
 import type { Llm } from "../driver/llm.js"
+import type { Options as LlmOptions } from "../driver/llm-controller.js"
+import type { Network } from "../driver/network.js"
 import type * as OpenCodeServer from "../driver/server.js"
 import type * as OpenCodeSdk from "../driver/opencode.js"
 import type {
@@ -37,6 +39,8 @@ export interface ScriptContext {
   readonly tuis: OpenCodeTui.Tuis
   readonly server: ScriptServer
   readonly llm: Llm
+  /** Chaos network controls. Operations require the script's network option. */
+  readonly network: Network
   /** Runtime controls for tools declared by name on the script. */
   readonly tools: Tool.Controls
   readonly artifacts: string
@@ -63,6 +67,10 @@ export interface AutomaticScriptDefinition {
   readonly setup?: Setup
   /** Declares runtime-controlled tool names or fixed replacements before OpenCode starts. */
   readonly tools?: Tool.Configuration
+  /** Routes every launched TUI through a controllable chaos network proxy. */
+  readonly network?: boolean
+  /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
+  readonly llm?: LlmOptions
   /** Configures the automatically launched primary TUI. */
   readonly tui?: OpenCodeTui.TuiOptions
   /** Runs after the UI and LLM connections are ready, and again after restart. */
@@ -82,6 +90,10 @@ export interface ManualScriptDefinition {
   readonly setup?: Setup
   /** Declares runtime-controlled tool names or fixed replacements before OpenCode starts. */
   readonly tools?: Tool.Configuration
+  /** Routes every launched TUI through a controllable chaos network proxy. */
+  readonly network?: boolean
+  /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
+  readonly llm?: LlmOptions
   /** Defaults for TUIs launched by the script. */
   readonly tui?: OpenCodeTui.TuiOptions
   /** Runs after the shared service and LLM connection are ready. */

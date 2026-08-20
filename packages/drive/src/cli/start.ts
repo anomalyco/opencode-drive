@@ -80,6 +80,7 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
     command: options.command,
     dev: options.dev,
     scripted: options.script !== undefined,
+    network: script?.network,
     visible: options.visible,
     record: options.record,
     viewport: script?.tui?.viewport,

@@ -44,6 +44,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     launch: "launch" in script ? "manual" : "automatic",
     tuiName: "default",
     tui: script.tui,
+    ...(script.llm === undefined ? {} : { llm: script.llm }),
   })
   const protectGit = yield* Effect.promise(() =>
     hasGitMetadata(join(instance.artifacts, "files")),
@@ -130,6 +131,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       kill: prepared.server.kill,
     },
     llm: prepared.llm,
+    network: prepared.network,
     tools: prepared.tools,
     artifacts: instance.artifacts,
   }
@@ -188,6 +190,8 @@ function isScriptDefinition(value: unknown): value is ScriptDefinition {
     (value.tuiConfig === undefined || isJsonObject(value.tuiConfig)) &&
     (value.setup === undefined || typeof value.setup === "function") &&
     (value.tools === undefined || isToolConfiguration(value.tools)) &&
+    (value.network === undefined || typeof value.network === "boolean") &&
+    (value.llm === undefined || isLlmOptions(value.llm)) &&
     (value.tui === undefined || isTuiOptions(value.tui)) &&
     (!("launch" in value) || value.launch === "manual")
   )
@@ -195,6 +199,16 @@ function isScriptDefinition(value: unknown): value is ScriptDefinition {
 
 function isToolConfiguration(value: unknown) {
   return typeof value === "function" || Schema.is(ToolNames)(value)
+}
+
+function isLlmOptions(value: unknown) {
+  if (!isRecord(value)) return false
+  if (value.requestTimeout !== undefined && typeof value.requestTimeout !== "number")
+    return false
+  return (
+    value.settlementTimeout === undefined ||
+    typeof value.settlementTimeout === "number"
+  )
 }
 
 function isTuiOptions(value: unknown) {

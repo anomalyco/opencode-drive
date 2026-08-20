@@ -465,6 +465,47 @@ const option = yield* ui.getNode({
 yield* ui.click(option)
 ```
 
+### Network chaos
+
+Enabling `network` routes every launched TUI through a chaos TCP proxy that
+sits between the TUI and the OpenCode server. TUIs connect with an explicit
+`--server` pointing at the proxy, so reconnects always cross the proxy and the
+TUI never elects a replacement server, while the drive control plane and the
+driver's SDK client stay unaffected. `network.set` replaces the whole condition
+state; omitted fields reset.
+
+```ts
+export default defineScript({
+  network: true,
+  run: ({ ui, llm, network }) =>
+    Effect.gen(function* () {
+      yield* llm.queue(Llm.text("Recovered."))
+      yield* network.set({ latencyMs: 400, jitterMs: 200 })
+      yield* ui.submit("How slow is this?")
+      yield* network.killConnections() // sever every live connection
+      yield* network.set({ blackhole: true }) // stall traffic, buffered
+      yield* network.clear() // heal: buffered bytes flush
+      yield* ui.waitFor("Recovered.")
+    }),
+})
+```
+
+`refuseNew: true` rejects new connections while established ones continue.
+Without `network: true`, every `network` operation fails with a driver error.
+
+### LLM timeouts
+
+The `llm` section overrides simulated-LLM timeouts. Raise `settlementTimeout`
+when a scenario intentionally holds responses open longer than the 30s default,
+for example long `Llm.pause` hangs under network chaos.
+
+```ts
+export default defineScript({
+  llm: { settlementTimeout: 120_000 },
+  run: ({ ui, llm }) => ...,
+})
+```
+
 ### Additional TUI
 
 ```ts

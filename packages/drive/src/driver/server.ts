@@ -27,6 +27,7 @@ export interface Target {
 export interface Options {
   readonly instance: OpenCodeInstance.Instance
   readonly target?: Target
+  readonly llm?: LlmController.Options
 }
 
 export interface Server {
@@ -53,7 +54,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
   const connector = yield* SimulationConnector.Service
   const target = options.target ?? {}
   const instance = options.instance
-  const llm = yield* LlmController.make()
+  const llm = yield* LlmController.make(options.llm)
   const toolProducer = yield* ToolProducer.make(instance.toolNames)
   const tools: Tool.Controls = {
     ...instance.tools,
