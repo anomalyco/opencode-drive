@@ -82,6 +82,32 @@ Re-run a failure with the same seed and step count. Transition preconditions con
 
 Interruption uses the existing `llm.pending` simulation capability. If OpenCode rejects a response write after terminating the invocation, Drive confirms that the invocation is no longer pending and settles the response as externally terminated. If the invocation remains pending or the query fails, Drive preserves the original write failure.
 
+## Network chaos properties
+
+`network-properties.ts` runs a seeded state machine where user prompts and
+network faults are transitions in one sequence. The script enables Drive's
+`network` option, so the TUI is pinned to a chaos TCP proxy with `--server`:
+latency windows, blackhole partitions, and connection kills degrade the HTTP
+and SSE path while the Drive control plane stays clean. Prompts stream paced
+replies so faults land mid-stream. Verification follows the liveness recipe:
+heal the network, then require every outstanding prompt to converge on screen
+and in the server projection, exactly once, with the composer actionable.
+Connection kills are guarded away from in-flight prompt POSTs, whose rollback
+is legitimate and covered deterministically by `test/manual/network-chaos.ts`
+instead. A failure preserves seed, trace, model state, recent messages, and
+the terminal frame in `state-machine-failure.json`:
+
+```sh
+OPENCODE_DRIVE_SEED=42 OPENCODE_DRIVE_STEPS=24 \
+  bun run --cwd packages/drive drive start --name tui-network-properties \
+  --script test/manual/tui-regressions/network-properties.ts \
+  --dev "$OPENCODE_DEV"
+```
+
+The run prints coverage counters (kills, latency windows, blackholes, steers,
+verifications); a seed that never exercised a fault class proved nothing about
+it, so vary seeds until the counters cover what you care about.
+
 ## Multi-tool interleavings
 
 `multi-tool-interleavings.ts` launches shell, question, read, and glob calls in
