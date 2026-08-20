@@ -13,3 +13,7 @@ bun run catalog
 ```
 
 See [`packages/drive/README.md`](packages/drive/README.md) for package usage.
+
+See [OpenCode Continuous Verification](docs/continuous-testing/README.md) for
+the proposed 24/7 synthetic-journey, provider-contract, property, soak, logging,
+review, and operations architecture targeting OpenCode V2.
