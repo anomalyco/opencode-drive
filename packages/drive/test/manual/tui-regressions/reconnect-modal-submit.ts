@@ -1,5 +1,6 @@
-import { defineScript, Llm } from "../../../src/index.js"
-import { Effect, Stream } from "effect"
+import { defineScript } from "../../../src/index.js"
+import { Effect } from "effect"
+import { admissions, appeared, serveMarkers } from "./support.js"
 
 // Classifies what happens to a prompt submitted while the TUI shows its
 // reconnect overlay during a network partition. Distinguishes:
@@ -7,6 +8,12 @@ import { Effect, Stream } from "effect"
 //   B. POST rejected — prompt rolls back and its text is restored to the composer.
 //   C. Enter swallowed — no POST, text stays in the composer, nothing happens
 //      after heal until a second enter.
+// Note: a quiet blackhole alone does not raise the overlay; it needs a
+// dropped connection (killConnections) while traffic is pending.
+// (Result: B, and it is the honest path — the POST is rejected fast with a
+// "Failed to send prompt · Transport" toast and the text stays in the
+// composer through heal, awaiting a manual resend. The remaining issue is
+// the overlay copy: "Restarting service..." during a pure network fault.)
 //
 //   bun run --cwd packages/drive drive start --name tui-reconnect-modal-submit \
 //     --script test/manual/tui-regressions/reconnect-modal-submit.ts \
@@ -18,42 +25,32 @@ export default defineScript({
 
   run: ({ ui, llm, network, opencode }) =>
     Effect.gen(function* () {
-      yield* llm.serve((request) => {
-        const body = JSON.stringify(request.body)
-        if (body.includes("title generator"))
-          return Stream.make(Llm.text("Reconnect modal probe"))
-        if (body.lastIndexOf("SECOND") > body.lastIndexOf("FIRST"))
-          return Stream.make(Llm.text("SECOND_DONE"))
-        if (body.includes("FIRST")) return Stream.make(Llm.text("FIRST_DONE"))
-        return Stream.make(Llm.text("UNMATCHED"))
-      })
+      const model = yield* serveMarkers(llm, { title: "Reconnect modal probe" })
+      model.track("FIRST")
+      model.track("SECOND")
 
       // Establish the session on a healthy network.
       yield* ui.submit("FIRST probe")
       yield* ui.waitFor("FIRST_DONE", { timeout: 20_000 })
 
-      // Partition, wait for the reconnect overlay, then submit into it.
-      yield* network.set({ blackhole: true })
-      yield* ui.waitFor("Restarting service", { timeout: 30_000 })
-      yield* ui.screenshot("modal-up")
+      // Drop every connection and refuse new ones so the overlay appears.
+      yield* network.set({ refuseNew: true })
+      yield* network.killConnections()
+      const overlay = yield* appeared(ui, "Restarting service", { timeout: 30_000 })
+      yield* ui.screenshot("overlay")
       yield* ui.submit("SECOND probe")
       yield* Effect.sleep(1_500)
-      yield* ui.screenshot("modal-after-submit")
+      yield* ui.screenshot("after-submit")
 
       yield* network.clear()
       yield* Effect.sleep(8_000)
       yield* ui.screenshot("healed")
 
-      const sessions = yield* opencode.session.list({ limit: 1, order: "desc" })
-      const sessionID = sessions.data[0]?.id
-      if (sessionID === undefined) return yield* Effect.fail(new Error("no session"))
-      const messages = yield* opencode.message.list({ sessionID, limit: 50, order: "desc" })
-      const admitted = messages.data.filter(
-        (message) => message.type === "user" && message.text.includes("SECOND"),
-      ).length
-      const replied = yield* ui.matches("SECOND_DONE")
+      const admitted = yield* admissions(opencode, "SECOND")
+      const replied = yield* appeared(ui, "SECOND_DONE", { timeout: 20_000 })
       console.log(
         JSON.stringify({
+          overlay,
           admitted,
           replied,
           verdict:

@@ -431,7 +431,7 @@ describe("OpenCodeUi", () => {
       const ui = OpenCodeUi.make(connection)
       const error = yield* ui.waitFor("never", { timeout: 20, interval: 100 }).pipe(Effect.flip)
 
-      expect(error).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(error).toBeInstanceOf(OpenCodeUi.UiWaitTimeoutError)
       expect(error).toMatchObject({
         operation: "waitFor",
         milliseconds: 20,
@@ -451,6 +451,24 @@ describe("OpenCodeUi", () => {
     })
   })
 
+  it.live("fails unanswered RPCs with UiTimeoutError, not the wait error", () => {
+    const peer = startTransportPeer(() => {})
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { requestTimeout: 20 })
+      const error = yield* ui.state().pipe(Effect.flip)
+
+      expect(error).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(error).not.toBeInstanceOf(OpenCodeUi.UiWaitTimeoutError)
+      expect(error).toMatchObject({
+        operation: "state",
+        milliseconds: 20,
+      })
+    })
+  })
+
   it.live("preserves the polling timeout when evidence capture fails", () => {
     const peer = startTransportPeer(({ request, socket }) => {
       if (request.method === "ui.matches") return
@@ -464,7 +482,7 @@ describe("OpenCodeUi", () => {
         .waitFor("never", { timeout: 20, interval: 100 })
         .pipe(Effect.flip)
 
-      expect(error).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(error).toBeInstanceOf(OpenCodeUi.UiWaitTimeoutError)
       expect(error).toMatchObject({
         operation: "waitFor",
         milliseconds: 20,

@@ -106,7 +106,43 @@ OPENCODE_DRIVE_SEED=42 OPENCODE_DRIVE_STEPS=24 \
 
 The run prints coverage counters (kills, latency windows, blackholes, steers,
 verifications); a seed that never exercised a fault class proved nothing about
-it, so vary seeds until the counters cover what you care about.
+it, so vary seeds until the counters cover what you care about. Every chosen
+transition is also streamed to stderr as it runs, so a failed seed keeps its
+trace even when the failure lands in the terminal verify phase (which writes
+its own `state-machine-failure.json`).
+
+## Type-during-submit input destruction
+
+Seeds 1, 7, and 99 of `network-properties.ts` all reduced to one TUI bug: the
+prompt component clears the composer only after the awaited `session.prompt`
+POST resolves, so text typed during that in-flight window is appended to the
+still-visible previous prompt, its enter is dropped, the post-await
+`input.clear()` destroys it, and prompt history records a merged entry that
+was never sent. `type-during-submit.ts` reproduces it deterministically by
+widening the window with 800ms of proxy latency and typing 250ms after enter:
+
+```sh
+bun run --cwd packages/drive drive start --name tui-type-during-submit \
+  --script test/manual/tui-regressions/type-during-submit.ts \
+  --dev "$OPENCODE_DEV"
+```
+
+Companion probes that ruled out the other hypotheses: `steer-enter-drop.ts`
+(steers at 0-1800ms into a clean-network stream are never dropped),
+`heal-submit-drop.ts` (blackhole-heal-submit alone does not drop the prompt),
+and `reconnect-modal-submit.ts` (classifies submits into the reconnect
+overlay).
+
+## Probe helpers
+
+`support.ts` collects the patterns these probes kept relearning: `serveMarkers`
+(marker-routed fake model that picks the marker appearing *last* in the
+request body — bodies carry the whole conversation), `pacedReply` (a ~2.5s
+stream so faults land mid-flight), `appeared` (soft wait built on the
+catchable `UiWaitTimeoutError`), `admissions` (server-side ground truth for
+whether a submit landed), and `promptHistory` (parsed entries from the
+instance's isolated home). Prefer these over reimplementing routing or
+screen-scrape bookkeeping in new probes.
 
 ## Multi-tool interleavings
 

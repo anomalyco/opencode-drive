@@ -5,3 +5,15 @@ Keep CLI `--command.ui.*` names and parameter shapes identical to the frontend p
 `ui.screenshot` is the one deliberate Drive-local exception. OpenCode exposes `ui.capture`, which returns a renderer-neutral RGBA terminal frame. Drive implements `ui.screenshot` by calling `ui.capture`, rendering that frame to a PNG, and returning its absolute path. Do not add `ui.screenshot` to the OpenCode wire protocol, require an OpenCode endpoint to declare a media directory, or expose media-directory bookkeeping in normal usage. A standalone `--command.ui.screenshot` invocation must print the image path to stdout.
 
 `packages/drive` is the generic published package. `apps/catalog` owns OpenCode-specific flow IDs, taxonomies, captures, and review UI; the package must not import the app.
+
+## Writing Probe Scripts
+
+Gotchas learned the hard way in `packages/drive/test/manual/`; prefer the helpers in `test/manual/tui-regressions/support.ts` over reimplementing them.
+
+- Timeout severity is split: `UiWaitTimeoutError` (a `waitFor`/`getElement`/`getNode` deadline passed) is catchable and safe to branch on; `UiTimeoutError` (an unanswered UI RPC) aborts the whole run even when caught. Use `support.appeared` for "did X show up in time?".
+- LLM request bodies carry the whole conversation. Route markers by which appears **last** in the serialized body (`lastIndexOf`), never by the first `includes` hit (`support.serveMarkers`).
+- Server admissions are the only ground truth for "did my prompt land" (`support.admissions`). The screen and `prompt-history.jsonl` can both mislead: history records composer text at POST-resolution time, which may include text typed mid-flight that was never sent.
+- `ctrl+c` on an empty composer exits the TUI (killing the run with `RpcClientDefect: connection closed`); use `ctrl+u` to clear leftover composer text.
+- Effect v4: it is `Effect.catch`, not `Effect.catchAll`.
+- Seeded state-machine probes stream every chosen transition to stderr and must write `state-machine-failure.json` on any failure, including terminal verify phases (`state-machine.ts` exports `saveFailure`). A failure without its seed and trace is nearly worthless.
+- Isolated-instance state lives under `${artifacts}/home/...` (for example `home/.local/state/opencode/prompt-history.jsonl`); screenshots land under the run's `output/.../generation-N/` directory.

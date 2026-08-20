@@ -537,14 +537,17 @@ checkouts. Calling `ui.snapshot()`, `ui.getNode()`, or `ui.click(node)` when its
 required capability is unavailable fails locally with `UiCapabilityError`.
 
 Capability errors are typed and the concrete classes are grouped under
-`Errors`. UI timeouts remain owner-fatal even when caught; recover locally
-from errors for which the script has a truthful fallback:
+`Errors`. The two timeout classes differ in severity: `UiTimeoutError` means a
+UI RPC went unanswered — the control plane is unresponsive — and remains
+owner-fatal even when caught. `UiWaitTimeoutError` means a wait deadline
+(`ui.waitFor`, `ui.getElement`, `ui.getNode`) passed while the control plane
+stayed responsive; scripts may catch it to branch on "did X appear in time?".
+Recover locally only from errors for which the script has a truthful fallback:
 
-Polling timeouts from `ui.waitFor`, `ui.getElement`, and `ui.getNode` make one
-best-effort, bounded `ui.capture` request. When it succeeds, the resulting
-normalized terminal frame is available as `error.frame` without creating or
-retaining a screenshot file. RPC-level timeouts and failed diagnostic captures
-leave `error.frame` undefined.
+Wait timeouts make one best-effort, bounded `ui.capture` request. When it
+succeeds, the resulting normalized terminal frame is available as
+`error.frame` without creating or retaining a screenshot file. RPC-level
+timeouts and failed diagnostic captures leave `error.frame` undefined.
 
 ```ts
 import { Effect } from "effect"

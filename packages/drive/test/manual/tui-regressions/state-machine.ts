@@ -18,6 +18,40 @@ export interface Invariant<State> {
   readonly check: (state: State) => Effect.Effect<void, unknown>
 }
 
+/**
+ * Writes a failure artifact with the seed, trace, model state, server
+ * evidence, and a best-effort terminal frame. Used by the runner for
+ * transition/invariant failures and by probes for terminal-phase failures so
+ * every failed seed keeps its reproduction context.
+ */
+export const saveFailure = (
+  context: Context,
+  details: Record<string, unknown>,
+) =>
+  Effect.gen(function* () {
+    const path = `${context.artifacts}/state-machine-failure.json`
+    const [frame, evidence] = yield* Effect.all([
+      context.ui.capture().pipe(Effect.option),
+      context.evidence?.().pipe(Effect.option) ?? Effect.succeed(undefined),
+    ])
+    yield* Effect.tryPromise(() =>
+      Bun.write(
+        path,
+        JSON.stringify(
+          {
+            ...details,
+            evidence:
+              evidence !== undefined && evidence._tag === "Some" ? evidence.value : undefined,
+            frame: frame._tag === "Some" ? frame.value : undefined,
+          },
+          null,
+          2,
+        ),
+      ),
+    )
+    return path
+  }).pipe(Effect.option)
+
 export function run<State>(options: {
   readonly context: Context
   readonly initial: State
@@ -53,35 +87,23 @@ export function run<State>(options: {
         continue
       }
 
-      const path = `${options.context.artifacts}/state-machine-failure.json`
-      yield* Effect.gen(function* () {
-        const [frame, evidence] = yield* Effect.all([
-          options.context.ui.capture().pipe(Effect.option),
-          options.context.evidence?.().pipe(Effect.option) ?? Effect.succeed(undefined),
-        ])
-        yield* Effect.tryPromise(() =>
-          Bun.write(
-            path,
-            JSON.stringify(
-              {
-                seed: options.seed,
-                steps: options.steps,
-                failedAt: step,
-                transition: transition.name,
-                invariant,
-                trace,
-                state: next,
-                evidence: evidence?._tag === "Some" ? evidence.value : undefined,
-                frame: frame._tag === "Some" ? frame.value : undefined,
-              },
-              null,
-              2,
-            ),
-          ),
-        )
-      }).pipe(Effect.ignore)
+      const path = yield* saveFailure(options.context, {
+        seed: options.seed,
+        steps: options.steps,
+        failedAt: step,
+        transition: transition.name,
+        invariant,
+        trace,
+        state: next,
+      })
       console.error(
-        JSON.stringify({ seed: options.seed, step, transition: transition.name, invariant, artifact: path }),
+        JSON.stringify({
+          seed: options.seed,
+          step,
+          transition: transition.name,
+          invariant,
+          artifact: path._tag === "Some" ? path.value : undefined,
+        }),
       )
       return yield* Effect.failCause(result.cause)
     }

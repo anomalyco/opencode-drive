@@ -14,6 +14,7 @@ export {
   UiPredicateError,
   UiTimeoutError,
   UiWaitOptionsError,
+  UiWaitTimeoutError,
 } from "../driver/ui.js"
 export { SimulationCompatibilityError } from "../simulation/connector.js"
 export { SimulationRequestError } from "../simulation/rpc.js"

@@ -201,6 +201,7 @@ export {
   UiScreenshotError,
   UiTimeoutError,
   UiWaitOptionsError,
+  UiWaitTimeoutError,
 } from "./ui.js"
 export { SimulationRequestError } from "../simulation/rpc.js"
 export {

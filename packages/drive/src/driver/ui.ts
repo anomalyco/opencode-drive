@@ -36,8 +36,27 @@ export type EffectPredicate<E> = (
   state: Frontend.State,
 ) => Effect.Effect<boolean, E>
 
+/**
+ * A UI RPC did not answer within the request timeout: the control plane is
+ * unresponsive. Script runs treat this as fatal.
+ */
 export class UiTimeoutError extends Schema.TaggedErrorClass<UiTimeoutError>()(
   "UiTimeoutError",
+  {
+    operation: Schema.String,
+    milliseconds: Schema.Number,
+    message: Schema.String,
+    frame: Schema.optionalKey(Frontend.CapturedFrame),
+  },
+) {}
+
+/**
+ * A wait (`waitFor`, `getElement`, `getNode`) reached its deadline without the
+ * UI matching. The control plane stayed responsive; scripts may catch this to
+ * branch on "did X appear in time?".
+ */
+export class UiWaitTimeoutError extends Schema.TaggedErrorClass<UiWaitTimeoutError>()(
+  "UiWaitTimeoutError",
   {
     operation: Schema.String,
     milliseconds: Schema.Number,
@@ -110,7 +129,7 @@ export interface Options {
 
 const RequestTimeout = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
-export type WaitError = UiTimeoutError | UiWaitOptionsError
+export type WaitError = UiWaitTimeoutError | UiWaitOptionsError
 type RpcError = SimulationRequestError | RpcClientError.RpcClientError
 export type OperationError = RpcError | UiTimeoutError
 export type ScreenshotError = OperationError | UiScreenshotError
@@ -141,7 +160,7 @@ export interface Ui {
     position?: Position,
   ) => Effect.Effect<
     Frontend.State,
-    OperationError | UiCapabilityError | UiElementAmbiguousError | UiWaitOptionsError
+    OperationError | UiCapabilityError | UiElementAmbiguousError | WaitError
   >
   readonly resize: (
     viewport: Frontend.ResizeParams,
@@ -294,7 +313,7 @@ export const make = (connection: UiConnection, options?: Options): Control => {
       Effect.catchCause(() => Effect.succeed(undefined)),
       Effect.flatMap((frame) =>
         Effect.fail(
-          new UiTimeoutError({
+          new UiWaitTimeoutError({
             operation,
             milliseconds,
             message,

@@ -50,6 +50,9 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     hasGitMetadata(join(instance.artifacts, "files")),
   )
   const operationFailure = yield* Deferred.make<never, unknown>()
+  // Only control-plane unresponsiveness (UiTimeoutError) aborts the run.
+  // Wait deadlines (UiWaitTimeoutError) are ordinary script failures that
+  // scripts may catch to branch on "did X appear in time?".
   const runUi = <A, E>(effect: Effect.Effect<A, E>) =>
     effect.pipe(
       Effect.tapError((cause) =>

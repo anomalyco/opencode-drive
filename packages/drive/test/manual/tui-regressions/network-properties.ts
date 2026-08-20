@@ -1,8 +1,8 @@
-import { defineScript, Llm } from "../../../src/index.js"
-import type { OpenCode, Ui } from "../../../src/index.js"
-import type { Network } from "../../../src/driver/network.js"
-import { Effect, Random, Stream } from "effect"
-import { run } from "./state-machine.js"
+import { defineScript } from "../../../src/index.js"
+import type { OpenCode } from "../../../src/index.js"
+import { Effect, Random } from "effect"
+import { run, saveFailure } from "./state-machine.js"
+import { latestSessionId, pacedReply, serveMarkers } from "./support.js"
 
 // Seeded network-chaos property run. User operations and network faults are
 // transitions in one seeded state machine: prompts stream paced replies while
@@ -50,44 +50,14 @@ export default defineScript({
 
   run: ({ ui, llm, network, opencode, artifacts }) =>
     Effect.gen(function* () {
-      const markers: Array<string> = []
-      yield* llm.serve((request) => {
-        const body = JSON.stringify(request.body)
-        if (body.includes("title generator"))
-          return Stream.make(Llm.text("Network properties"))
-        let marker: string | undefined
-        let position = -1
-        for (const candidate of markers) {
-          const index = body.lastIndexOf(candidate)
-          if (index > position) {
-            position = index
-            marker = candidate
-          }
-        }
-        if (marker === undefined)
-          return Stream.make(Llm.text("GAUNTLET_UNMATCHED_PROMPT"))
-        // Pace the reply over ~2.5s so faults can land mid-stream. The
-        // terminal token only renders once the whole reply arrived.
-        return Stream.make(
-          Llm.text(`${marker}_WORKING`),
-          Llm.pause(800),
-          Llm.text(" streaming through the gauntlet "),
-          Llm.pause(800),
-          Llm.text("still streaming "),
-          Llm.pause(800),
-          Llm.text(`${marker}_DONE`),
-        )
+      // Paced replies (~2.5s) let faults land mid-stream; the terminal token
+      // only renders once the whole reply arrived.
+      const router = yield* serveMarkers(llm, {
+        title: "Network properties",
+        reply: pacedReply,
       })
 
-      const latestSession = opencode.session
-        .list({ limit: 1, order: "desc" })
-        .pipe(
-          Effect.flatMap((sessions) =>
-            sessions.data[0] === undefined
-              ? Effect.fail(new Error("no session was created"))
-              : Effect.succeed(sessions.data[0].id),
-          ),
-        )
+      const latestSession = latestSessionId(opencode)
 
       const verifyConverged = Effect.fn("NetworkProperties.verify")(function* (
         outstanding: ReadonlyArray<string>,
@@ -134,7 +104,7 @@ export default defineScript({
       const submitMarker = (model: Model) =>
         Effect.gen(function* () {
           const marker = `M${model.submitted}X`
-          markers.push(marker)
+          router.track(marker)
           yield* ui.submit(`${marker} run the gauntlet drill`)
           return marker
         })
@@ -288,11 +258,20 @@ export default defineScript({
 
       // Terminal convergence: whatever the seed left outstanding must land,
       // and one final prompt proves the composer survived the whole run.
-      yield* verifyConverged(final.outstanding)
-      const closing = `M${final.submitted}X`
-      markers.push(closing)
-      yield* ui.submit(`${closing} closing probe`)
-      yield* verifyConverged([closing])
+      yield* Effect.gen(function* () {
+        yield* verifyConverged(final.outstanding)
+        const closing = `M${final.submitted}X`
+        router.track(closing)
+        yield* ui.submit(`${closing} closing probe`)
+        yield* verifyConverged([closing])
+      }).pipe(
+        Effect.tapCause(() =>
+          saveFailure(
+            { ui, artifacts, evidence },
+            { seed, steps, phase: "terminal-verify", state: final },
+          ),
+        ),
+      )
 
       console.log(
         JSON.stringify({

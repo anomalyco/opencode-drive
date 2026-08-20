@@ -1,5 +1,6 @@
-import { defineScript, Llm } from "../../../src/index.js"
-import { Effect, Stream } from "effect"
+import { defineScript } from "../../../src/index.js"
+import { Effect } from "effect"
+import { admissions, appeared, promptHistory, serveMarkers } from "./support.js"
 
 // Repro for the submit-await input-destruction race (network-properties seeds
 // 1/7/99). The prompt component clears the composer only AFTER the awaited
@@ -19,15 +20,9 @@ export default defineScript({
 
   run: ({ ui, llm, network, opencode, artifacts }) =>
     Effect.gen(function* () {
-      yield* llm.serve((request) => {
-        const body = JSON.stringify(request.body)
-        if (body.includes("title generator"))
-          return Stream.make(Llm.text("Type during submit probe"))
-        if (body.lastIndexOf("SECOND") > body.lastIndexOf("FIRST"))
-          return Stream.make(Llm.text("SECOND_DONE"))
-        if (body.includes("FIRST")) return Stream.make(Llm.text("FIRST_DONE"))
-        return Stream.make(Llm.text("UNMATCHED"))
-      })
+      const model = yield* serveMarkers(llm, { title: "Type during submit probe" })
+      model.track("FIRST")
+      model.track("SECOND")
 
       // Slow the POST down so the submit handler's await window is wide open.
       yield* network.set({ latencyMs: 800 })
@@ -39,29 +34,14 @@ export default defineScript({
       yield* network.clear()
 
       yield* ui.waitFor("FIRST_DONE", { timeout: 30_000 })
-      // waitFor timeouts are run-fatal in drive; poll matches for the optional check.
-      let replied = false
-      for (let index = 0; index < 30 && !replied; index++) {
-        replied = yield* ui.matches("SECOND_DONE")
-        if (!replied) yield* Effect.sleep(500)
-      }
+      const replied = yield* appeared(ui, "SECOND_DONE")
       yield* ui.screenshot("settled")
 
-      const sessions = yield* opencode.session.list({ limit: 1, order: "desc" })
-      const sessionID = sessions.data[0]?.id
-      if (sessionID === undefined) return yield* Effect.fail(new Error("no session"))
-      const messages = yield* opencode.message.list({ sessionID, limit: 50, order: "desc" })
-      const admitted = messages.data.filter(
-        (message) => message.type === "user" && message.text.includes("SECOND"),
-      ).length
-      const history = yield* Effect.promise(() =>
-        Bun.file(`${artifacts}/home/.local/state/opencode/prompt-history.jsonl`)
-          .text()
-          .catch(() => ""),
+      const admitted = yield* admissions(opencode, "SECOND")
+      const history = yield* promptHistory(artifacts)
+      const mergedHistory = history.some(
+        (entry) => entry.text.includes("FIRST") && entry.text.includes("SECOND"),
       )
-      const mergedHistory = history
-        .split("\n")
-        .some((line) => line.includes("FIRST") && line.includes("SECOND"))
 
       console.log(
         JSON.stringify({

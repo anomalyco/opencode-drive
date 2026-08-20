@@ -1,14 +1,14 @@
-import { defineScript, Llm } from "../../../src/index.js"
-import { Effect, Stream } from "effect"
+import { defineScript } from "../../../src/index.js"
+import { Effect } from "effect"
+import { admissions, appeared, promptHistory, serveMarkers } from "./support.js"
 
-// Minimal repro distilled from network-properties seed 1 (steps 7-9):
-// blackhole the network, heal it, then submit immediately. In the seeded runs
-// the submit's enter was silently swallowed — text stayed in the composer and
-// merged with the next prompt. This classifies when that happens:
+// Distilled from network-properties seed 1 (steps 7-9): blackhole the
+// network, heal it, then submit immediately. Classifies whether the submit is
+// admitted, rejected, or swallowed. (Result: this shape alone does NOT drop
+// the prompt — the real culprit is the type-during-submit race.)
 //
-//   for delay in 0 250 1000 3000; do OPENCODE_DRIVE_HEAL_DELAY=$delay ...
-//
-//   bun run --cwd packages/drive drive start --name tui-heal-submit-drop \
+//   OPENCODE_DRIVE_HEAL_DELAY=0 OPENCODE_DRIVE_STALL_MS=2500 \
+//     bun run --cwd packages/drive drive start --name tui-heal-submit-drop \
 //     --script test/manual/tui-regressions/heal-submit-drop.ts \
 //     --dev "$OPENCODE_DEV"
 
@@ -21,15 +21,9 @@ export default defineScript({
 
   run: ({ ui, llm, network, opencode, artifacts }) =>
     Effect.gen(function* () {
-      yield* llm.serve((request) => {
-        const body = JSON.stringify(request.body)
-        if (body.includes("title generator"))
-          return Stream.make(Llm.text("Heal submit drop probe"))
-        if (body.lastIndexOf("SECOND") > body.lastIndexOf("FIRST"))
-          return Stream.make(Llm.text("SECOND_DONE"))
-        if (body.includes("FIRST")) return Stream.make(Llm.text("FIRST_DONE"))
-        return Stream.make(Llm.text("UNMATCHED"))
-      })
+      const model = yield* serveMarkers(llm, { title: "Heal submit drop probe" })
+      model.track("FIRST")
+      model.track("SECOND")
 
       // Healthy baseline.
       yield* ui.submit("FIRST probe")
@@ -46,26 +40,10 @@ export default defineScript({
       yield* Effect.sleep(1_500)
       yield* ui.screenshot("post-submit")
 
-      const replied = yield* ui
-        .waitFor("SECOND_DONE", { timeout: 20_000 })
-        .pipe(
-          Effect.as(true),
-          Effect.catch(() => Effect.succeed(false)),
-        )
-
-      const sessions = yield* opencode.session.list({ limit: 1, order: "desc" })
-      const sessionID = sessions.data[0]?.id
-      if (sessionID === undefined) return yield* Effect.fail(new Error("no session"))
-      const messages = yield* opencode.message.list({ sessionID, limit: 50, order: "desc" })
-      const admitted = messages.data.filter(
-        (message) => message.type === "user" && message.text.includes("SECOND"),
-      ).length
-      const history = yield* Effect.promise(() =>
-        Bun.file(`${artifacts}/home/.local/state/opencode/prompt-history.jsonl`)
-          .text()
-          .catch(() => ""),
-      )
-      const inHistory = history.split("\n").some((line) => line.includes("SECOND"))
+      const replied = yield* appeared(ui, "SECOND_DONE", { timeout: 20_000 })
+      const admitted = yield* admissions(opencode, "SECOND")
+      const history = yield* promptHistory(artifacts)
+      const inHistory = history.some((entry) => entry.text.includes("SECOND"))
 
       console.log(
         JSON.stringify({
