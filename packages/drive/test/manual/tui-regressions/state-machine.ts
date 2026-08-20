@@ -36,6 +36,7 @@ export function run<State>(options: {
         return yield* Effect.fail(new Error(`state machine has no transition at step ${step}`))
       const transition = yield* Random.choice(enabled)
       trace.push({ step, transition: transition.name })
+      console.error(JSON.stringify({ seed: options.seed, step, transition: transition.name }))
       let invariant: string | undefined
       let next = state
       const result = yield* Effect.exit(
