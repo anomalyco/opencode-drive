@@ -217,6 +217,17 @@ dropped connection (`killConnections`) while traffic is pending.
 - Effect v4: it is `Effect.catch`, not `Effect.catchAll`.
 - Isolated-instance state lives under `$artifacts/home/...`; screenshots land
   under the run's `output/.../generation-N/` directory.
+- Set `OPENCODE_DRIVE_MEDIA_DIR=$PWD/.drive-output` (gitignored) when running
+  probes from an agent: the default media root sits under the system tmpdir
+  with a per-run id in the path, so every run triggers a fresh
+  outside-the-project permission prompt.
+- Interrupting a busy session takes **two** escape presses within 5 seconds
+  (the first arms, the second fires `session.interrupt`). A single
+  `ui.press("escape")` is a no-op for interruption.
+- `server.kill()` mid-stream abandons the in-flight served reply (a deliberate
+  detach, not a run failure); `server.launch()` attaches the LLM stub to the
+  replacement service. Pass `OPENCODE_DRIVE_DB=...` so both generations share
+  a database.
 
 ### Reports And Paths
 
