@@ -17,6 +17,7 @@ import {
   baselineOffset,
   drawBlockGlyph,
 } from "opencode-drive/frame"
+import type { FrameArtifact } from "../catalog/schema"
 
 const CardWidth = 1200
 const CardHeight = 630
@@ -38,21 +39,7 @@ for (const [file, family] of [
   if (!GlobalFonts.registerFromPath(path, family)) throw new Error(`Failed to register OG font: ${path}`)
 }
 
-interface FrameSpan {
-  readonly text: string
-  readonly fg: readonly [number, number, number, number]
-  readonly bg: readonly [number, number, number, number]
-  readonly attributes: number
-  readonly width: number
-}
-
-interface FrameArtifact {
-  readonly cols: number
-  readonly rows: number
-  readonly lines: ReadonlyArray<{ readonly spans: ReadonlyArray<FrameSpan> }>
-}
-
-function color([red, green, blue, alpha]: FrameSpan["fg"], opacity = 1) {
+function color([red, green, blue, alpha]: FrameArtifact["lines"][number]["spans"][number]["fg"], opacity = 1) {
   return `rgba(${red}, ${green}, ${blue}, ${(alpha / 255) * opacity})`
 }
 
