@@ -34,6 +34,11 @@ export default defineScript({
       yield* network.clear()
 
       yield* ui.waitFor("FIRST_DONE", { timeout: 30_000 })
+      // With the snapshot-early fix the mid-flight enter is still dropped by
+      // the `submitting` guard, but the typed text must survive in the (now
+      // empty at typing time) composer. Re-press enter to send it.
+      const survivedInComposer = !(yield* appeared(ui, "SECOND_DONE", { timeout: 1_500 }))
+      if (survivedInComposer) yield* ui.enter()
       const replied = yield* appeared(ui, "SECOND_DONE")
       yield* ui.screenshot("settled")
 
@@ -48,13 +53,14 @@ export default defineScript({
           admitted,
           replied,
           mergedHistory,
+          survivedInComposer,
           verdict:
             admitted === 0
               ? "REPRO: second prompt destroyed by post-await input.clear()"
               : "ok: second prompt survived",
         }),
       )
-      if (admitted !== 1 || !replied)
+      if (admitted !== 1 || !replied || mergedHistory)
         return yield* Effect.fail(new Error("typed-during-submit prompt was lost"))
     }),
 })
