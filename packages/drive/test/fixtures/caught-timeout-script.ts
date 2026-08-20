@@ -4,12 +4,13 @@ import * as Effect from "effect/Effect"
 export default defineScript({
   run: ({ ui }) =>
     Effect.gen(function* () {
-      yield* Effect.matchEffect(
+      const appeared = yield* Effect.matchEffect(
         ui.waitFor("this text never appears", { timeout: 50 }),
         {
-          onFailure: () => Effect.sleep(30_000),
-          onSuccess: Effect.succeed,
+          onFailure: (error) => Effect.succeed(error._tag),
+          onSuccess: () => Effect.succeed("matched"),
         },
       )
+      console.log(`caught wait timeout: ${appeared}`)
     }),
 })

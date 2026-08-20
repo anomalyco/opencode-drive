@@ -902,7 +902,7 @@ describe("opencode-drive", () => {
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   })
 
-  test("aborts the script run when a UI wait times out even if the script catches it", async () => {
+  test("continues the script run when it catches a UI wait timeout", async () => {
     const root = await temporary()
     const name = "caught-timeout-test"
     const child = spawn(
@@ -918,10 +918,9 @@ describe("opencode-drive", () => {
       ],
       root,
     )
-    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
-    expect(status).toBe(1)
-    const artifacts = artifactPath(stderr)
-    expect(stderr).toContain('timed out waiting for the UI to match "this text never appears"')
+    const [status, stdout] = await Promise.all([child.exited, new Response(child.stdout).text()])
+    expect(status).toBe(0)
+    expect(stdout).toContain("caught wait timeout: UiWaitTimeoutError")
     expect(await Bun.file(join(root, "registry", `${name}.json`)).exists()).toBe(false)
   }, 10_000)
 
