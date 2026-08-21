@@ -175,6 +175,26 @@ const secondary = yield* tuis.launch({
 yield* secondary.ui.screenshot("secondary")
 ```
 
+### Annotated Recordings
+
+With `tui: { recording: true }`, label moments during the run and the exported
+MP4 gets a burned-in footer (segment label bottom-left, elapsed timecode and
+"drive" branding bottom-right):
+
+```ts
+yield* tui.recording.mark("typing a prompt — 600ms wire latency")
+// ... drive the UI ...
+yield* tui.recording.mark("") // clears the label
+const video = yield* tui.recording.finish()
+```
+
+For programmatic exports, `exportRecording` accepts `annotations` (labelled
+raw-timeline instants), `clips` (`{ fromMs, toMs, speed?, holdMs?, label? }`
+segments that trim/re-speed/freeze, concatenated in order), and `footer`
+(`false` suppresses it; `{ brand }` overrides the branding). See
+`test/manual/tui-regressions/optimistic-create-demo.ts` for a complete
+before/after demo recording script.
+
 ### Network Chaos
 
 Set `network: true` in `defineScript` to route every TUI through a chaos TCP
