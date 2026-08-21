@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, extname } from "node:path"
-import { applyClips, labelAt, type RecordingAnnotation, type RecordingClip } from "./edit.js"
+import { applyClips, labelAt, type EditedSample, type RecordingAnnotation, type RecordingClip } from "./edit.js"
 import { encodeFrames } from "./encode.js"
 import { progressReporter } from "./frame-rate.js"
 import { replayRecording, type ReplayOptions } from "./replay.js"
-import { CellHeight, CellWidth, FooterHeight, formatTimecode, renderFrame } from "./render.js"
+import { CellHeight, CellWidth, FooterHeight, formatTimecode, HeaderHeight, renderFrame } from "./render.js"
 
 export interface ExportRecordingOptions extends ReplayOptions {
   ffmpegPath?: string
@@ -39,16 +39,13 @@ export async function exportRecording(
   const replayed = await replayRecording(timelinePath, options)
   options.signal?.throwIfAborted()
   const annotations = options.annotations ?? []
-  const samples =
-    options.clips && options.clips.length > 0
-      ? applyClips(replayed, options.clips)
-      : replayed.map((sample) => ({ ...sample, label: undefined }))
+  const samples: ReadonlyArray<EditedSample> =
+    options.clips && options.clips.length > 0 ? applyClips(replayed, options.clips) : replayed
   const footerEnabled =
-    options.footer === false
-      ? false
-      : options.footer !== undefined || annotations.length > 0 || (options.clips?.length ?? 0) > 0
+    options.footer !== false &&
+    (options.footer !== undefined || annotations.length > 0 || (options.clips?.length ?? 0) > 0)
   const brand = typeof options.footer === "object" ? options.footer.brand : undefined
-  const footer = (sample: { atMs: number; sourceAtMs: number; label?: string }) =>
+  const footer = (sample: EditedSample) =>
     footerEnabled
       ? {
           label: sample.label ?? labelAt(annotations, sample.sourceAtMs),
@@ -108,6 +105,6 @@ export async function exportRecording(
     frames: samples.length,
     durationMs: final.atMs,
     width: cols * CellWidth,
-    height: rows * CellHeight + (options.header ? 40 : 0) + (footerEnabled ? FooterHeight : 0),
+    height: rows * CellHeight + (options.header ? HeaderHeight : 0) + (footerEnabled ? FooterHeight : 0),
   }
 }

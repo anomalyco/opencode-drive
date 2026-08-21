@@ -21,6 +21,11 @@ export async function loadAnnotations(timeline: string): Promise<RecordingAnnota
   const file = Bun.file(marksPath(timeline))
   if (!(await file.exists())) return []
   const anchor = (await stat(timeline)).birthtimeMs
+  // Filesystems without birthtime support report 0 (or garbage), which would
+  // turn every mark into a raw epoch offset. Fail loudly rather than export
+  // a video with wildly misplaced labels.
+  if (!Number.isFinite(anchor) || anchor <= 0)
+    throw new Error(`Recording marks need filesystem birthtime support (got ${anchor} for ${timeline})`)
   const annotations: RecordingAnnotation[] = []
   for (const line of (await file.text()).split("\n")) {
     if (line.trim() === "") continue

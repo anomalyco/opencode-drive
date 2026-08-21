@@ -73,6 +73,7 @@ export interface RenderFrameOptions {
   readonly footer?: RenderFrameFooter
 }
 
+export const HeaderHeight = 40
 export const FooterHeight = 40
 
 export function formatTimecode(ms: number) {
@@ -85,7 +86,7 @@ export function formatTimecode(ms: number) {
 export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, options: RenderFrameOptions = {}): Buffer {
   const cols = Math.max(frame.cols, options.cols ?? frame.cols)
   const rows = Math.max(frame.rows, options.rows ?? frame.rows)
-  const headerHeight = options.header ? 40 : 0
+  const headerHeight = options.header ? HeaderHeight : 0
   const footerHeight = options.footer ? FooterHeight : 0
   const canvas = createCanvas(cols * CellWidth, rows * CellHeight + headerHeight + footerHeight)
   const context = canvas.getContext("2d")

@@ -83,5 +83,6 @@ describe("applyClips", () => {
     expect(() => applyClips(samples, [])).toThrow("clips must not be empty")
     expect(() => applyClips(samples, [{ fromMs: 100, toMs: 0 }])).toThrow("fromMs <= toMs")
     expect(() => applyClips(samples, [{ fromMs: 0, toMs: 1, speed: 0 }])).toThrow("positive finite")
+    expect(() => applyClips(samples, [{ fromMs: 0, toMs: 1, holdMs: -1 }])).toThrow("non-negative finite")
   })
 })
