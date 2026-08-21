@@ -133,6 +133,31 @@ Companion probes that ruled out the other hypotheses: `steer-enter-drop.ts`
 and `reconnect-modal-submit.ts` (classifies submits into the reconnect
 overlay).
 
+With optimistic session creation (opencode PR #43687) the contract changed:
+enter navigates immediately, the mid-flight typing lands in the live session
+composer, and its enter submits, gated on the in-flight create. The probe now
+asserts both prompts are admitted exactly once and in submission order. When
+both are admitted before the run starts, opencode batches them into a single
+turn, so only the LAST marker's reply appears on screen — admissions are the
+ground truth, not done markers.
+
+## Optimistic session creation
+
+`optimistic-create.ts` encodes the desired shape for opencode issue #43563:
+enter on the home screen must feel sent immediately even on a slow connection.
+With 600ms of proxy latency it times how long the home wordmark survives the
+enter press (pre-fix: two awaited round trips, ~1250ms; post-fix: ~35ms), then
+asserts the optimistic prompt row is visible and that a follow-up prompt
+submitted while the create is still in flight gates on it instead of failing.
+`optimistic-create-failure.ts` covers the unwind: with connections refused,
+enter must recover to the home screen with the draft restored in the
+composer, an error toast, no phantom server session, and no ghost session
+tab (a closed tab resurrected by a late lock-serialized registration write).
+
+Both probes sleep 1.5s after ready before degrading the network: startup
+catalog loads racing the chaos proxy trip the model-readiness guard and the
+submit never reaches session creation.
+
 ## Probe helpers
 
 `support.ts` collects the patterns these probes kept relearning: `serveMarkers`
