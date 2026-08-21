@@ -32,7 +32,7 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   const header: TimelineHeader = first.value
   const terminal = await (options.terminalFactory ?? createTerminalParser)(header.cols, header.rows)
   options.signal?.throwIfAborted()
-  const frames: SampledFrame[] = []
+  const frames: Array<{ atMs: number; frame: SampledFrame["frame"] }> = []
   const startAt = options.startAtMs ?? 0
   const endAt = options.durationMs === undefined ? Number.POSITIVE_INFINITY : startAt + options.durationMs
   let nextSample = startAt
@@ -84,16 +84,18 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   } else {
     frames.push({ atMs: targetFinal, frame: currentSnapshot() })
   }
+  const rebase = (kept: typeof frames, offset: number): SampledFrame[] =>
+    kept.map((sample) => ({ frame: sample.frame, atMs: sample.atMs - offset, sourceAtMs: sample.atMs }))
   if (options.startAtMs !== undefined) {
-    return frames.map((sample) => ({ ...sample, atMs: sample.atMs - startAt }))
+    return rebase(frames, startAt)
   }
   const firstVisible = frames.findIndex((sample) =>
     sample.frame.lines.some((line) => line.spans.some((span) => span.text.trim().length > 0)),
   )
   if (firstVisible < 0) {
     const final = frames.at(-1)
-    return final ? [{ ...final, atMs: 0 }] : []
+    return final ? rebase([final], final.atMs) : []
   }
   const start = frames[firstVisible]!.atMs
-  return frames.slice(firstVisible).map((sample) => ({ ...sample, atMs: sample.atMs - start }))
+  return rebase(frames.slice(firstVisible), start)
 }

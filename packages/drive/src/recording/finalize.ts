@@ -15,6 +15,9 @@ export async function finalizeRecording(
   if (!(await Bun.file(timeline).exists()))
     throw new Error(`OpenCode recording timeline was not created: ${timeline}`)
   const { exportRecording } = await import("./export.js")
-  await exportRecording(timeline, expected.video, options)
+  // Marks recorded during the run become footer annotations automatically.
+  const annotations =
+    options?.annotations ?? (await (await import("./marks.js")).loadAnnotations(timeline))
+  await exportRecording(timeline, expected.video, { ...options, annotations })
   return expected.video
 }

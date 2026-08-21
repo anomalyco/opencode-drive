@@ -90,6 +90,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
             recording: {
               path: recording.path,
               timeline: recording.timeline,
+              mark: recording.mark,
               finish: () =>
                 runUi(recording.finish()).pipe(
                   Effect.tap((path) =>

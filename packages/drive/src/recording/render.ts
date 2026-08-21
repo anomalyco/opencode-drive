@@ -57,17 +57,37 @@ function color(value: number | Frontend.Color, opacity = 1) {
   return `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${(value[3] / 255) * opacity})`
 }
 
+export interface RenderFrameFooter {
+  /** Segment label drawn in the bottom-left. */
+  readonly label?: string
+  /** Elapsed output time drawn left of the brand as M:SS. */
+  readonly timecodeMs?: number
+  /** Brand drawn bold in the bottom-right. Defaults to "drive". */
+  readonly brand?: string
+}
+
 export interface RenderFrameOptions {
   readonly cols?: number
   readonly rows?: number
   readonly header?: string
+  readonly footer?: RenderFrameFooter
+}
+
+export const FooterHeight = 40
+
+export function formatTimecode(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
 
 export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, options: RenderFrameOptions = {}): Buffer {
   const cols = Math.max(frame.cols, options.cols ?? frame.cols)
   const rows = Math.max(frame.rows, options.rows ?? frame.rows)
   const headerHeight = options.header ? 40 : 0
-  const canvas = createCanvas(cols * CellWidth, rows * CellHeight + headerHeight)
+  const footerHeight = options.footer ? FooterHeight : 0
+  const canvas = createCanvas(cols * CellWidth, rows * CellHeight + headerHeight + footerHeight)
   const context = canvas.getContext("2d")
   context.fillStyle = "#080808"
   context.fillRect(0, 0, canvas.width, canvas.height)
@@ -79,6 +99,33 @@ export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, optio
     context.textBaseline = "middle"
     context.textAlign = "left"
     context.fillText(options.header, 16, headerHeight / 2, canvas.width - 32)
+  }
+  if (options.footer) {
+    const footerTop = canvas.height - footerHeight
+    const middle = footerTop + footerHeight / 2
+    context.fillStyle = "#151515"
+    context.fillRect(0, footerTop, canvas.width, footerHeight)
+    context.textBaseline = "middle"
+    const brand = options.footer.brand ?? "drive"
+    context.font = `700 ${FontSize}px ${FontStack}`
+    const brandWidth = context.measureText(brand).width
+    context.fillStyle = "#d8d8d8"
+    context.textAlign = "right"
+    context.fillText(brand, canvas.width - 16, middle)
+    let reserved = brandWidth + 32
+    if (options.footer.timecodeMs !== undefined) {
+      const timecode = formatTimecode(options.footer.timecodeMs)
+      context.font = `400 ${FontSize}px ${FontStack}`
+      context.fillStyle = "#8a8a8a"
+      context.fillText(timecode, canvas.width - 16 - brandWidth - 12, middle)
+      reserved += context.measureText(timecode).width + 12
+    }
+    if (options.footer.label) {
+      context.font = `400 ${FontSize}px ${FontStack}`
+      context.fillStyle = "#8a8a8a"
+      context.textAlign = "left"
+      context.fillText(options.footer.label, 16, middle, Math.max(0, canvas.width - 16 - reserved - 16))
+    }
   }
   context.textBaseline = "alphabetic"
   context.textAlign = "center"

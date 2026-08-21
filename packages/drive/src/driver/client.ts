@@ -8,6 +8,7 @@ import type * as OpenCodeInstance from "../instance/runtime.js"
 import type * as SimulationConnector from "../simulation/connector.js"
 import type { Frontend } from "../client/protocol.js"
 import { finalizeRecording } from "../recording/finalize.js"
+import { appendMark } from "../recording/marks.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import * as OpenCodeUi from "./ui.js"
 import * as SharedEffect from "./shared.js"
@@ -26,6 +27,12 @@ export interface Tui {
 export interface Recording {
   readonly path: string
   readonly timeline: string
+  /**
+   * Label the current instant. Marks become footer annotations in the
+   * exported video: the label shows bottom-left from its mark until the
+   * next one (an empty label clears it).
+   */
+  readonly mark: (label: string) => Effect.Effect<void, OpenCodeDriverError>
   readonly finish: () => Effect.Effect<
     string,
     OpenCodeDriverError | OpenCodeUi.OperationError
@@ -134,6 +141,11 @@ export const make = Effect.fn("OpenCodeTui.make")(function* (
           recording: {
             path: recording.video,
             timeline: recording.timeline,
+            mark: (label: string) =>
+              Effect.tryPromise({
+                try: () => appendMark(recording.timeline, label),
+                catch: (cause) => error("recording.mark", cause),
+              }),
             finish: () => managedRecording.exportRecording,
           },
           _recording: managedRecording,

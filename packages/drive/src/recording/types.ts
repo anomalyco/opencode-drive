@@ -20,7 +20,10 @@ export interface CapturedFrame {
 }
 
 export interface SampledFrame {
+  /** Time on the exported (rebased) video timeline. */
   atMs: number
+  /** Time on the raw recording timeline, before any trim or rebase. */
+  sourceAtMs: number
   frame: CapturedFrame
 }
 
