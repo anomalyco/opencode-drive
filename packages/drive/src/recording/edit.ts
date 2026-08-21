@@ -60,7 +60,9 @@ export function applyClips(
   let offset = 0
   for (const clip of clips) {
     const speed = clip.speed ?? 1
+    const holdMs = clip.holdMs ?? 0
     if (!Number.isFinite(speed) || speed <= 0) throw new Error("clip speed must be a positive finite number")
+    if (!Number.isFinite(holdMs) || holdMs < 0) throw new Error("clip holdMs must be a non-negative finite number")
     if (!Number.isFinite(clip.fromMs) || !Number.isFinite(clip.toMs) || clip.toMs < clip.fromMs)
       throw new Error("clip range must satisfy fromMs <= toMs")
     const scale = (sourceAtMs: number) => offset + (Math.min(Math.max(sourceAtMs, clip.fromMs), clip.toMs) - clip.fromMs) / speed
@@ -82,10 +84,10 @@ export function applyClips(
     if (last && last.atMs < clipEnd) {
       edited.push({ ...last, atMs: clipEnd, playbackAtMs: clip.toMs })
     }
-    if (last && (clip.holdMs ?? 0) > 0) {
-      edited.push({ ...last, atMs: clipEnd + (clip.holdMs ?? 0), playbackAtMs: clip.toMs })
+    if (last && holdMs > 0) {
+      edited.push({ ...last, atMs: clipEnd + holdMs, playbackAtMs: clip.toMs })
     }
-    offset = clipEnd + (clip.holdMs ?? 0)
+    offset = clipEnd + holdMs
   }
   return edited
 }

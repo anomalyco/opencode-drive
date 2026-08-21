@@ -5,7 +5,7 @@ import { applyClips, labelAt, type RecordingAnnotation, type RecordingClip } fro
 import { encodeFrames } from "./encode.js"
 import { progressReporter } from "./frame-rate.js"
 import { replayRecording, type ReplayOptions } from "./replay.js"
-import { CellHeight, CellWidth, FooterHeight, formatTimecode, renderFrame } from "./render.js"
+import { CellHeight, CellWidth, FooterHeight, formatTimecode, HeaderHeight, renderFrame } from "./render.js"
 import { loadPointers, pointerAt, PointerOverlayOptions } from "./pointer.js"
 import {
   activeKeypresses,
@@ -78,9 +78,8 @@ export async function exportRecording(
     }
   })
   const footerEnabled =
-    options.footer === false
-      ? false
-      : options.footer !== undefined || annotations.length > 0 || (options.clips?.length ?? 0) > 0
+    options.footer !== false &&
+    (options.footer !== undefined || annotations.length > 0 || (options.clips?.length ?? 0) > 0)
   const brand = typeof options.footer === "object" ? options.footer.brand : undefined
   const footer = (sample: { atMs: number; playbackAtMs: number; label?: string }) =>
     footerEnabled
@@ -153,6 +152,6 @@ export async function exportRecording(
     frames: samples.length,
     durationMs: final.atMs,
     width: cols * CellWidth,
-    height: rows * CellHeight + (options.header ? 40 : 0) + (footerEnabled ? FooterHeight : 0),
+    height: rows * CellHeight + (options.header ? HeaderHeight : 0) + (footerEnabled ? FooterHeight : 0),
   }
 }
