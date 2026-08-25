@@ -1,12 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, type Types } from "effect"
 import { createCanvas, loadImage } from "@napi-rs/canvas"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as OpenCodeUi from "../../src/driver/ui.js"
 import * as SimulationConnector from "../../src/simulation/connector.js"
 import { sendError, sendResult, startTransportPeer } from "../simulation/transport-peer.js"
+import { loadRecentKeypresses } from "../../src/recording/keypresses.js"
 
 const editor = {
   id: "prompt",
@@ -138,6 +139,36 @@ describe("OpenCodeUi", () => {
         },
         { jsonrpc: "2.0", id: 8, method: "ui.state" },
         { jsonrpc: "2.0", id: 9, method: "ui.state" },
+      ])
+    })
+  })
+
+  it.live("records successful semantic key presses for overlays", () => {
+    const peer = startTransportPeer(({ request, socket }) =>
+      sendResult(socket, request, state)
+    )
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const directory = yield* Effect.promise(() =>
+        mkdtemp(join(tmpdir(), "opencode-drive-keypress-ui-")),
+      )
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(() => rm(directory, { recursive: true, force: true })),
+      )
+      const timeline = join(directory, "recording.jsonl")
+      yield* Effect.promise(() => writeFile(timeline, ""))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { keypressTimeline: timeline })
+
+      yield* ui.press("p", { ctrl: true })
+      yield* ui.arrow("down")
+      yield* ui.enter()
+
+      expect(yield* Effect.promise(() => loadRecentKeypresses(timeline))).toEqual([
+        "Ctrl + P",
+        "↓",
+        "Enter",
       ])
     })
   })

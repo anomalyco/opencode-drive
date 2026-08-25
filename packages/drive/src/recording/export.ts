@@ -6,6 +6,12 @@ import { encodeFrames } from "./encode.js"
 import { progressReporter } from "./frame-rate.js"
 import { replayRecording, type ReplayOptions } from "./replay.js"
 import { CellHeight, CellWidth, FooterHeight, formatTimecode, renderFrame } from "./render.js"
+import {
+  activeKeypresses,
+  injectKeypressSamples,
+  mapKeypresses,
+  type RecordingKeypress,
+} from "./keypresses.js"
 
 export interface ExportRecordingOptions extends ReplayOptions {
   ffmpegPath?: string
@@ -19,6 +25,8 @@ export interface ExportRecordingOptions extends ReplayOptions {
   annotations?: ReadonlyArray<RecordingAnnotation>
   /** Kept segments of the raw recording timeline, concatenated in order. */
   clips?: ReadonlyArray<RecordingClip>
+  /** Semantic key presses to display briefly over the terminal. */
+  keypresses?: ReadonlyArray<RecordingKeypress>
   onProgress?: (percent: number) => void
   signal?: AbortSignal
 }
@@ -39,10 +47,13 @@ export async function exportRecording(
   const replayed = await replayRecording(timelinePath, options)
   options.signal?.throwIfAborted()
   const annotations = options.annotations ?? []
-  const samples =
+  const keypresses = options.keypresses ?? []
+  const edited =
     options.clips && options.clips.length > 0
       ? applyClips(replayed, options.clips)
       : replayed.map((sample) => ({ ...sample, label: undefined }))
+  const outputKeypresses = mapKeypresses(keypresses, options.clips)
+  const samples = injectKeypressSamples(edited, outputKeypresses)
   const footerEnabled =
     options.footer === false
       ? false
@@ -72,7 +83,13 @@ export async function exportRecording(
   if (extension === ".png") {
     await writeFile(
       outputPath,
-      renderFrame(final.frame, { cols, rows, header: header(final.atMs), footer: footer(final) }),
+      renderFrame(final.frame, {
+        cols,
+        rows,
+        header: header(final.atMs),
+        footer: footer(final),
+        keys: activeKeypresses(outputKeypresses, final.atMs),
+      }),
       { signal: options.signal },
     )
     progress(100)
@@ -82,6 +99,7 @@ export async function exportRecording(
       samples.map((sample) => {
         const label = header(sample.atMs)
         const overlay = footer(sample)
+        const keys = activeKeypresses(outputKeypresses, sample.atMs)
         let frameKey = frameKeys.get(sample.frame)
         if (frameKey === undefined) {
           frameKey = createHash("sha256").update(JSON.stringify(sample.frame)).digest("hex")
@@ -93,8 +111,9 @@ export async function exportRecording(
             frameKey,
             label,
             overlay ? [overlay.label, overlay.brand, formatTimecode(overlay.timecodeMs)] : undefined,
+            keys,
           ]),
-          render: () => renderFrame(sample.frame, { cols, rows, header: label, footer: overlay }),
+          render: () => renderFrame(sample.frame, { cols, rows, header: label, footer: overlay, keys }),
         }
       }),
       outputPath,

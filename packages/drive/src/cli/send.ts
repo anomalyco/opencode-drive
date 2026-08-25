@@ -15,6 +15,7 @@ export async function send(options: SendOptions) {
   )
   const result = await executeCommands(target.endpoint, options.commands, {
     screenshotDirectory: target.screenshotDirectory,
+    keypressTimeline: target.keypressTimeline,
   })
   if (
     options.commands.length === 1 &&
@@ -49,6 +50,9 @@ async function resolveSendTarget(name?: string, screenshot = false) {
       endpoint: manifest.endpoints.ui,
       ...(screenshot
         ? { screenshotDirectory: await resolveScreenshotDirectory(manifest) }
+        : {}),
+      ...(manifest.keypressTimeline
+        ? { keypressTimeline: manifest.keypressTimeline }
         : {}),
     }
   }

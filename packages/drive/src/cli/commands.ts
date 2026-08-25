@@ -7,6 +7,7 @@ import * as OpenCodeUi from "../driver/ui.js"
 import { recordLog } from "../log.js"
 import * as SimulationConnector from "../simulation/connector.js"
 import type { DriveCommand } from "./types.js"
+import { appendKeypress, formatArrow, formatPress } from "../recording/keypresses.js"
 
 export const commandInfo = {
   "ui.type": { value: true, description: "Type text using JSON params" },
@@ -150,7 +151,10 @@ const execute = (
       )
       return OpenCodeUi.make(connection, options).screenshot(params.name)
     }
-    return dispatch(connection, decodeCommand(command))
+    const request = decodeCommand(command)
+    return dispatch(connection, request).pipe(
+      Effect.tap(() => recordKeypress(request, options?.keypressTimeline)),
+    )
   }).pipe(
     Effect.timeoutOrElse({
       duration: callTimeout,
@@ -251,4 +255,28 @@ function dispatch(
       return connection.rpc["ui.recording.finish"]()
   }
   throw new Error(`unsupported UI method ${request.method}`)
+}
+
+function recordKeypress(
+  request: Frontend.Request,
+  timeline: string | undefined,
+) {
+  if (timeline === undefined) return Effect.void
+  switch (request.method) {
+    case "ui.press":
+      return Effect.promise(() =>
+        appendKeypress(
+          timeline,
+          formatPress(request.params.key, request.params.modifiers),
+        ),
+      )
+    case "ui.enter":
+      return Effect.promise(() => appendKeypress(timeline, "Enter"))
+    case "ui.arrow":
+      return Effect.promise(() =>
+        appendKeypress(timeline, formatArrow(request.params.direction)),
+      )
+    default:
+      return Effect.void
+  }
 }

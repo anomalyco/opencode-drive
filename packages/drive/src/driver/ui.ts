@@ -10,6 +10,12 @@ import { Frontend } from "../client/protocol.js"
 import type { SimulationRequestError } from "../simulation/rpc.js"
 import { mediaDirectory } from "../instance/media.js"
 import { renderScreenshot } from "./screenshot.js"
+import {
+  appendKeypress,
+  formatArrow,
+  formatPress,
+  loadRecentKeypresses,
+} from "../recording/keypresses.js"
 
 export interface WaitOptions {
   /** Maximum wait in milliseconds. Defaults to 5,000. */
@@ -125,6 +131,8 @@ export interface Options {
   readonly requestTimeout?: number
   /** Directory where Drive writes locally rendered screenshots. */
   readonly screenshotDirectory?: string
+  /** Recording timeline used for the optional KeyCastr-style overlay. */
+  readonly keypressTimeline?: string
 }
 
 const RequestTimeout = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
@@ -260,8 +268,11 @@ export const make = (connection: UiConnection, options?: Options): Control => {
   )
   const screenshot = Effect.fn("Ui.screenshot")(function* (name?: string) {
     const frame = yield* capture()
+    const keys = options?.keypressTimeline
+      ? yield* Effect.promise(() => loadRecentKeypresses(options.keypressTimeline!))
+      : []
     return yield* Effect.tryPromise({
-      try: () => renderScreenshot(frame, options?.screenshotDirectory ?? mediaDirectory(), name),
+      try: () => renderScreenshot(frame, options?.screenshotDirectory ?? mediaDirectory(), name, keys),
       catch: (cause) =>
         new UiScreenshotError({
           cause,
@@ -275,14 +286,26 @@ export const make = (connection: UiConnection, options?: Options): Control => {
   const type = Effect.fn("Ui.type")((text: string) =>
     call("type", rpc["ui.type"]({ text })),
   )
+  const recordKeypress = (label: string) =>
+    options?.keypressTimeline
+      ? Effect.promise(() => appendKeypress(options.keypressTimeline!, label))
+      : Effect.void
   const press = Effect.fn("Ui.press")(
     (key: string, modifiers?: Frontend.KeyModifiers) =>
-      call("press", rpc["ui.press"](Frontend.pressParams(key, modifiers))),
+      call("press", rpc["ui.press"](Frontend.pressParams(key, modifiers))).pipe(
+        Effect.tap(() => recordKeypress(formatPress(key, modifiers))),
+      ),
   )
-  const enter = Effect.fn("Ui.enter")(() => call("enter", rpc["ui.enter"]()))
+  const enter = Effect.fn("Ui.enter")(() =>
+    call("enter", rpc["ui.enter"]()).pipe(
+      Effect.tap(() => recordKeypress("Enter")),
+    ),
+  )
   const arrow = Effect.fn("Ui.arrow")(
     (direction: Frontend.ArrowParams["direction"]) =>
-      call("arrow", rpc["ui.arrow"]({ direction })),
+      call("arrow", rpc["ui.arrow"]({ direction })).pipe(
+        Effect.tap(() => recordKeypress(formatArrow(direction))),
+      ),
   )
   const focus = Effect.fn("Ui.focus")((target: number | Frontend.Element) =>
     call(

@@ -13,6 +13,7 @@ export interface InstanceManifest {
   readonly status: "starting" | "ready"
   readonly endpoints: { readonly ui: string; readonly backend: string }
   readonly media?: string
+  readonly keypressTimeline?: string
   readonly control: string
 }
 
@@ -138,20 +139,36 @@ export async function register(manifest: InstanceManifest) {
   })
 }
 
-export async function markReady(name: string, pid: number, media: string) {
-  await markStatus(name, pid, "ready", media)
+export async function markReady(
+  name: string,
+  pid: number,
+  media: string,
+  keypressTimeline?: string,
+) {
+  await markStatus(name, pid, "ready", media, keypressTimeline)
 }
 
 export async function markStarting(name: string, pid: number) {
   await markStatus(name, pid, "starting")
 }
 
-async function markStatus(name: string, pid: number, status: InstanceManifest["status"], media?: string) {
+async function markStatus(
+  name: string,
+  pid: number,
+  status: InstanceManifest["status"],
+  media?: string,
+  keypressTimeline?: string,
+) {
   await withLock(name, true, async () => {
     const manifest = await read(manifestPath(name))
     if (!manifest || manifest.status === "initialized" || manifest.pid !== pid)
       throw new Error(`drive instance "${name}" changed ownership`)
-    await write({ ...manifest, status, ...(media === undefined ? {} : { media }) })
+    await write({
+      ...manifest,
+      status,
+      ...(media === undefined ? {} : { media }),
+      ...(keypressTimeline === undefined ? {} : { keypressTimeline }),
+    })
   })
 }
 
@@ -330,6 +347,10 @@ function isManifest(value: unknown): value is Manifest {
   const instance = value as Partial<InstanceManifest>
   const endpoints = instance.endpoints
   if (instance.media !== undefined && typeof instance.media !== "string") return false
+  if (
+    instance.keypressTimeline !== undefined &&
+    typeof instance.keypressTimeline !== "string"
+  ) return false
   return (
     typeof instance.pid === "number" &&
     typeof endpoints?.ui === "string" &&

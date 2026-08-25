@@ -15,6 +15,8 @@ import * as SharedEffect from "./shared.js"
 
 export interface TuiOptions {
   readonly recording?: boolean
+  /** Show recent semantic key presses in screenshots and exported recordings. */
+  readonly keypressOverlay?: boolean
   readonly viewport?: Frontend.ResizeParams
 }
 
@@ -83,8 +85,17 @@ export const make = Effect.fn("OpenCodeTui.make")(function* (
         ),
       ),
   )
+  if (options.keypressOverlay && launched.recording === undefined)
+    return yield* Effect.fail(
+      error("tui.launch", "keypressOverlay requires recording"),
+    )
   const connection = yield* connector.ui(launched.endpoint, { compatibility })
-  const ui = OpenCodeUi.make(connection, { screenshotDirectory: launched.media })
+  const ui = OpenCodeUi.make(connection, {
+    screenshotDirectory: launched.media,
+    ...(options.keypressOverlay && launched.recording
+      ? { keypressTimeline: launched.recording.timeline }
+      : {}),
+  })
   yield* ui.waitFor((state) => state.focused.editor, {
     timeout: 30_000,
     interval: 50,

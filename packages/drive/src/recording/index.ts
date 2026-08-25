@@ -9,6 +9,19 @@ export {
 export { encodeFrames, type EncodeOptions, type ImageFrame } from "./encode.js"
 export { exportRecording, type ExportRecordingOptions, type ExportRecordingResult } from "./export.js"
 export { appendMark, loadAnnotations, marksPath } from "./marks.js"
+export {
+  activeKeypresses,
+  appendKeypress,
+  formatArrow,
+  formatPress,
+  injectKeypressSamples,
+  KeypressDisplayMs,
+  keypressesPath,
+  loadKeypresses,
+  loadRecentKeypresses,
+  mapKeypresses,
+  type RecordingKeypress,
+} from "./keypresses.js"
 export { formatTimecode, joinFrames, renderFrame, type RenderFrameFooter } from "./render.js"
 export { replayRecording, type ReplayOptions } from "./replay.js"
 export type {

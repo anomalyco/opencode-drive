@@ -117,6 +117,9 @@ const startCommand = Command.make(
     record: Flag.boolean("record").pipe(
       Flag.withDescription("Record the complete headless session and export it on stop"),
     ),
+    keypressOverlay: Flag.boolean("keypress-overlay").pipe(
+      Flag.withDescription("Show recent key presses in screenshots and recordings"),
+    ),
     dev: Flag.string("dev").pipe(
       Flag.optional,
       Flag.withDescription("Path to an OpenCode development checkout"),
@@ -222,6 +225,7 @@ function toStartOptions(
     readonly daemon: boolean
     readonly visible: boolean
     readonly record: boolean
+    readonly keypressOverlay: boolean
     readonly dev: Option.Option<string>
   },
   commands: ReadonlyArray<DriveCommand>,
@@ -239,11 +243,14 @@ function toStartOptions(
     script: Option.getOrUndefined(config.script),
     visible: config.visible,
     record: config.record,
+    keypressOverlay: config.keypressOverlay,
     dev: Option.getOrUndefined(config.dev),
     command: app,
   }
   if (options.dev !== undefined && app.length > 0)
     throw new Error("--dev cannot be combined with a command after --")
+  if (options.keypressOverlay && !options.record)
+    throw new Error("--keypress-overlay requires --record")
   return options
 }
 

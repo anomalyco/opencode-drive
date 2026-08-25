@@ -481,8 +481,12 @@ Use `meta` for the terminal Alt modifier. For example:
 
 Start with `--record` to record a headless live instance. `stop` finishes the recording, exports the MP4, performs owner cleanup, and prints the path.
 
+Add `--keypress-overlay` when the video should show KeyCastr-style pills for
+the agent's semantic hotkeys, Enter presses, and arrow navigation. It requires
+`--record`; batched typed text is deliberately omitted.
+
 ```bash
-opencode-drive start --name demo --record
+opencode-drive start --name demo --record --keypress-overlay
 opencode-drive stop --name demo
 ```
 

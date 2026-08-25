@@ -12,6 +12,7 @@ export interface StartOptions {
   readonly script?: string
   readonly visible: boolean
   readonly record: boolean
+  readonly keypressOverlay: boolean
   readonly dev?: string
   readonly command: ReadonlyArray<string>
 }
