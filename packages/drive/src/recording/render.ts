@@ -71,6 +71,8 @@ export interface RenderFrameOptions {
   readonly rows?: number
   readonly header?: string
   readonly footer?: RenderFrameFooter
+  /** Recent semantic key presses, rendered as a KeyCastr-style overlay. */
+  readonly keys?: ReadonlyArray<string>
 }
 
 export const FooterHeight = 40
@@ -186,6 +188,46 @@ export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, optio
       CellWidth - 2,
       CellHeight - 2,
     )
+  }
+  if (options.keys && options.keys.length > 0) {
+    context.font = `700 ${FontSize}px ${FontStack}`
+    context.textBaseline = "middle"
+    context.textAlign = "center"
+    const gap = 8
+    const padding = 14
+    const height = 34
+    const available = Math.max(1, canvas.width - 16)
+    const pills: Array<{ readonly key: string; readonly width: number }> = []
+    for (const key of options.keys.toReversed()) {
+      const width = Math.min(
+        available,
+        Math.ceil(context.measureText(key).width) + padding * 2,
+      )
+      const used = pills.reduce((sum, pill) => sum + pill.width, 0) + gap * pills.length
+      if (pills.length > 0 && used + width > available) continue
+      pills.unshift({ key, width })
+    }
+    const total = pills.reduce((sum, pill) => sum + pill.width, 0) + gap * (pills.length - 1)
+    let x = Math.max(8, (canvas.width - total) / 2)
+    const terminalBottom = headerHeight + rows * CellHeight
+    const y = Math.max(headerHeight + 2, terminalBottom - height - 16)
+    for (const pill of pills) {
+      context.fillStyle = "rgba(8, 8, 8, 0.88)"
+      context.beginPath()
+      context.roundRect(x, y, pill.width, height, 8)
+      context.fill()
+      context.strokeStyle = "rgba(255, 255, 255, 0.20)"
+      context.lineWidth = 1
+      context.stroke()
+      context.fillStyle = "#f0f0f0"
+      context.fillText(
+        pill.key,
+        x + pill.width / 2,
+        y + height / 2,
+        Math.max(1, pill.width - padding * 2),
+      )
+      x += pill.width + gap
+    }
   }
   return canvas.toBuffer("image/png")
 }

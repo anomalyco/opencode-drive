@@ -130,6 +130,7 @@ const program = Effect.scoped(
         rows: 40,
       },
       recording: true,
+      keypressOverlay: true,
     })
 
     yield* oc.ui.submit("Prompt from the primary TUI")
@@ -142,6 +143,11 @@ const program = Effect.scoped(
 `tuis.launch(options)` generates an identity. Pass a name as the first argument
 when a stable identity is useful for logs, recordings, or closing and
 relaunching the same TUI: `tuis.launch(name, options)`.
+
+`keypressOverlay` requires `recording`. It briefly renders the latest semantic
+`press`, `enter`, and `arrow` operations over screenshots and recording frames.
+Drive intentionally omits batched `ui.type` text because it does not represent
+physical per-character timing.
 
 ```text
                      ╭────────────────╮

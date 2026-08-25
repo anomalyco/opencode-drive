@@ -18,6 +18,8 @@ export async function finalizeRecording(
   // Marks recorded during the run become footer annotations automatically.
   const annotations =
     options?.annotations ?? (await (await import("./marks.js")).loadAnnotations(timeline))
-  await exportRecording(timeline, expected.video, { ...options, annotations })
+  const keypresses =
+    options?.keypresses ?? (await (await import("./keypresses.js")).loadKeypresses(timeline))
+  await exportRecording(timeline, expected.video, { ...options, annotations, keypresses })
   return expected.video
 }

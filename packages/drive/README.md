@@ -133,6 +133,22 @@ export default OpenCodeDriver.use(
 )
 ```
 
+Set `keypressOverlay: true` alongside `recording: true` to show the latest
+`press`, `enter`, and `arrow` operations as KeyCastr-style pills in screenshots
+and the exported video:
+
+```ts
+OpenCodeDriver.use(
+  { tui: { recording: true, keypressOverlay: true } },
+  ({ ui }) => ui.press("p", { ctrl: true }),
+)
+```
+
+For a named live recording, use
+`opencode-drive start --name demo --record --keypress-overlay`. The overlay
+represents Drive's semantic input operations; batched `ui.type` text is not
+misrepresented as physical keystrokes.
+
 Settlement errors are program failures. For example, output after a terminal
 LLM event fails the run while `use` still closes TUIs and attempts recording
 export:

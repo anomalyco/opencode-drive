@@ -63,11 +63,20 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
         return prepareScriptModule(initialized.artifacts, scriptPath)
       })
     : undefined
-  const script = scriptModule
+  const loadedScript = scriptModule
     ? yield* loadScript(scriptModule).pipe(
         Effect.tap(() => Effect.sync(() => logSuccess(`loading script ${scriptModule}`))),
       )
     : undefined
+  const script = loadedScript && options.keypressOverlay
+    ? {
+        ...loadedScript,
+        tui: {
+          ...loadedScript.tui,
+          keypressOverlay: true,
+        },
+      }
+    : loadedScript
   if (script && "launch" in script && options.record) {
     return yield* Effect.fail(new Error("--record is not supported when launch is manual"))
   }
@@ -91,6 +100,7 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
     tools: script?.tools,
     log,
   })
+  const recording = yield* instance.recording
   yield* Effect.acquireRelease(
     fromPromise(() =>
       register({
@@ -104,6 +114,9 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
         status: "starting",
         endpoints: instance.endpoints,
         control: controlPath(options.name),
+        ...(options.keypressOverlay && recording
+          ? { keypressTimeline: recording.timeline }
+          : {}),
       }),
     ),
     () => fromPromise(() => unregister(options.name, process.pid)).pipe(Effect.ignore),
@@ -213,7 +226,14 @@ async function runLifecycle(
           )
           await current.ready
           driveReady = true
-          await markReady(options.name, process.pid, await runEffect(instance.media))
+          await markReady(
+            options.name,
+            process.pid,
+            await runEffect(instance.media),
+            options.keypressOverlay
+              ? (await runEffect(instance.recording))?.timeline
+              : undefined,
+          )
           await logReadyPaths(instance.artifacts, {
             terminal: !options.visible,
           })
@@ -243,7 +263,14 @@ async function runLifecycle(
     await current.ready
     driveReady = true
     log(`ready ${options.name}`)
-    await markReady(options.name, process.pid, await runEffect(instance.media))
+    await markReady(
+      options.name,
+      process.pid,
+      await runEffect(instance.media),
+      options.keypressOverlay
+        ? (await runEffect(instance.recording))?.timeline
+        : undefined,
+    )
     await logReadyPaths(instance.artifacts, { terminal: !options.visible })
     if (options.visible) {
       while (true) {
@@ -409,6 +436,7 @@ const startDetached = Effect.fn("DriveCli.startDetached")(function* (
     ...(options.script ? ["--script", options.script] : []),
     ...(options.dev ? ["--dev", options.dev] : []),
     ...(options.record ? ["--record"] : []),
+    ...(options.keypressOverlay ? ["--keypress-overlay"] : []),
     ...(options.command.length ? ["--", ...options.command] : []),
   ], {
     cwd: process.cwd(),

@@ -6,6 +6,7 @@ export async function renderScreenshot(
   frame: Frontend.CapturedFrame,
   directory: string,
   name?: string,
+  keys?: ReadonlyArray<string>,
 ) {
   const filename = name ?? `screenshot-${crypto.randomUUID()}`;
   if (
@@ -19,6 +20,6 @@ export async function renderScreenshot(
   const output = resolve(directory);
   await mkdir(output, { recursive: true });
   const path = join(output, `${filename}.png`);
-  await Bun.write(path, renderFrame(frame));
+  await Bun.write(path, renderFrame(frame, { keys }));
   return path;
 }
