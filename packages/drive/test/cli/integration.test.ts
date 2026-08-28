@@ -821,8 +821,10 @@ describe("opencode-drive", () => {
       providers: { simulation: { models: { "gpt-sim-model": {} } } },
       test: { declared: true, setup: true },
     })
-    expect(await Bun.file(join(artifacts, "files", ".opencode", "tui.jsonc")).json()).toEqual({
-      test: { declared: true, setup: true },
+    expect(await Bun.file(join(artifacts, "files", ".opencode", "cli.json")).json()).toEqual({
+      session: { new_location: "inherit" },
+      keybinds: { "session.new": "ctrl+n" },
+      theme: { name: "opencode", mode: "light" },
     })
     const backendEvents = (await Bun.file(join(artifacts, "backend-events.jsonl")).text())
       .trim()

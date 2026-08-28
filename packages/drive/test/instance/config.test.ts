@@ -33,7 +33,7 @@ describe("instance configuration", () => {
     })
   })
 
-  test("merges JSONC fixtures, replaces arrays, applies setup last, and commits normalized files", async () => {
+  test("merges V2 CLI JSONC fixtures, replaces arrays, applies setup last, and commits normalized files", async () => {
     const root = await initializeInstance()
     artifacts.push(root)
     await Effect.runPromise(prepareInstanceProject({
@@ -46,9 +46,12 @@ describe("instance configuration", () => {
             "nested": { "fixture": true, "winner": "fixture" },
             "items": ["fixture"],
           }`,
-          ".opencode/tui.jsonc": `{
-            "theme": { "fixture": true },
-            "items": ["fixture"],
+          ".opencode/cli.json": `{
+            // CLI fixtures also accept comments and trailing commas
+            "$schema": "https://opencode.ai/v2/cli.json",
+            "theme": { "name": "tokyonight", "mode": "light" },
+            "session": { "new_location": "launch" },
+            "keybinds": { "app.exit": ["ctrl+c", "ctrl+d"] },
           }`,
         },
       },
@@ -57,8 +60,9 @@ describe("instance configuration", () => {
         items: ["declared"],
       },
       tui: {
-        theme: { declared: true },
-        items: ["declared"],
+        theme: { name: "catppuccin" },
+        session: { new_location: "inherit" },
+        keybinds: { "app.exit": ["ctrl+q"] },
       },
       setup({ config, tuiConfig }) {
         return Effect.sync(() => {
@@ -66,7 +70,10 @@ describe("instance configuration", () => {
             ...(config.nested as Record<string, boolean | string>),
             winner: "setup",
           }
-          tuiConfig.items = ["setup"]
+          expect(tuiConfig.theme).toEqual({ name: "catppuccin", mode: "light" })
+          expect(tuiConfig.keybinds).toEqual({ "app.exit": ["ctrl+q"] })
+          tuiConfig.theme = { name: "opencode", mode: "light" }
+          tuiConfig.keybinds = { "app.exit": ["ctrl+x"], "session.new": "ctrl+n" }
         })
       },
     }))
@@ -75,40 +82,54 @@ describe("instance configuration", () => {
     const configText = await Bun.file(
       join(files, ".opencode", "opencode.jsonc"),
     ).text()
-    const tuiText = await Bun.file(
-      join(files, ".opencode", "tui.jsonc"),
+    const cliText = await Bun.file(
+      join(files, ".opencode", "cli.json"),
     ).text()
     expect(JSON.parse(configText)).toEqual({
       nested: { fixture: true, declared: true, winner: "setup" },
       items: ["declared"],
     })
-    expect(JSON.parse(tuiText)).toEqual({
-      theme: { fixture: true, declared: true },
-      items: ["setup"],
-    })
+    const cli = {
+      $schema: "https://opencode.ai/v2/cli.json",
+      theme: { name: "opencode", mode: "light" },
+      session: { new_location: "inherit" },
+      keybinds: { "app.exit": ["ctrl+x"], "session.new": "ctrl+n" },
+    }
+    expect(cliText).toBe(`${JSON.stringify(cli, undefined, 2)}\n`)
+    expect(await Bun.file(join(files, ".opencode", "tui.jsonc")).exists()).toBe(false)
     expect(configText).not.toContain("//")
     expect(await git(files, ["status", "--porcelain"])).toBe("")
-    expect(await git(files, ["show", "HEAD:.opencode/tui.jsonc"])).toBe(tuiText)
+    expect(await git(files, ["show", "HEAD:.opencode/cli.json"])).toBe(cliText)
   })
 
-  test("rejects invalid JSONC configuration", async () => {
+  test("prepares only the isolated V2 CLI configuration when no overrides are supplied", async () => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+    await Effect.runPromise(prepareInstanceProject({ artifacts: root }))
+
+    expect(await Bun.file(join(root, "files", ".opencode", "cli.json")).text()).toBe("{}\n")
+    expect(await Bun.file(join(root, "files", ".opencode", "tui.jsonc")).exists()).toBe(false)
+    expect(await Bun.file(join(root, "home", ".config", "opencode", "cli.json")).exists()).toBe(false)
+  })
+
+  test.each(["{ invalid", "null", "[]"])("rejects invalid CLI JSONC configuration: %s", async (contents) => {
     const root = await initializeInstance()
     artifacts.push(root)
     await expect(
       Effect.runPromise(prepareInstanceProject({
         artifacts: root,
         project: {
-          files: { ".opencode/tui.jsonc": "{ invalid" },
+          files: { ".opencode/cli.json": contents },
         },
       })),
-    ).rejects.toThrow("invalid .opencode/tui.jsonc")
+    ).rejects.toThrow("invalid .opencode/cli.json")
   })
 
   test("does not let setup mutate declarative configuration inputs", async () => {
     const root = await initializeInstance()
     artifacts.push(root)
     const config = { nested: { value: "declared" }, items: ["declared"] }
-    const tui = { keybinds: { app_exit: "ctrl+q" } }
+    const tui = { keybinds: { "app.exit": "ctrl+q" } }
 
     await Effect.runPromise(prepareInstanceProject({
       artifacts: root,
@@ -121,7 +142,7 @@ describe("instance configuration", () => {
           const keybinds = tuiConfig.keybinds as Record<string, string>
           nested.value = "setup"
           items.push("setup")
-          keybinds.app_exit = "ctrl+x"
+          keybinds["app.exit"] = "ctrl+x"
         })
       },
     }))
@@ -130,7 +151,7 @@ describe("instance configuration", () => {
       nested: { value: "declared" },
       items: ["declared"],
     })
-    expect(tui).toEqual({ keybinds: { app_exit: "ctrl+q" } })
+    expect(tui).toEqual({ keybinds: { "app.exit": "ctrl+q" } })
   })
 
   test("interrupts setup with project preparation", async () => {
