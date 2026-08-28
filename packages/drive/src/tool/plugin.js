@@ -87,8 +87,11 @@ const notifyWhenDone = (ctx, options, sessionID, shellID) =>
 
 const execute = (ctx, scope, options, name, input, context) =>
   Effect.gen(function* () {
+    // Fetch resolves at headers; its signal must outlive that Effect and cover
+    // the response body. Cancelling Bun's reader alone leaves the socket open.
+    const signal = yield* Effect.abortSignal
     const response = yield* Effect.tryPromise({
-      try: (signal) =>
+      try: () =>
         fetch(`${options.endpoint}/execute/${name}`, {
           method: "POST",
           headers: {
@@ -147,7 +150,7 @@ const execute = (ctx, scope, options, name, input, context) =>
         }),
       (reader) => Effect.promise(() => reader.cancel().catch(() => undefined)),
     )
-  })
+  }).pipe(Effect.scoped)
 
 export default {
   id: "opencode-drive.tool-handlers",
