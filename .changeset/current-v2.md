@@ -2,11 +2,11 @@
 "opencode-drive": major
 ---
 
-Update Drive to the current OpenCode V2 client (`0.0.0-dev-18516`) and its
-matching Effect V4 stack (`4.0.0-rc.111`). Effect is now an exact peer dependency
+Update Drive to the current OpenCode V2 client (`0.0.0-dev-18535`) and its
+matching Effect V4 stack (`4.0.0-rc.112`). Effect is now an exact peer dependency
 so consumer programs and Drive share the same Effect types and runtime.
-Effect `rc.112` is available, but the current V2 client, protocol, and schema
-packages still require `rc.111`.
+The client, protocol, schema, platform, and test packages use the same
+coherent `rc.112` stack.
 
 Migrate schema-backed errors and RPC JSON codecs, and preserve optional CLI
 boolean flags with explicit false defaults. Static tool adapters now emit
