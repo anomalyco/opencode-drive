@@ -9,10 +9,10 @@ This project gives your agents control over OpenCode:
 
 OpenCode Drive requires [Bun](https://bun.sh/) 1.3.14 or newer. MP4 recording export also requires `ffmpeg` on `PATH`.
 
-Effect programs must use `effect@4.0.0-rc.111`, Drive's exact peer dependency.
+Effect programs must use `effect@4.0.0-rc.112`, Drive's exact peer dependency.
 The platform and test packages use the same release as the current V2 client,
-`@opencode-ai/client@0.0.0-dev-18516`. Effect's `latest` tag still selects V3;
-`rc.112` is newer but does not satisfy this client's exact Effect requirement.
+`@opencode-ai/client@0.0.0-dev-18535` and its matching protocol and schema
+packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
 
 Install dependencies with:
 

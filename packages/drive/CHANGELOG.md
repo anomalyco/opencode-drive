@@ -1,5 +1,43 @@
 # opencode-drive
 
+## 2.0.0
+
+### Major Changes
+
+- 04013ce: Update Drive to the current OpenCode V2 client (`0.0.0-dev-18535`) and its
+  matching Effect V4 stack (`4.0.0-rc.112`). Effect is now an exact peer dependency
+  so consumer programs and Drive share the same Effect types and runtime.
+  The client, protocol, schema, platform, and test packages use the same
+  coherent `rc.112` stack.
+
+  Migrate schema-backed errors and RPC JSON codecs, and preserve optional CLI
+  boolean flags with explicit false defaults. Static tool adapters now emit
+  native V2 progress metadata, result metadata, and `Tool.Error` failures.
+
+  Dynamic tool controls follow the current V2 protocol: change
+  `invocation.progress({ structured: { phase: "searching" } })` to
+  `invocation.progress({ phase: "searching" })`, and read the model call ID from
+  `invocation.context.id` instead of `invocation.context.callID`.
+  `finish({ structured, content })` and LLM queue/send/serve/title sequencing,
+  cancellation, reconnection, supervision, and settlement retain their contracts.
+
+### Minor Changes
+
+- 6e16c14: Add an opt-in KeyCastr-style overlay for semantic key presses in screenshots and recording exports.
+- b02239e: Add a controllable chaos network proxy between launched TUIs and the OpenCode server, plus configurable simulated-LLM timeouts.
+
+  Enabling the new `network` option (on `defineScript`, driver options, and instance options) routes every launched TUI through a chaos TCP proxy: TUIs connect with an explicit `--server` pinned to the proxy and authenticate through the registered service password, so reconnects always cross the proxy, the TUI never elects a replacement server, and the drive control plane plus the driver's SDK client stay unaffected. Scripts and drivers control conditions through the new `network` capability: `set({ latencyMs, jitterMs, refuseNew, blackhole })` (replace-whole-state semantics), `clear()`, `killConnections()`, and `connections()`. The proxy resolves its upstream lazily from the service registration, so it follows server restarts that change ports.
+
+  The new `llm` option (`requestTimeout`, `settlementTimeout`) surfaces the existing LLM controller timeouts for scenarios that intentionally hold responses open longer than the 30s defaults.
+
+- 56c42f5: Annotated recording exports. `tui.recording.mark(label)` labels the current instant during a recorded run; marks become a burned-in footer in the exported video (segment label bottom-left, elapsed timecode and "drive" branding bottom-right). `exportRecording` gains `footer`, `annotations`, and `clips` options — clips trim, re-speed (`speed`), and freeze (`holdMs`) segments of the raw timeline, concatenated in order. `SampledFrame` now carries `sourceAtMs` (raw timeline time before trim/rebase) alongside the exported `atMs`.
+- b7ddb73: Split wait deadlines from control-plane timeouts. `ui.waitFor`, `ui.getElement`, and `ui.getNode` now fail with the new catchable `UiWaitTimeoutError` when their deadline passes, so scripts can branch on "did X appear in time?" (for example with `Effect.catchTag("UiWaitTimeoutError", ...)`). `UiTimeoutError` is reserved for unanswered UI RPCs — an unresponsive control plane — and remains fatal to script runs even when caught.
+
+### Patch Changes
+
+- 97d65df: A served or queued LLM response whose backend detaches mid-stream (for example `server.kill()` while a reply is streaming) is now abandoned instead of recorded as a controller failure. Previously the interrupt-only cause poisoned the run with a phantom `LlmControllerError: All fibers interrupted without error`, making restart scenarios impossible to script.
+- c591d43: Fix two controlled-tool transport defects: `/execute` requests are exempt from Bun's idle timeout (a silent controlled tool no longer has its transport killed at the 255s ceiling), and plugin tool results no longer carry an `output` value, which opencode's tool runtime rejects for tools that declare no output schema.
+
 ## 1.4.5
 
 ### Patch Changes
