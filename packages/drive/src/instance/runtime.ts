@@ -45,9 +45,8 @@ export interface Options {
   readonly viewport?: Viewport
   readonly env?: Readonly<Record<string, string>>
   /**
-   * Routes every launched TUI through a chaos network proxy. TUIs connect
-   * with an explicit `--server` pointing at the proxy instead of managed
-   * service discovery.
+   * Routes scripted TUIs through a chaos network proxy instead of connecting
+   * directly to the script-owned server.
    */
   readonly network?: boolean
   readonly project?: Project
@@ -130,6 +129,8 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
     ui: `ws://127.0.0.1:${yield* freePort}`,
     backend: `ws://127.0.0.1:${yield* freePort}`,
   }
+  // Retained TUIs and SDK clients keep their endpoint across server generations.
+  const serverPort = options.scripted ? yield* freePort : undefined
   const toolController = configuredTools ?? (yield* ToolController.make(options.tools))
   const database = yield* Config.string("OPENCODE_DRIVE_DB").pipe(
     Config.withDefault(":memory:"),
@@ -307,7 +308,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           "serve",
           dev?.serviceFlag ?? "--service",
           "--port",
-          String(yield* freePort),
+          String(serverPort),
         ]
         yield* writeManifest(name, {
           ui: `ws://127.0.0.1:${yield* freePort}`,
@@ -422,23 +423,18 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
           recording,
           tuiOptions.viewport ?? options.viewport,
         )
-        // With the chaos proxy, TUIs pin to the proxy URL: reconnects always
-        // cross the proxy and the TUI never elects a replacement server. The
-        // registered password rides OPENCODE_PASSWORD because explicit
-        // --server connections skip registration-based credentials.
-        const registration = network === undefined
-          ? undefined
-          : yield* awaitRegistration
-        const tuiCommand = network === undefined
-          ? scriptedCommand
-          : [...scriptedCommand, "--server", network.url]
+        // Scripts own server replacement. Managed TUI discovery would elect a
+        // competing server during an outage. Explicit connections also need
+        // the registered credential, which remains valid across generations.
+        const registration = yield* awaitRegistration
+        const tuiCommand = [...scriptedCommand, "--server", network?.url ?? registration.url]
         options.log?.(`launching TUI ${name}`)
         const tui = yield* spawn(
           driveName,
           tuiCommand,
           `tui-${name}`,
           options.visible ?? false,
-          registration?.password === undefined
+          registration.password === undefined
             ? undefined
             : { OPENCODE_PASSWORD: registration.password },
         )
