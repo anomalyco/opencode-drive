@@ -33,7 +33,7 @@ export interface Responder {
   ) => Effect.Effect<void, LlmControllerError>
 }
 
-class InvocationTerminated extends Schema.TaggedErrorClass<InvocationTerminated>()(
+class InvocationTerminated extends Schema.TaggedError<InvocationTerminated>()(
   "InvocationTerminated",
   {},
 ) {}

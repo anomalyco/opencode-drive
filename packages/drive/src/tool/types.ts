@@ -72,7 +72,7 @@ export const WriteResult = Schema.Struct({
 })
 export interface WriteResult extends Schema.Schema.Type<typeof WriteResult> {}
 
-export class Failure extends Schema.TaggedErrorClass<Failure>()(
+export class Failure extends Schema.TaggedError<Failure>()(
   "OpenCodeDrive.ToolFailure",
   { message: Schema.String },
 ) {}
@@ -81,7 +81,7 @@ export const Name = Schema.Literals(["shell", "webfetch", "websearch", "write"])
 export type Name = typeof Name.Type
 export const Names = Schema.Array(Name)
 
-export class ControlError extends Schema.TaggedErrorClass<ControlError>()(
+export class ControlError extends Schema.TaggedError<ControlError>()(
   "OpenCodeDrive.ToolControlError",
   {
     operation: Schema.Literals(["control", "take", "progress", "succeed", "fail"]),
@@ -172,7 +172,7 @@ export type Progress = Backend.ToolProgress
 export type Output = Backend.ToolOutput
 export type Cancellation = Backend.ToolCancellation
 
-export class LifecycleError extends Schema.TaggedErrorClass<LifecycleError>()(
+export class LifecycleError extends Schema.TaggedError<LifecycleError>()(
   "OpenCodeDrive.ToolLifecycleError",
   {
     operation: Schema.Literals(["attach", "take", "progress", "finish", "fail"]),

@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-export class OpenCodeDriverError extends Schema.TaggedErrorClass<OpenCodeDriverError>()(
+export class OpenCodeDriverError extends Schema.TaggedError<OpenCodeDriverError>()(
   "OpenCodeDriverError",
   {
     operation: Schema.String,

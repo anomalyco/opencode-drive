@@ -274,8 +274,8 @@ yield* tools.attach({
 
 const invocation = yield* tools.take("call_lookup")
 yield* invocation.progress({
-  structured: { phase: "searching" },
-  content: [{ type: "text", text: "Searching" }],
+  phase: "searching",
+  output: "Searching",
 })
 yield* invocation.finish({
   structured: { answer: 42 },
@@ -283,7 +283,7 @@ yield* invocation.finish({
 })
 ```
 
-`take(callID)` matches `context.callID`, the model call ID supplied to
+`take(callID)` matches `context.id`, the model call ID supplied to
 `Llm.toolCall`; `invocation.id` is the producer's transport identity. Drive
 deduplicates invocation replay after a controller reconnect and retries
 progress or terminal operations with the same producer identity and progress

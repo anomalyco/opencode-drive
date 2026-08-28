@@ -10,7 +10,7 @@ const descriptions = {
   write: "Writes a file to the local filesystem, overwriting if one exists.",
 }
 
-class ToolFailure extends Schema.TaggedErrorClass()("LLM.ToolFailure", {
+class ToolFailure extends Schema.TaggedError()("Tool.Error", {
   message: Schema.String,
 }) {}
 
@@ -23,11 +23,7 @@ const content = (result) => [
 // `output` value: opencode's tool runtime dies on undeclared structured output.
 const output = (result) => ({
   content: content(result),
-})
-
-const progress = (result) => ({
-  structured: result,
-  content: content(result),
+  metadata: result,
 })
 
 const failure = (cause) =>
@@ -134,7 +130,7 @@ const execute = (ctx, scope, options, name, input, context) =>
               buffer = buffer.slice(newline + 1)
               if (!line) continue
               const event = yield* parse(line)
-              if (event.type === "progress") yield* context.progress(progress(event.result))
+              if (event.type === "progress") yield* context.progress(event.result)
               if (event.type === "success") result = event.result
               if (event.type === "failure")
                 return yield* new ToolFailure({ message: event.message })

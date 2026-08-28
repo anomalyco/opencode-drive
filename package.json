@@ -20,5 +20,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0"
+  },
+  "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.111"
   }
 }

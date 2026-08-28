@@ -106,6 +106,7 @@ const startCommand = Command.make(
   {
     name: startName,
     daemon: Flag.boolean("daemon").pipe(
+      Flag.withDefault(false),
       Flag.withHidden,
       Flag.withDescription("Run as detached instance owner"),
     ),
@@ -113,11 +114,16 @@ const startCommand = Command.make(
       Flag.optional,
       Flag.withDescription("JavaScript or TypeScript automation module"),
     ),
-    visible: Flag.boolean("visible").pipe(Flag.withDescription("Show OpenCode in the terminal")),
+    visible: Flag.boolean("visible").pipe(
+      Flag.withDefault(false),
+      Flag.withDescription("Show OpenCode in the terminal"),
+    ),
     record: Flag.boolean("record").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Record the complete headless session and export it on stop"),
     ),
     keypressOverlay: Flag.boolean("keypress-overlay").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Show recent key presses in screenshots and recordings"),
     ),
     dev: Flag.string("dev").pipe(
@@ -185,6 +191,7 @@ const pruneCommand = Command.make(
   {
     name: pruneName,
     force: Flag.boolean("force").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Delete all matching artifact directories, including active ones"),
     ),
   },

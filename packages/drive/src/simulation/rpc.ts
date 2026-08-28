@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema"
 import { Rpc, RpcClientError, RpcGroup } from "effect/unstable/rpc"
 import { Backend, Frontend, Handshake } from "./protocol.js"
 
-export class SimulationRequestError extends Schema.TaggedErrorClass<SimulationRequestError>()(
+export class SimulationRequestError extends Schema.TaggedError<SimulationRequestError>()(
   "SimulationRequestError",
   {
     method: Schema.String,

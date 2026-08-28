@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import { Deferred, Effect } from "effect"
+import { Deferred, Effect, Schema } from "effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Scope from "effect/Scope"
@@ -12,9 +12,13 @@ interface RegisteredTool {
   readonly name: string
   readonly execute: (
     input: unknown,
-    context: { readonly sessionID: string; readonly id: string },
+    context: {
+      readonly sessionID: string
+      readonly id: string
+      readonly progress?: (update: Readonly<Record<string, unknown>>) => Effect.Effect<void>
+    },
   ) => Effect.Effect<{
-    readonly structured: unknown
+    readonly metadata?: Readonly<Record<string, unknown>>
     readonly content: ReadonlyArray<{ readonly type: string; readonly text: string }>
   }, unknown>
 }
@@ -705,6 +709,11 @@ it.effect("notifies OpenCode when a registered background shell completes", () =
       // No `output` value: drive tools declare no output schema, and opencode's
       // tool runtime rejects undeclared structured output.
       expect(started).toEqual({
+        metadata: {
+          output: "The command was moved to the background.",
+          shellID: "call_plugin",
+          status: "running",
+        },
         content: [
           { type: "text", text: "The command was moved to the background." },
           {
@@ -900,4 +909,44 @@ it.effect("interrupts a handler with its plugin execution", () =>
       yield* Effect.promise(() => interrupted.promise)
     }),
   ),
+)
+
+it.live("uses native V2 tool progress, result metadata, and failure tags", () =>
+  Effect.gen(function* () {
+    const controller = yield* ToolController.make((tools) => {
+      tools.handle("shell", ({ input, progress }) => Effect.gen(function* () {
+        yield* progress("working")
+        if (input.command === "fail") return yield* new Failure({ message: "controlled failure" })
+        return { output: "done", exit: 7 }
+      }))
+    })
+    const config: OpenCodeConfig = {}
+    controller.configure(config)
+    const injected = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ options: Schema.Unknown })))(config.plugins)[0]
+    const registered: RegisteredTool[] = []
+    yield* plugin.effect({
+      options: injected?.options,
+      tool: {
+        transform: (register: (tools: { add: (tool: RegisteredTool) => void }) => void) =>
+          Effect.sync(() => register({ add: (tool) => registered.push(tool) })),
+      },
+    })
+    const shell = registered.find((tool) => tool.name === "shell")
+    if (shell === undefined) return yield* Effect.dieMessage("shell tool was not registered")
+    const updates: Readonly<Record<string, unknown>>[] = []
+    const context = {
+      sessionID: "ses_plugin",
+      id: "call_plugin",
+      progress: (update: Readonly<Record<string, unknown>>) => Effect.sync(() => { updates.push(update) }),
+    }
+    expect(yield* shell.execute({ command: "succeed" }, context)).toEqual({
+      content: [{ type: "text", text: "done" }],
+      metadata: { output: "done", exit: 7 },
+    })
+    expect(yield* shell.execute({ command: "fail" }, context).pipe(Effect.flip)).toMatchObject({
+      _tag: "Tool.Error",
+      message: "controlled failure",
+    })
+    expect(updates).toEqual([{ output: "working" }, { output: "working" }])
+  }),
 )

@@ -273,6 +273,7 @@ export const make = Effect.fn("OpenCodeRpcProtocol.make")(function* (
         send,
         supportsAck: false,
         supportsTransferables: false,
+        codecFor: Schema.toCodecJson,
       }
     }),
   )

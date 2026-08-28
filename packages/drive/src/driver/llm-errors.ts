@@ -3,7 +3,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 /** Rejection of an LLM control call made in an incompatible response mode. */
-export class LlmModeError extends Schema.TaggedErrorClass<LlmModeError>()(
+export class LlmModeError extends Schema.TaggedError<LlmModeError>()(
   "LlmModeError",
   {
     operation: Schema.Literals(["queue", "send", "serve", "title"]),
@@ -12,7 +12,7 @@ export class LlmModeError extends Schema.TaggedErrorClass<LlmModeError>()(
 ) {}
 
 /** Failure of an LLM controller operation or its backend connection. */
-export class LlmControllerError extends Schema.TaggedErrorClass<LlmControllerError>()(
+export class LlmControllerError extends Schema.TaggedError<LlmControllerError>()(
   "LlmControllerError",
   {
     operation: Schema.String,
@@ -22,7 +22,7 @@ export class LlmControllerError extends Schema.TaggedErrorClass<LlmControllerErr
 ) {}
 
 /** Settlement ended with unused responses or unexpected requests. */
-export class LlmSettlementError extends Schema.TaggedErrorClass<LlmSettlementError>()(
+export class LlmSettlementError extends Schema.TaggedError<LlmSettlementError>()(
   "LlmSettlementError",
   {
     unusedResponses: Schema.Number,

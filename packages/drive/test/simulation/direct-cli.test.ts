@@ -95,7 +95,7 @@ test.sequential("CLI drives an externally owned OpenCode endpoint on the default
     ])
     expect(invalidAlt.status).toBe(1)
     expect(invalidAlt.stderr).toContain("alt")
-    expect(invalidAlt.stderr).toContain("Unexpected key with value true")
+    expect(invalidAlt.stderr).toContain("Expected no excess property")
 
     expect(requests).toEqual([
       { jsonrpc: "2.0", id: 1, method: "ui.state" },

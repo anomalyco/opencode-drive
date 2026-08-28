@@ -17,7 +17,7 @@ import {
 } from "./protocol.js"
 import { BackendRpcs, SimulationRequestError, UiRpcs } from "./rpc.js"
 
-export class SimulationConnectionError extends Schema.TaggedErrorClass<SimulationConnectionError>()(
+export class SimulationConnectionError extends Schema.TaggedError<SimulationConnectionError>()(
   "SimulationConnectionError",
   {
     endpoint: Schema.String,
@@ -26,7 +26,7 @@ export class SimulationConnectionError extends Schema.TaggedErrorClass<Simulatio
   },
 ) {}
 
-export class SimulationCompatibilityError extends Schema.TaggedErrorClass<SimulationCompatibilityError>()(
+export class SimulationCompatibilityError extends Schema.TaggedError<SimulationCompatibilityError>()(
   "SimulationCompatibilityError",
   {
     endpoint: Schema.String,
@@ -35,7 +35,7 @@ export class SimulationCompatibilityError extends Schema.TaggedErrorClass<Simula
   },
 ) {}
 
-export class SimulationEventStreamError extends Schema.TaggedErrorClass<SimulationEventStreamError>()(
+export class SimulationEventStreamError extends Schema.TaggedError<SimulationEventStreamError>()(
   "SimulationEventStreamError",
   {
     endpoint: Schema.String,

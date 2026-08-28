@@ -23,13 +23,24 @@ export namespace JsonRpc {
     data: Schema.optional(Schema.Json),
   })
 
-  export const Response = Schema.Struct({
-    jsonrpc: Schema.Literal("2.0"),
-    id: JsonRpcID,
-    result: Schema.optional(Schema.Json),
-    error: Schema.optional(ErrorObject),
-  })
-  export interface Response extends Schema.Schema.Type<typeof Response> {}
+  export const Response = Schema.Union(
+    [
+      Schema.Struct({
+        jsonrpc: Schema.Literal("2.0"),
+        id: JsonRpcID,
+        result: Schema.Json,
+        error: Schema.optionalKey(Schema.Never),
+      }),
+      Schema.Struct({
+        jsonrpc: Schema.Literal("2.0"),
+        id: JsonRpcID,
+        result: Schema.optionalKey(Schema.Never),
+        error: ErrorObject,
+      }),
+    ],
+    { mode: "oneOf" },
+  )
+  export type Response = Schema.Schema.Type<typeof Response>
 
   export const decodeRequest = Schema.decodeUnknownSync(Request)
 
@@ -84,7 +95,7 @@ export namespace Handshake {
     protocolVersion: ProtocolVersion,
     role: EndpointRole,
     server: Identity,
-    capabilities: Schema.Array(Capability),
+    capabilities: Schema.Array(Capability).check(Schema.isUnique()),
   })
   export interface Response extends Schema.Schema.Type<typeof Response> {}
 
@@ -475,10 +486,7 @@ export namespace Backend {
       : `${registration.options.namespace.replaceAll(".", "_")}_${registration.name}`
   }
 
-  export const ToolProgress = Schema.Struct({
-    structured: Schema.Record(Schema.String, Schema.Json),
-    content: Schema.optionalKey(Schema.Array(ToolContent)),
-  })
+  export const ToolProgress = Schema.Record(Schema.String, Schema.Json)
   export interface ToolProgress extends Schema.Schema.Type<typeof ToolProgress> {}
 
   export const ToolOutput = Schema.Struct({
@@ -514,7 +522,7 @@ export namespace Backend {
       sessionID: Schema.String,
       agent: Schema.String,
       messageID: Schema.String,
-      callID: Schema.String,
+      id: Schema.String,
     }),
   })
   export interface ToolInvocation extends Schema.Schema.Type<typeof ToolInvocation> {}

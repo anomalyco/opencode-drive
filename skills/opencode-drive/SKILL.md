@@ -282,7 +282,7 @@ yield* tools.attach({
 })
 
 const lookup = yield* tools.take("call_lookup")
-yield* lookup.progress({ structured: { phase: "searching" } })
+yield* lookup.progress({ phase: "searching" })
 yield* lookup.finish({
   structured: { answer: 42 },
   content: [{ type: "text", text: "42" }],

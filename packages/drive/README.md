@@ -9,6 +9,11 @@ This project gives your agents control over OpenCode:
 
 OpenCode Drive requires [Bun](https://bun.sh/) 1.3.14 or newer. MP4 recording export also requires `ffmpeg` on `PATH`.
 
+Effect programs must use `effect@4.0.0-rc.111`, Drive's exact peer dependency.
+The platform and test packages use the same release as the current V2 client,
+`@opencode-ai/client@0.0.0-dev-18516`. Effect's `latest` tag still selects V3;
+`rc.112` is newer but does not satisfy this client's exact Effect requirement.
+
 Install dependencies with:
 
 ```sh
@@ -345,8 +350,8 @@ export default OpenCodeDriver.use(({ tools, llm, ui }) =>
 
     const lookup = yield* tools.take("call_lookup")
     yield* lookup.progress({
-      structured: { phase: "searching" },
-      content: [{ type: "text", text: "Searching" }],
+      phase: "searching",
+      output: "Searching",
     })
     yield* lookup.finish({
       structured: { answer: 42 },
@@ -361,6 +366,11 @@ rerunning a claimed call. `awaitCancelled()` completes when OpenCode interrupts
 the native invocation before `finish` or `fail`. Dynamic registrations survive
 the tool-only controller reconnecting; an intentional server generation change
 cancels unresolved calls and reapplies the desired set after launch.
+
+Dynamic tool progress follows the current V2 protocol: pass a JSON metadata
+record directly, not a `{ structured, content }` wrapper. The model call ID is
+`lookup.context.id`; `lookup.id` remains the producer invocation ID. Terminal
+`finish({ structured, content })` is unchanged.
 
 Declare which built-in tools Drive should intercept with `tools`, then control
 their invocations inside `run`. Each tool controller accepts calls in arrival
