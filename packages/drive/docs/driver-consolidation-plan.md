@@ -16,7 +16,7 @@ Phases 0 through 5 are complete. The consolidated Effect lifecycle, typed OpenCo
 - Script cancellation is Effect interruption and runs scoped finalizers.
 - Manual scripts retain server kill/relaunch and named multi-TUI behavior.
 - CLI `--command.ui.*` names and payloads remain identical to OpenCode's canonical frontend protocol.
-- OpenCode configuration is expressed through normal `opencode.jsonc` and `tui.jsonc` files, not Drive-specific runtime flags.
+- OpenCode configuration is expressed through normal `opencode.jsonc` and V2 `cli.json` files, not Drive-specific runtime flags.
 - Backend simulation control remains in programs, not CLI commands.
 - Every process, socket, worker, timeline, and temporary project has one lifecycle owner.
 - Protocol compatibility is reported truthfully; legacy fallback is never described as negotiated compatibility.
@@ -36,7 +36,7 @@ Phases 0 through 5 are complete. The consolidated Effect lifecycle, typed OpenCo
 3. Expose mutable `config` and `tui` objects to `setup`.
 4. Deep-merge declared configuration over project fixture files, with arrays replacing and setup mutations taking final precedence.
 5. Parse existing JSONC rather than assuming strict JSON.
-6. Write normalized `.opencode/opencode.jsonc` and `.opencode/tui.jsonc` before creating the optional Git baseline.
+6. Write normalized `.opencode/opencode.jsonc` and `.opencode/cli.json` before creating the optional Git baseline.
 7. Verify the same behavior through Effect scripts and the Effect driver.
 
 ## Phase 2: Effect Program Runner (Completed)

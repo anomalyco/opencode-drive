@@ -199,7 +199,7 @@ OpenCodeTuiConfig
 Configuration is applied in this order:
 
 1. Write declared project files.
-2. Read fixture `opencode.jsonc` and `tui.jsonc` values.
+2. Read fixture `opencode.jsonc` and V2 `cli.json` values from the isolated config directory.
 3. Deep-merge `config` and `tuiConfig`; arrays replace existing arrays.
 4. Run Effect-only `setup`, which may mutate both merged objects.
 5. Write normalized JSON and optionally commit the Git baseline.
