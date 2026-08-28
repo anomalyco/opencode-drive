@@ -159,7 +159,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
   }
 
   const deliver = (record: Active) => {
-    const callID = record.call.context.callID
+    const callID = record.call.context.id
     const exact = waiters.findIndex((waiter) => waiter.callID === callID)
     const index =
       exact >= 0
@@ -284,9 +284,9 @@ export const make = Effect.fn("ToolProducer.make")(function* (
           operation,
           record.state === "settled" ? "already-settled" : "cancelled",
           record.state === "settled"
-            ? `dynamic tool call ${record.call.context.callID} is settled`
-            : `dynamic tool call ${record.call.context.callID} was cancelled`,
-          record.call.context.callID,
+            ? `dynamic tool call ${record.call.context.id} is settled`
+            : `dynamic tool call ${record.call.context.id} was cancelled`,
+          record.call.context.id,
         )
 
   const operate = <A>(
@@ -306,8 +306,8 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 lifecycleError(
                   operation,
                   "cancelled",
-                  `dynamic tool call ${record.call.context.callID} was cancelled`,
-                  record.call.context.callID,
+                  `dynamic tool call ${record.call.context.id} was cancelled`,
+                  record.call.context.id,
                 ),
               ),
             ),
@@ -357,11 +357,11 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 "progress",
                 "rejected",
                 error.message,
-                invocation.context.callID,
+                invocation.context.id,
               ),
             ),
             Effect.flatMap((decoded) =>
-              request("progress", invocation.context.callID, (backend) =>
+              request("progress", invocation.context.id, (backend) =>
                 backend.updateTool({
                   id: invocation.id,
                   sequence: record.sequence,
@@ -386,11 +386,11 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 "finish",
                 "rejected",
                 error.message,
-                invocation.context.callID,
+                invocation.context.id,
               ),
             ),
             Effect.flatMap((decoded) =>
-              request("finish", invocation.context.callID, (backend) =>
+              request("finish", invocation.context.id, (backend) =>
                 backend.finishTool({ id: invocation.id, output: decoded }),
               ),
             ),
@@ -406,11 +406,11 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 "fail",
                 "rejected",
                 error.message,
-                invocation.context.callID,
+                invocation.context.id,
               ),
             ),
             Effect.flatMap((decoded) =>
-              request("fail", invocation.context.callID, (backend) =>
+              request("fail", invocation.context.id, (backend) =>
                 backend.failTool({ id: invocation.id, message: decoded }),
               ),
             ),
@@ -442,7 +442,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 "take",
                 "rejected",
                 `dynamic tool invocation ${invocation.id} was replayed with different input`,
-                invocation.context.callID,
+                invocation.context.id,
               ),
             )
           return
@@ -455,7 +455,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
                 "take",
                 "rejected",
                 `dynamic tool invocation ${invocation.id} was reused with different input`,
-                invocation.context.callID,
+                invocation.context.id,
               ),
             )
           return
@@ -738,7 +738,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
             callID !== undefined &&
             (Array.from(records.values()).some(
               (record) =>
-                record.call.context.callID === callID && record.claimed,
+                record.call.context.id === callID && record.claimed,
             ) ||
               waiters.some((waiter) => waiter.callID === callID))
           ) {
@@ -758,7 +758,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
             (candidate) =>
               !candidate.claimed &&
               (callID === undefined ||
-                candidate.call.context.callID === callID),
+                candidate.call.context.id === callID),
           )
           if (record !== undefined) {
             record.claimed = true

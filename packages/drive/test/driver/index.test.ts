@@ -305,11 +305,11 @@ it.live("controls arbitrary provider-backed tools through the runtime lifecycle"
           expect(call).toMatchObject({
             name: "lookup",
             input: { query: "meaning" },
-            context: { sessionID: "ses_dynamic", callID: "call_lookup" },
+            context: { sessionID: "ses_dynamic", id: "call_lookup" },
           })
           yield* call.progress({
-            structured: { phase: "searching" },
-            content: [{ type: "text", text: "Searching" }],
+            phase: "searching",
+            output: "Searching",
           })
           yield* call.finish({
             structured: { answer: 42 },
@@ -333,8 +333,8 @@ it.live("controls arbitrary provider-backed tools through the runtime lifecycle"
           id: "tool_1",
           sequence: 0,
           update: {
-            structured: { phase: "searching" },
-            content: [{ type: "text", text: "Searching" }],
+            phase: "searching",
+            output: "Searching",
           },
         },
       },

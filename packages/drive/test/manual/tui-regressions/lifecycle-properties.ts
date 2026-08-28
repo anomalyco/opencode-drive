@@ -164,14 +164,14 @@ export default defineScript({
       ) {
         const [messages, pending] = yield* Effect.all([
           opencode.message.list({ sessionID, limit: 20, order: "desc" }),
-          opencode.session.pending.list({ sessionID }),
+          opencode.session.inbox.list({ sessionID }),
         ], { concurrency: "unbounded" })
         return {
           projected: messages.data.filter(
             (message) => message.type === "user" && message.text === prompt,
           ).length,
           pending: pending.filter(
-            (input) => input.type === "user" && input.data.text === prompt,
+            (input) => input.type === "user" && input.payload.text === prompt,
           ).length,
         }
       })
@@ -590,7 +590,7 @@ export default defineScript({
                 : Effect.gen(function* () {
                     const sessionID = state.sessionID
                     if (sessionID === undefined) return
-                    const pending = yield* opencode.session.pending.list({ sessionID })
+                    const pending = yield* opencode.session.inbox.list({ sessionID })
                     if (pending.length === 0) return
                     return yield* Effect.fail(new Error(`settled session retained ${pending.length} pending input(s)`))
                   }),

@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-export class OpenCodeInstanceError extends Schema.TaggedErrorClass<OpenCodeInstanceError>()(
+export class OpenCodeInstanceError extends Schema.TaggedError<OpenCodeInstanceError>()(
   "OpenCodeInstanceError",
   {
     operation: Schema.String,

@@ -17,7 +17,7 @@ export interface OpenCodeConfig extends JsonObject {}
 /** OpenCode's semantic TUI configuration, written to tui.jsonc. */
 export interface OpenCodeTuiConfig extends JsonObject {}
 
-export class FileSystemError extends Schema.TaggedErrorClass<FileSystemError>()(
+export class FileSystemError extends Schema.TaggedError<FileSystemError>()(
   "FileSystemError",
   {
     path: Schema.String,

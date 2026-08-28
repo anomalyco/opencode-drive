@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest"
-import { Backend } from "../../src/simulation/protocol.js"
+import { Schema } from "effect"
+import { Backend, Handshake, JsonRpc } from "../../src/simulation/protocol.js"
 
 it("decodes the canonical dynamic tool lifecycle", () => {
   expect(
@@ -30,12 +31,31 @@ it("decodes the canonical dynamic tool lifecycle", () => {
         id: "tool_1",
         sequence: 0,
         update: {
-          structured: { phase: "searching" },
-          content: [{ type: "text", text: "Searching" }],
+          phase: "searching",
+          output: "Searching",
         },
       },
     }),
   ).toMatchObject({ method: "tool.update" })
+})
+
+it("requires exactly one JSON-RPC result or error", () => {
+  const decode = Schema.decodeUnknownSync(JsonRpc.Response)
+  const response = { jsonrpc: "2.0", id: 1 }
+  const error = { code: -32000, message: "failed" }
+  expect(decode({ ...response, result: null })).toEqual({ ...response, result: null })
+  expect(decode({ ...response, error })).toEqual({ ...response, error })
+  expect(() => decode(response)).toThrow()
+  expect(() => decode({ ...response, result: null, error })).toThrow()
+})
+
+it("rejects duplicated negotiated capabilities", () => {
+  expect(() => Schema.decodeUnknownSync(Handshake.Response)({
+    protocolVersion: 1,
+    role: "backend",
+    server: { name: "OpenCode", version: "test" },
+    capabilities: ["llm.attach", "llm.attach"],
+  })).toThrow()
 })
 
 it("rejects unsafe, colliding, and reserved exposed names", () => {

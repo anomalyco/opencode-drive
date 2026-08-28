@@ -203,7 +203,7 @@ describe("OpenCode backend simulation transport", () => {
           sessionID: "ses_tools",
           agent: "build",
           messageID: "msg_tools",
-          callID: "call_lookup",
+          id: "call_lookup",
         },
       }
       const peer = startTransportPeer(({ request, socket }) => {
@@ -240,7 +240,7 @@ describe("OpenCode backend simulation transport", () => {
       yield* connection.updateTool({
         id: "tool_1",
         sequence: 0,
-        update: { structured: { phase: "searching" } },
+        update: { phase: "searching" },
       })
       yield* connection.finishTool({
         id: "tool_1",
@@ -269,7 +269,7 @@ describe("OpenCode backend simulation transport", () => {
           params: {
             id: "tool_1",
             sequence: 0,
-            update: { structured: { phase: "searching" } },
+            update: { phase: "searching" },
           },
         },
         {

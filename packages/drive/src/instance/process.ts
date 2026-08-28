@@ -10,7 +10,7 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
-export class ProcessError extends Schema.TaggedErrorClass<ProcessError>()(
+export class ProcessError extends Schema.TaggedError<ProcessError>()(
   "ProcessError",
   {
     operation: Schema.String,

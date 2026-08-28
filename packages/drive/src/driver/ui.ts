@@ -46,7 +46,7 @@ export type EffectPredicate<E> = (
  * A UI RPC did not answer within the request timeout: the control plane is
  * unresponsive. Script runs treat this as fatal.
  */
-export class UiTimeoutError extends Schema.TaggedErrorClass<UiTimeoutError>()(
+export class UiTimeoutError extends Schema.TaggedError<UiTimeoutError>()(
   "UiTimeoutError",
   {
     operation: Schema.String,
@@ -61,7 +61,7 @@ export class UiTimeoutError extends Schema.TaggedErrorClass<UiTimeoutError>()(
  * UI matching. The control plane stayed responsive; scripts may catch this to
  * branch on "did X appear in time?".
  */
-export class UiWaitTimeoutError extends Schema.TaggedErrorClass<UiWaitTimeoutError>()(
+export class UiWaitTimeoutError extends Schema.TaggedError<UiWaitTimeoutError>()(
   "UiWaitTimeoutError",
   {
     operation: Schema.String,
@@ -71,7 +71,7 @@ export class UiWaitTimeoutError extends Schema.TaggedErrorClass<UiWaitTimeoutErr
   },
 ) {}
 
-export class UiElementAmbiguousError extends Schema.TaggedErrorClass<UiElementAmbiguousError>()(
+export class UiElementAmbiguousError extends Schema.TaggedError<UiElementAmbiguousError>()(
   "UiElementAmbiguousError",
   {
     count: Schema.Number,
@@ -82,7 +82,7 @@ export class UiElementAmbiguousError extends Schema.TaggedErrorClass<UiElementAm
   }
 }
 
-export class UiNodeAmbiguousError extends Schema.TaggedErrorClass<UiNodeAmbiguousError>()(
+export class UiNodeAmbiguousError extends Schema.TaggedError<UiNodeAmbiguousError>()(
   "UiNodeAmbiguousError",
   {
     count: Schema.Number,
@@ -93,7 +93,7 @@ export class UiNodeAmbiguousError extends Schema.TaggedErrorClass<UiNodeAmbiguou
   }
 }
 
-export class UiCapabilityError extends Schema.TaggedErrorClass<UiCapabilityError>()(
+export class UiCapabilityError extends Schema.TaggedError<UiCapabilityError>()(
   "UiCapabilityError",
   {
     capability: Schema.Literals(["ui.snapshot", "ui.click.semantic"]),
@@ -101,7 +101,7 @@ export class UiCapabilityError extends Schema.TaggedErrorClass<UiCapabilityError
   },
 ) {}
 
-export class UiWaitOptionsError extends Schema.TaggedErrorClass<UiWaitOptionsError>()(
+export class UiWaitOptionsError extends Schema.TaggedError<UiWaitOptionsError>()(
   "UiWaitOptionsError",
   {
     field: Schema.Literals(["timeout", "interval"]),
@@ -110,7 +110,7 @@ export class UiWaitOptionsError extends Schema.TaggedErrorClass<UiWaitOptionsErr
   },
 ) {}
 
-export class UiPredicateError extends Schema.TaggedErrorClass<UiPredicateError>()(
+export class UiPredicateError extends Schema.TaggedError<UiPredicateError>()(
   "UiPredicateError",
   {
     cause: Schema.Defect(),
@@ -118,7 +118,7 @@ export class UiPredicateError extends Schema.TaggedErrorClass<UiPredicateError>(
   },
 ) {}
 
-export class UiScreenshotError extends Schema.TaggedErrorClass<UiScreenshotError>()(
+export class UiScreenshotError extends Schema.TaggedError<UiScreenshotError>()(
   "UiScreenshotError",
   {
     cause: Schema.Defect(),

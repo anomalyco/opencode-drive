@@ -30,7 +30,7 @@ const invocation = {
     sessionID: "ses_tools",
     agent: "build",
     messageID: "msg_tools",
-    callID: "call_lookup",
+    id: "call_lookup",
   },
 } as const
 
@@ -58,10 +58,10 @@ it.live("attaches, sequences progress, and settles one dynamic invocation", () =
 
       expect(call).toMatchObject(invocation)
       yield* call.progress({
-        structured: { phase: "searching" },
-        content: [{ type: "text", text: "Searching" }],
+        phase: "searching",
+        output: "Searching",
       })
-      yield* call.progress({ structured: { phase: "done" } })
+      yield* call.progress({ phase: "done" })
       yield* call.finish({
         structured: { answer: 42 },
         content: [{ type: "text", text: "42" }],
@@ -82,8 +82,8 @@ it.live("attaches, sequences progress, and settles one dynamic invocation", () =
             id: "tool_1",
             sequence: 0,
             update: {
-              structured: { phase: "searching" },
-              content: [{ type: "text", text: "Searching" }],
+              phase: "searching",
+              output: "Searching",
             },
           },
         },
@@ -94,7 +94,7 @@ it.live("attaches, sequences progress, and settles one dynamic invocation", () =
           params: {
             id: "tool_1",
             sequence: 1,
-            update: { structured: { phase: "done" } },
+            update: { phase: "done" },
           },
         },
         {
@@ -211,7 +211,7 @@ it.live("bounds retained unclaimed cancellations", () =>
         notify(socket, "tool.invocation", {
           ...invocation,
           id: `tool_${index}`,
-          context: { ...invocation.context, callID: `call_${index}` },
+          context: { ...invocation.context, id: `call_${index}` },
         })
         notify(socket, "tool.cancel", {
           id: `tool_${index}`,
@@ -251,7 +251,7 @@ it.live("settles concurrent invocations in controlled reverse order", () =>
         ...invocation,
         id: "tool_2",
         input: { query: "second" },
-        context: { ...invocation.context, callID: "call_second" },
+        context: { ...invocation.context, id: "call_second" },
       })
 
       const second = yield* controller.controls.take("call_second")
@@ -401,7 +401,7 @@ it.live("preserves a replacement intent when its acknowledgement is lost", () =>
         ...invocation,
         id: "tool_2",
         name: "search",
-        context: { ...invocation.context, callID: "call_search" },
+        context: { ...invocation.context, id: "call_search" },
       }
       const firstReplacement = yield* Deferred.make<void>()
       const peer = startTransportPeer(({ request, socket }) => {
@@ -1109,7 +1109,7 @@ it.live("drains a reconnect that finishes during settlement commit", () =>
       const staleInvocation = {
         ...invocation,
         id: "tool_stale",
-        context: { ...invocation.context, callID: "call_stale" },
+        context: { ...invocation.context, id: "call_stale" },
       }
       const peer = startTransportPeer(({ request, socket }) => {
         if (request.method === "tool.attach") {
@@ -1302,7 +1302,7 @@ it.live("retries in-flight progress after reconnect without advancing its sequen
       const call = yield* controller.controls.take("call_lookup")
 
       const progress = yield* call
-        .progress({ structured: { phase: "searching" } })
+        .progress({ phase: "searching" })
         .pipe(Effect.forkScoped)
       yield* Deferred.await(firstUpdate)
       yield* first.closed
@@ -1322,12 +1322,12 @@ it.live("retries in-flight progress after reconnect without advancing its sequen
         {
           id: "tool_1",
           sequence: 0,
-          update: { structured: { phase: "searching" } },
+          update: { phase: "searching" },
         },
         {
           id: "tool_1",
           sequence: 0,
-          update: { structured: { phase: "searching" } },
+          update: { phase: "searching" },
         },
       ])
       yield* secondAttachment.detach()
@@ -1360,7 +1360,7 @@ it.live("does not retry progress interrupted by its caller", () =>
       const call = yield* controller.controls.take("call_lookup")
 
       const progress = yield* call
-        .progress({ structured: { phase: "searching" } })
+        .progress({ phase: "searching" })
         .pipe(Effect.forkScoped)
       yield* Deferred.await(updateReceived)
       yield* Fiber.interrupt(progress)
@@ -1387,13 +1387,13 @@ it.live("rejects malformed progress without advancing its sequence", () =>
       notify(peer.received[0].socket, "tool.invocation", invocation)
       const call = yield* controller.controls.take("call_lookup")
 
-      const malformed = { structured: [] } as unknown as Progress
+      const malformed = [] as unknown as Progress
       expect(yield* call.progress(malformed).pipe(Effect.flip)).toMatchObject({
         operation: "progress",
         reason: "rejected",
         callID: "call_lookup",
       })
-      yield* call.progress({ structured: { phase: "valid" } })
+      yield* call.progress({ phase: "valid" })
       yield* call.fail("finished")
 
       expect(
@@ -1402,7 +1402,7 @@ it.live("rejects malformed progress without advancing its sequence", () =>
         {
           id: "tool_1",
           sequence: 0,
-          update: { structured: { phase: "valid" } },
+          update: { phase: "valid" },
         },
       ])
     }),
