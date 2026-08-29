@@ -270,14 +270,15 @@ generated script is ready for `opencode-drive check ./drive.ts` and
 `start --script ./drive.ts`.
 
 ```ts
-import { defineScript, Effect, Llm } from "opencode-drive"
+import { Effect } from "effect"
+import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
   config: {
     autoupdate: false,
   },
   tuiConfig: {
-    theme: "system",
+    theme: { name: "opencode", mode: "dark" },
   },
   project: {
     git: true,
@@ -288,7 +289,7 @@ export default defineScript({
   setup: ({ config, tuiConfig }) =>
     Effect.sync(() => {
       config.username = "Drive"
-      tuiConfig.scroll_speed = 1
+      tuiConfig.scroll = { speed: 1 }
     }),
   run: ({ ui, llm }) =>
     Effect.gen(function* () {
@@ -304,8 +305,19 @@ export default defineScript({
 pre-launch state, including files written in `setup`. A prepared repository is
 never replaced; omit `project.git` when an `init` step supplies Git history.
 Declared `config` and `tuiConfig` values are deeply merged over fixture
-`.opencode/opencode.jsonc` and `.opencode/tui.jsonc` files. Arrays replace
+`.opencode/opencode.jsonc` and `.opencode/cli.json` files. Arrays replace
 instead of merging, and mutations made in `setup` take final precedence.
+
+`tuiConfig` retains its public option name and contains current V2 CLI settings.
+Drive's isolated `OPENCODE_CONFIG_DIR` points to the fixture's `.opencode`
+directory, so `cli.json` is consumed as global terminal configuration without
+changing the installed client's files. Legacy `tui.jsonc` is not emitted.
+
+Scripted TUIs connect explicitly to Drive's owned server endpoint. The endpoint
+and existing registered credential remain usable across manual server restarts;
+the TUI does not elect a competing managed service during an outage. Network
+chaos routes this same explicit connection through the proxy. Non-scripted live
+launches keep their existing managed-service behavior.
 
 Attach arbitrary provider-backed tools at runtime with their JSON schemas, then
 take and settle native OpenCode invocations by model call ID. `attach` replaces

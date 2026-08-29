@@ -1,65 +1,98 @@
+import assert from "node:assert/strict"
 import { defineScript } from "../../../src/index.js"
 import { Effect } from "effect"
-import { admissions, appeared, serveMarkers } from "./support.js"
+import { latestSessionId, serveMarkers, settled } from "./support.js"
+import { saveFailure } from "./state-machine.js"
 
-// Classifies what happens to a prompt submitted while the TUI shows its
-// reconnect overlay during a network partition. Distinguishes:
-//   A. POST admitted (buffered by the partition, flushed on heal) — reply lands.
-//   B. POST rejected — prompt rolls back and its text is restored to the composer.
-//   C. Enter swallowed — no POST, text stays in the composer, nothing happens
-//      after heal until a second enter.
-// Note: a quiet blackhole alone does not raise the overlay; it needs a
-// dropped connection (killConnections) while traffic is pending.
-// (Result: B, and it is the honest path — the POST is rejected fast with a
-// "Failed to send prompt · Transport" toast and the text stays in the
-// composer through heal, awaiting a manual resend. The remaining issue is
-// the overlay copy: "Restarting service..." during a pure network fault.)
-//
-//   bun run --cwd packages/drive drive start --name tui-reconnect-modal-submit \
-//     --script test/manual/tui-regressions/reconnect-modal-submit.ts \
-//     --dev "$OPENCODE_DEV"
-
+// A refused connection cannot admit input. Rejection must preserve the draft,
+// and an explicit resend after healing must admit it exactly once.
 export default defineScript({
   network: true,
-  llm: { settlementTimeout: 120_000 },
-
-  run: ({ ui, llm, network, opencode }) =>
+  run: ({ ui, llm, network, opencode, artifacts }) =>
     Effect.gen(function* () {
-      const model = yield* serveMarkers(llm, { title: "Reconnect modal probe" })
+      const model = yield* serveMarkers(llm, { title: "Reconnect submission" })
       model.track("FIRST")
       model.track("SECOND")
+      const trace: string[] = []
+      const checkpoint = (name: string) => {
+        trace.push(name)
+        console.error(JSON.stringify({ checkpoint: name }))
+      }
+      yield* Effect.gen(function* () {
+        yield* ui.submit("FIRST probe")
+        yield* ui.waitFor("FIRST_DONE", { timeout: 20_000 })
+        const sessionID = yield* latestSessionId(opencode)
+        yield* opencode.session.wait({ sessionID })
+        const owners = Effect.all({
+          messages: opencode.message.list({ sessionID, limit: 100 }),
+          pending: opencode.session.inbox.list({ sessionID }),
+        }).pipe(
+          Effect.map((result) => ({
+            projected: result.messages.data.filter(
+              (message) => message.type === "user" && message.text === "SECOND probe",
+            ).length,
+            pending: result.pending.filter((item) => item.type === "user" && item.payload.text === "SECOND probe")
+              .length,
+          })),
+        )
 
-      // Establish the session on a healthy network.
-      yield* ui.submit("FIRST probe")
-      yield* ui.waitFor("FIRST_DONE", { timeout: 20_000 })
+        checkpoint("refuse-connections-and-show-overlay")
+        yield* network.set({ refuseNew: true })
+        assert((yield* network.killConnections()) > 0)
+        yield* ui.waitFor("Connection lost", { timeout: 10_000 })
+        yield* ui.screenshot("reconnect-overlay")
+        yield* ui.submit("SECOND probe")
+        yield* ui.waitFor("Transport", { timeout: 10_000 })
+        assert.deepEqual(yield* owners, { projected: 0, pending: 0 })
+        yield* ui.screenshot("reconnect-rejected")
 
-      // Drop every connection and refuse new ones so the overlay appears.
-      yield* network.set({ refuseNew: true })
-      yield* network.killConnections()
-      const overlay = yield* appeared(ui, "Restarting service", { timeout: 30_000 })
-      yield* ui.screenshot("overlay")
-      yield* ui.submit("SECOND probe")
-      yield* Effect.sleep(1_500)
-      yield* ui.screenshot("after-submit")
+        checkpoint("heal-and-check-restored-composer")
+        yield* network.clear()
+        yield* ui.waitFor(() => ui.matches("Connection lost").pipe(Effect.map((visible) => !visible)), {
+          timeout: 30_000,
+        })
+        const input = yield* ui.getElement({ focused: true, editor: true })
+        const frame = yield* ui.capture()
+        const draft = frame.lines
+          .slice(input.y, input.y + input.height)
+          .map((line) =>
+            line.spans
+              .map((span) => span.text)
+              .join("")
+              .slice(input.x, input.x + input.width),
+          )
+          .join("\n")
+        assert(draft.includes("SECOND probe"), "failed input was not restored to the composer")
+        assert.deepEqual(
+          yield* owners,
+          { projected: 0, pending: 0 },
+          "input was admitted at the healed observation boundary",
+        )
+        yield* ui.screenshot("reconnect-draft-restored")
 
-      yield* network.clear()
-      yield* Effect.sleep(8_000)
-      yield* ui.screenshot("healed")
-
-      const admitted = yield* admissions(opencode, "SECOND")
-      const replied = yield* appeared(ui, "SECOND_DONE", { timeout: 20_000 })
-      console.log(
-        JSON.stringify({
-          overlay,
-          admitted,
-          replied,
-          verdict:
-            admitted === 1 && replied
-              ? "A: admitted and replied after heal"
-              : admitted === 1
-                ? "A': admitted after heal, reply missing on screen"
-                : "B or C: prompt never admitted — check screenshots for restore vs swallowed enter",
-        }),
+        checkpoint("explicit-resend-converges-once")
+        yield* ui.enter()
+        yield* ui.waitFor("SECOND_DONE", { timeout: 20_000 })
+        yield* opencode.session.wait({ sessionID })
+        assert.equal(
+          (yield* opencode.session.get({ sessionID })).outcome,
+          "succeeded",
+          "resend settled without succeeding",
+        )
+        assert.deepEqual(yield* owners, { projected: 1, pending: 0 })
+        assert.equal((yield* opencode.session.inbox.list({ sessionID })).length, 0)
+        yield* ui.waitFor((state) => state.focused.editor)
+        assert((yield* settled(ui)).stable, "resend left the UI busy")
+        yield* ui.screenshot("reconnect-resend-complete")
+        console.log(JSON.stringify({ sessionID, trace, passed: true }))
+      }).pipe(
+        Effect.catchCause((cause) =>
+          saveFailure(
+            { ui, artifacts, evidence: () => opencode.session.list({ limit: 10 }) },
+            { trace, cause: String(cause) },
+          ).pipe(Effect.andThen(Effect.failCause(cause))),
+        ),
+        Effect.ensuring(network.clear().pipe(Effect.orDie)),
       )
     }),
 })

@@ -100,14 +100,14 @@ export default OpenCodeDriver.use(
       username: "Drive",
     },
     tuiConfig: {
-      theme: "system",
-      scroll_speed: 1,
+      theme: { name: "opencode", mode: "dark" },
+      scroll: { speed: 1 },
     },
     setup: ({ fs, config, tuiConfig }) =>
       Effect.gen(function* () {
         yield* fs.writeFile("src/setup.ts", "export const ready = true\n")
         config.username = "Setup wins"
-        tuiConfig.scroll_speed = 2
+        tuiConfig.scroll = { speed: 2 }
       }),
   },
   ({ ui }) => ui.screenshot("home"),
@@ -117,11 +117,17 @@ export default OpenCodeDriver.use(
 The DSL is applied in this order:
 
 1. `project.files` is written into the isolated project.
-2. `config` and `tuiConfig` are deeply merged over `.opencode/opencode.jsonc` and `.opencode/tui.jsonc` fixture values. Objects merge recursively; arrays and scalar values replace existing values.
+2. `config` and `tuiConfig` are deeply merged over `.opencode/opencode.jsonc` and `.opencode/cli.json` fixture values. Objects merge recursively; arrays and scalar values replace existing values.
 3. `setup` runs and may write project files or mutate the merged `config` and `tuiConfig` objects. Its mutations take final precedence.
 4. Drive writes both configs as stable, formatted JSON. With `project.git: true`, it creates a repository and commits the complete pre-launch state with fixed Git identity and timestamps.
 
 `fs.writeFile` is rooted inside the simulated project and creates parent directories. `project.git: true` refuses to replace existing Git metadata; omit it when prepared fixtures already include a repository.
+
+`tuiConfig` contains current V2 CLI settings despite retaining its public option
+name. Drive pins `OPENCODE_CONFIG_DIR` to the isolated project's `.opencode`, so
+`cli.json` is the fixture's global terminal configuration. Do not write legacy
+`tui.jsonc`, or write `cli.json` manually in `setup` instead of mutating
+`tuiConfig`: the normalized object is written after setup finishes.
 
 ### UI And LLM
 
@@ -249,6 +255,13 @@ dropped connection (`killConnections`) while traffic is pending.
   replacement service. Pass `OPENCODE_DRIVE_DB=...` so both generations share
   a database.
 
+Scripted TUIs always use an explicit connection to the script-owned server (or
+the chaos proxy). HTTP address and existing credentials stay stable across
+server generations, so retained TUIs and SDK clients can reconnect without
+electing a competing service. After `server.kill()`, call `server.launch()`;
+do not wait for the TUI to create a server on the script's behalf. This does not
+change non-scripted live launches' managed-service behavior.
+
 ### Reports And Paths
 
 `OpenCodeDriver` exports a branded `AbsolutePath` schema and a compact `RunReport` containing the artifact root, retention, recording paths, and endpoint compatibility. It also exports `decodeAbsolutePath` and `decodeRunReport` for validating unknown values.
@@ -366,7 +379,7 @@ import { defineScript, Llm } from "opencode-drive"
 
 export default defineScript({
   config: { autoupdate: false },
-  tuiConfig: { theme: "system" },
+  tuiConfig: { theme: { name: "opencode", mode: "dark" } },
   project: {
     git: true,
     files: { "src/value.ts": "export const value = 1\n" },

@@ -7,6 +7,7 @@ import * as ToolController from "../../src/tool/controller.js"
 import { Failure } from "../../src/tool/index.js"
 import plugin from "../../src/tool/plugin.js"
 import type { OpenCodeConfig } from "../../src/script/types.js"
+import { makeTransport } from "./transport.js"
 
 interface RegisteredTool {
   readonly name: string
@@ -865,16 +866,20 @@ it.effect("interrupts a handler when its transport disconnects", () =>
   ),
 )
 
-it.effect("interrupts a handler with its plugin execution", () =>
+it.live("interrupts a callback handler once after receiving plugin progress", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const started = Promise.withResolvers<void>()
       const interrupted = Promise.withResolvers<void>()
+      let interruptions = 0
       const controller = yield* ToolController.make((tools) => {
-        tools.handle("shell", () =>
-          Effect.sync(() => started.resolve()).pipe(
+        tools.handle("shell", ({ progress }) =>
+          progress("running\n").pipe(
             Effect.andThen(Effect.never),
-            Effect.onInterrupt(() => Effect.sync(() => interrupted.resolve())),
+            Effect.onInterrupt(() => Effect.sync(() => {
+              interruptions++
+              interrupted.resolve()
+            })),
           ),
         )
       })
@@ -902,13 +907,112 @@ it.effect("interrupts a handler with its plugin execution", () =>
 
       const execution = yield* shell.execute(
         { command: "wait" },
-        { sessionID: "ses_interrupt", id: "call_interrupt" },
+        {
+          sessionID: "ses_interrupt",
+          id: "call_interrupt",
+          progress: () => Effect.sync(() => started.resolve()),
+        },
       ).pipe(Effect.forkScoped)
       yield* Effect.promise(() => started.promise)
-      yield* Fiber.interrupt(execution)
-      yield* Effect.promise(() => interrupted.promise)
+      yield* Fiber.interrupt(execution).pipe(
+        Effect.andThen(Effect.promise(() => interrupted.promise)),
+        Effect.timeout("1 second"),
+      )
+      expect(interruptions).toBe(1)
     }),
   ),
+)
+
+it.live("reports plugin interruption after receiving tool progress", () =>
+  Effect.gen(function* () {
+    const controller = yield* ToolController.make(["shell"])
+    const config: OpenCodeConfig = {}
+    controller.configure(config)
+    const injected = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ options: Schema.Unknown })))(config.plugins)[0]
+    const registered: RegisteredTool[] = []
+    yield* plugin.effect({
+      options: injected?.options,
+      tool: {
+        transform: (register: (tools: { add: (tool: RegisteredTool) => void }) => void) =>
+          Effect.sync(() => register({ add: (tool) => registered.push(tool) })),
+      },
+    })
+    const shell = registered.find((tool) => tool.name === "shell")
+    if (shell === undefined) return yield* Effect.die(new Error("shell tool was not registered"))
+    const received = yield* Deferred.make<void>()
+    const updates: Readonly<Record<string, unknown>>[] = []
+    const execution = yield* shell.execute(
+      { command: "hold after progress" },
+      {
+        sessionID: "ses_interrupt_progress",
+        id: "call_interrupt_progress",
+        progress: (update) => Effect.sync(() => { updates.push(update) }).pipe(
+          Effect.andThen(Deferred.succeed(received, undefined)),
+          Effect.asVoid,
+        ),
+      },
+    ).pipe(Effect.forkScoped)
+    const shells = yield* controller.controls.control("shell")
+    const held = yield* shells.take("call_interrupt_progress")
+    yield* held.progress("running\n")
+    yield* Deferred.await(received)
+    yield* Fiber.interrupt(execution).pipe(
+      Effect.andThen(held.awaitInterrupted()),
+      Effect.timeout("1 second"),
+    )
+    expect(updates).toEqual([{ output: "running\n" }])
+    expect(yield* held.succeed({ output: "late" }).pipe(Effect.flip)).toMatchObject({
+      reason: "transport-interrupted",
+    })
+    expect(yield* held.progress("late").pipe(Effect.flip)).toMatchObject({
+      reason: "transport-interrupted",
+    })
+    expect(yield* held.fail("late").pipe(Effect.flip)).toMatchObject({
+      reason: "transport-interrupted",
+    })
+  }),
+)
+
+it.live("fails a plugin execution and notifies its held call when the streaming socket is dropped", () =>
+  Effect.gen(function* () {
+    const { options, proxy, shells } = yield* makeTransport()
+    const registered: RegisteredTool[] = []
+    yield* plugin.effect({
+      options,
+      tool: {
+        transform: (register: (tools: { add: (tool: RegisteredTool) => void }) => void) =>
+          Effect.sync(() => register({ add: (tool) => registered.push(tool) })),
+      },
+    })
+    const shell = registered.find((tool) => tool.name === "shell")
+    if (shell === undefined) return yield* Effect.die(new Error("shell tool was not registered"))
+    const received = yield* Deferred.make<void>()
+    const updates: Readonly<Record<string, unknown>>[] = []
+    const execution = yield* shell.execute(
+      { command: "drop after progress" },
+      {
+        sessionID: "ses_transport_drop",
+        id: "call_transport_drop",
+        progress: (update) => Effect.sync(() => { updates.push(update) }).pipe(
+          Effect.andThen(Deferred.succeed(received, undefined)),
+          Effect.asVoid,
+        ),
+      },
+    ).pipe(Effect.flip, Effect.forkScoped)
+    const held = yield* shells.take("call_transport_drop")
+    yield* held.progress("running\n")
+    yield* Deferred.await(received)
+    expect(proxy.killConnections()).toBe(1)
+    yield* held.awaitInterrupted().pipe(Effect.timeout("1 second"))
+    expect(yield* Fiber.join(execution).pipe(Effect.timeout("1 second"))).toMatchObject({
+      _tag: "Tool.Error",
+    })
+    expect(updates).toEqual([{ output: "running\n" }])
+    expect(yield* held.succeed({ output: "late" }).pipe(Effect.flip)).toMatchObject({
+      reason: "transport-interrupted",
+    })
+    expect(proxy.connections()).toBe(0)
+  }),
 )
 
 it.live("uses native V2 tool progress, result metadata, and failure tags", () =>
@@ -932,7 +1036,7 @@ it.live("uses native V2 tool progress, result metadata, and failure tags", () =>
       },
     })
     const shell = registered.find((tool) => tool.name === "shell")
-    if (shell === undefined) return yield* Effect.dieMessage("shell tool was not registered")
+    if (shell === undefined) return yield* Effect.die(new Error("shell tool was not registered"))
     const updates: Readonly<Record<string, unknown>>[] = []
     const context = {
       sessionID: "ses_plugin",

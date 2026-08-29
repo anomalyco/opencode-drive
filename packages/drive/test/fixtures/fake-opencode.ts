@@ -29,7 +29,7 @@ const servicePassword = "drive-test-password"
 const api = role === "service"
   ? Bun.serve({
       hostname: "127.0.0.1",
-      port: 0,
+      port: Number(process.argv[process.argv.indexOf("--port") + 1]) || 0,
       fetch(request) {
         if (
           request.headers.get("authorization") !==
@@ -75,6 +75,13 @@ if (drive.recording && role !== "service")
     `${JSON.stringify({ type: "header", version: 1, cols: 100, rows: 40, encoding: "base64" })}\n${JSON.stringify({ type: "output", at_ms: 0, data: Buffer.from("Fake OpenCode").toString("base64") })}\n`,
   )
 if (process.env.OPENCODE_TEST_HOME && role !== "service") {
+  await Bun.write(
+    `${process.env.OPENCODE_TEST_HOME}/client-connection.json`,
+    JSON.stringify({
+      argv: process.argv.slice(2),
+      authenticated: process.env.OPENCODE_PASSWORD === servicePassword,
+    }),
+  )
   await Bun.write(
     `${process.env.OPENCODE_TEST_HOME}/child.pid`,
     String(process.pid),

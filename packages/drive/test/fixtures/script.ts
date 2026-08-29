@@ -7,7 +7,8 @@ export default defineScript({
     test: { declared: true },
   },
   tuiConfig: {
-    test: { declared: true },
+    session: { new_location: "inherit" },
+    keybinds: { "session.new": "ctrl+n" },
   },
   project: {
     git: true,
@@ -19,7 +20,7 @@ export default defineScript({
     Effect.gen(function* () {
       config.autoupdate = false
       config.test = { ...config.test as Record<string, boolean>, setup: true }
-      tuiConfig.test = { ...tuiConfig.test as Record<string, boolean>, setup: true }
+      tuiConfig.theme = { name: "opencode", mode: "light" }
       yield* fs.writeFile("setup-seeded.txt", "included in baseline\n")
     }),
 

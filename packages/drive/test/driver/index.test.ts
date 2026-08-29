@@ -18,6 +18,7 @@ it.live("runs and settles a complete scoped driver", () =>
           git: true,
           files: {
             "src/seeded.ts": "export const seeded = true\n",
+            ".opencode/cli.json": '{ "theme": { "name": "tokyonight", "mode": "dark" } }',
           },
         },
         config: {
@@ -25,17 +26,15 @@ it.live("runs and settles a complete scoped driver", () =>
           nested: { declared: true, winner: "declared" },
           items: ["declared"],
         },
-        tuiConfig: { theme: { declared: true } },
+        tuiConfig: { theme: { name: "catppuccin" } },
         setup: ({ config, tuiConfig }) =>
           Effect.sync(() => {
             config.nested = {
               ...config.nested as Record<string, boolean | string>,
               winner: "setup",
             }
-            tuiConfig.theme = {
-              ...tuiConfig.theme as Record<string, boolean>,
-              setup: true,
-            }
+            expect(tuiConfig.theme).toEqual({ name: "catppuccin", mode: "dark" })
+            tuiConfig.theme = { name: "opencode", mode: "light" }
           }),
         tui: {
           recording: true,
@@ -99,11 +98,11 @@ it.live("runs and settles a complete scoped driver", () =>
     expect(
       yield* Effect.promise(() =>
         readFile(
-          `${result.artifacts}/files/.opencode/tui.jsonc`,
+          `${result.artifacts}/files/.opencode/cli.json`,
           "utf8",
         ).then(JSON.parse),
       ),
-    ).toEqual({ theme: { declared: true, setup: true } })
+    ).toEqual({ theme: { name: "opencode", mode: "light" } })
     expect(
       yield* Effect.promise(() =>
         readFile(`${result.artifacts}/backend-events.jsonl`, "utf8"),

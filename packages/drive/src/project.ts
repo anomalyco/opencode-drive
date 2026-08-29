@@ -14,7 +14,7 @@ export type JsonObject = { [key: string]: JsonValue }
 /** OpenCode's semantic project configuration, written to opencode.jsonc. */
 export interface OpenCodeConfig extends JsonObject {}
 
-/** OpenCode's semantic TUI configuration, written to tui.jsonc. */
+/** OpenCode V2 CLI configuration, written to .opencode/cli.json in the isolated config directory. */
 export interface OpenCodeTuiConfig extends JsonObject {}
 
 export class FileSystemError extends Schema.TaggedError<FileSystemError>()(
@@ -38,7 +38,7 @@ export interface SetupContext {
   readonly fs: ProjectFileSystem
   /** The current OpenCode config object. Mutate it to customize the run. */
   readonly config: OpenCodeConfig
-  /** The current OpenCode TUI config object. Mutate it to customize the run. */
+  /** The current OpenCode V2 CLI config object. Mutate it to customize the run. */
   readonly tuiConfig: OpenCodeTuiConfig
 }
 

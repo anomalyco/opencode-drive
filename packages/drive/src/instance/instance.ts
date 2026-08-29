@@ -62,13 +62,13 @@ export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject
 }) {
   const files = join(resolve(options.artifacts), "files")
   const configPath = join(files, ".opencode", "opencode.jsonc")
-  const tuiPath = join(files, ".opencode", "tui.jsonc")
+  const tuiPath = join(files, ".opencode", "cli.json")
   const project = options.project
   if (project)
     yield* promise(() => initializeScriptProject(files, project))
   const [config, tui] = yield* Effect.all([
     promise(() => readConfig(configPath, "opencode.jsonc")),
-    promise(() => readConfig(tuiPath, "tui.jsonc", {})),
+    promise(() => readConfig(tuiPath, "cli.json", {})),
   ], { concurrency: "unbounded" })
   deepMerge(config, options.config)
   deepMerge(tui, options.tui)
