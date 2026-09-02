@@ -59,10 +59,14 @@ export default defineScript({
         const location = yield* opencode.location.get({ location: { directory: `${artifacts}/files` } })
         const archive = yield* opencode.location.get({ location: { directory: `${artifacts}/files/archive` } })
         assert.notEqual(archive.project.id, location.project.id, "archive must be a distinct Git project")
+        // Plugins load after config (OpenCode PR #46639), so a cold location
+        // answers agent and model reads with empty data until activation.
+        yield* opencode.plugin.awaitActivation({ location })
+        yield* opencode.plugin.awaitActivation({ location: archive })
         const model = (yield* opencode.model.default({ location })).data
         const agent = (yield* opencode.agent.list({ location })).data.find((agent) => agent.id === "build")
-        assert(model)
-        assert(agent)
+        assert(model, "no default model after plugin activation")
+        assert(agent, "no build agent after plugin activation")
         // Created before frontend launch: these are neither open tabs nor event-
         // hydrated sessions. Distinct titles fit the 44-column picker as well.
         const older = yield* opencode.session
