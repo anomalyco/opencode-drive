@@ -412,3 +412,15 @@ bun run --cwd packages/drive drive start --name tui-multi-tool-interleavings \
   --script test/manual/tui-regressions/multi-tool-interleavings.ts \
   --dev "$OPENCODE_DEV"
 ```
+
+## Plugin registry
+
+`plugin-registry.ts` checks that plugin registrations reach both the frontend and the model without a server restart. A discovered local plugin registers a command and a tool; the probe asserts the command through `command.list`, the tool through the captured provider request body, and the slash menu through the TUI. It then writes a second plugin into `.opencode/plugins/` at runtime, asserts both appear, removes it, and asserts it disappears. `command.list` doubles as the activation barrier because Drive's pinned client predates the current `plugin.list` shape.
+
+```sh
+TMPDIR="$PWD/.drive-output/tmp" bun run --cwd packages/drive drive start --name tui-plugin-registry \
+  --script test/manual/tui-regressions/plugin-registry.ts \
+  --dev "$OPENCODE_DEV"
+```
+
+Set `TMPDIR` to a symlink-free directory. Under the default macOS temp root (`/var/folders` → `/private/var/folders`), OpenCode currently discovers the project `.opencode` directory under both spellings and fails plugin activation with `Duplicate plugin ID`; that is a pre-existing OpenCode bug, not a probe failure. Current V2 passes this probe.
