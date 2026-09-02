@@ -201,6 +201,31 @@ segments that trim/re-speed/freeze, concatenated in order), and `footer`
 `test/manual/tui-regressions/optimistic-create-demo.ts` for a complete
 before/after demo recording script.
 
+#### Pull Request Before/After
+
+For a visible OpenCode change, default to a matched A/B recording rather than
+an after-only demo:
+
+1. Write one deterministic Drive script and fixture. A temporary script is
+   fine; do not fork separate before and after scripts.
+2. Create an immutable worktree for the PR base and run the script against it
+   with `--dev`, then run the same script against the change worktree. Keep the
+   viewport, project files, config, simulated LLM output, and interactions
+   identical. Parameterize only the annotation label when needed.
+3. Use state-based waits to reach the comparison checkpoint. After transient
+   overlays settle, call `tui.recording.mark("BEFORE: …")` or
+   `tui.recording.mark("AFTER: …")` and hold each stable state for the same
+   duration.
+4. Trim from the marked checkpoints and concatenate equal-length clips with a
+   shared timeline. Default to side-by-side playback so reviewers can compare
+   both states simultaneously. Preserve dimensions and synchronize meaningful
+   interactions; use a sequential hard cut only when side-by-side rendering
+   makes terminal text illegible.
+5. Inspect a frame from each segment before upload. The demo is complete only
+   when both labels are visible, the regression is obvious in the before
+   segment, the fix is obvious in the after segment, and the PR caption states
+   which revision each segment runs plus any simulated behavior.
+
 ### Network Chaos
 
 Set `network: true` in `defineScript` to route every TUI through a chaos TCP
@@ -509,6 +534,40 @@ opencode-drive stop --name demo
 opencode-drive dir --name demo
 opencode-drive list
 ```
+
+## Report Drive Issues
+
+Drive is a work in progress. While using it, file a GitHub issue on
+`anomalyco/opencode-drive` for anything that surprises you or that you wish
+existed; do not just work around it silently. Check `gh issue list` first and
+comment on an existing issue instead of opening a duplicate.
+
+Worth an issue:
+
+- Wrong, confusing, or silent failures: an empty error message, a `press`
+  string that typed literally instead of sending a key, a timeout with no
+  frame, a hang in `stop` or `prune`.
+- Stale dependencies or protocol drift: a pinned `@opencode-ai/*` client that
+  cannot decode a current server response.
+- Documentation gaps: something this skill or the README should have said.
+- Wish-list items: a capability you had to hand-roll in a script (a filesystem
+  operation, a frame-to-text helper, an assertion pattern) that other scripts
+  would reuse.
+
+Keep OpenCode bugs out of the Drive tracker. When Drive merely exposed a
+server or TUI defect, note the Drive-side workaround in the probe or README
+and report the defect in `anomalyco/opencode` (or Kit's todo tracker when a
+public issue is premature).
+
+```bash
+gh issue create -R anomalyco/opencode-drive --label bug \
+  --title "press: string with '+' is typed literally instead of parsed as a chord" \
+  --body "Drive <version>. Script excerpt, expected vs actual, log path."
+```
+
+Include the Drive version, the OpenCode revision under test, the smallest
+script excerpt that shows it, expected versus actual, and the artifact or log
+path. Never include credentials or private project data.
 
 ## Prune
 
