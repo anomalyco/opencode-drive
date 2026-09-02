@@ -415,7 +415,7 @@ bun run --cwd packages/drive drive start --name tui-multi-tool-interleavings \
 
 ## Plugin registry
 
-`plugin-registry.ts` checks that plugin registrations reach both the frontend and the model without a server restart. A discovered local plugin registers a command and a tool; the probe asserts the command through `command.list`, the tool through the captured provider request body, and the slash menu through the TUI. It then writes a second plugin into `.opencode/plugins/` at runtime, asserts both appear, removes it, and asserts it disappears. `command.list` doubles as the activation barrier because Drive's pinned client predates the current `plugin.list` shape.
+`plugin-registry.ts` checks that plugin registrations reach both the frontend and the model without a server restart. A discovered local plugin registers a command and a tool; the probe asserts the command through `command.list`, the tool through the captured provider request body, and the slash menu through the TUI. It then writes a second plugin into `.opencode/plugins/` at runtime, asserts both appear, removes it, and asserts it disappears. Activation is observed through `plugin.list`.
 
 ```sh
 TMPDIR="$PWD/.drive-output/tmp" bun run --cwd packages/drive drive start --name tui-plugin-registry \

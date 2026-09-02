@@ -69,6 +69,26 @@ export default defineScript({
       const commands = opencode.command
         .list({ location })
         .pipe(Effect.map((result) => result.data.map((c) => c.name)));
+      const activePlugins = opencode.plugin
+        .list({ location })
+        .pipe(
+          Effect.map((result) =>
+            result.data
+              .filter((plugin) => plugin.state.status === "active")
+              .map((plugin) => String(plugin.id)),
+          ),
+        );
+      const expectPlugins = (
+        present: readonly string[],
+        missing: readonly string[],
+      ) =>
+        until(
+          `plugins ${present.join(",")} without ${missing.join(",") || "-"}`,
+          activePlugins,
+          (ids) =>
+            present.every((id) => ids.includes(id)) &&
+            missing.every((id) => !ids.includes(id)),
+        );
       const requestTools = (prompt: string) =>
         Effect.gen(function* () {
           const before = bodies.length;
@@ -115,7 +135,7 @@ export default defineScript({
         });
 
       // Phase 1: cold start with alpha configured.
-      // Command visibility doubles as the activation barrier: it appears only once alpha's setup ran.
+      yield* expectPlugins(["alpha"], ["beta"]);
       yield* expectCommands(["alpha-cmd"], ["beta-cmd"]);
       yield* expectTools(
         "first-request-after-activation",
@@ -148,6 +168,7 @@ export default defineScript({
 
       // Phase 2: add beta by writing a plugin into the discovered directory; no restart.
       yield* fs.writeFile(".opencode/plugins/beta/index.ts", plugin("beta"));
+      yield* expectPlugins(["alpha", "beta"], []);
       yield* expectCommands(["alpha-cmd", "beta-cmd"], []);
       yield* expectTools(
         "request-after-adding-beta",
@@ -163,6 +184,7 @@ export default defineScript({
         }),
       );
       // Command visibility doubles as the activation barrier: it appears only once alpha's setup ran.
+      yield* expectPlugins(["alpha"], ["beta"]);
       yield* expectCommands(["alpha-cmd"], ["beta-cmd"]);
       yield* expectTools(
         "request-after-removing-beta",
