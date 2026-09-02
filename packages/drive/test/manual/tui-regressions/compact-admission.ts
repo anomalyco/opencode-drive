@@ -7,6 +7,14 @@ import { saveFailure } from "./state-machine.js"
 // Run each scenario independently so a failed checkpoint cannot mask later cases.
 const scenario = process.env.OPENCODE_DRIVE_COMPACT_CASE ?? "ordered"
 const cols = Number(process.env.OPENCODE_DRIVE_COLS ?? 100)
+const compactionSummary = [
+  "## Objective",
+  "- Inspect the admission fixture README.",
+  "",
+  "## Work State",
+  "### Completed",
+  "- The fixture README was inspected.",
+].join("\n")
 
 export default defineScript({
   network: true,
@@ -55,8 +63,10 @@ export default defineScript({
         yield* llm.serve((request) => {
           const body = JSON.stringify(request.body)
           if (body.includes("title generator")) return Stream.make(Llm.text("Admission fixture"))
-          if (body.includes("Create a new anchored summary") || body.includes("Update the anchored summary below"))
-            return Stream.make(Llm.text("The fixture README was inspected."))
+          // Compaction (OpenCode PR #46751) asks for a structured summary and
+          // rejects a reply without one of its `##` section headings as
+          // `compaction.failed`. Match the prompt frame, not the template text.
+          if (body.includes("Summarize only the history shown")) return Stream.make(Llm.text(compactionSummary))
           // History includes previous markers. Only the newest prompt selects a reply.
           const marker = ["CA_WARM", "CA_HOLD", "CA_NEXT"].reduce((latest, candidate) =>
             body.lastIndexOf(candidate) > body.lastIndexOf(latest) ? candidate : latest,

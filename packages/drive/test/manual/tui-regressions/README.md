@@ -306,6 +306,13 @@ and terminal frame in `state-machine-failure.json`.
 | `cancelled` | Cancellation removes the known pending item while setup is blocked. The client still proposes a fresh compaction ID and completes it after healing; cancellation itself does not permanently reserve the old ID. |
 | `rollback`  | Killing connections before admission removes the unacknowledged row and displays the transport error. After healing, retry compaction and submit a recovery prompt successfully.                                 |
 
+The simulated compaction reply is a structured summary with the `##` section
+headings that OpenCode requires since PR #46751; a plain sentence now settles as
+`compaction.failed` ("did not match the required template") instead of
+`completed`. The fake model routes compaction requests on the stable prompt
+frame ("Summarize only the history shown"), not on template wording, which has
+already changed once since.
+
 The simulated model paces a busy-step checkpoint before holding the response
 open; this isolates admission behavior from stream-publication behavior. The
 bounded-flush tests separately verify complete single bursts without a later
@@ -364,7 +371,10 @@ Drive writes current V2 `cli.json` under its isolated `OPENCODE_CONFIG_DIR`.
 The probe expresses `session.new_location: "inherit"` and a `Ctrl-N` binding
 through `tuiConfig`, making the movement check an explicit fixture contract
 without a manual config-file workaround or installed-client changes. Fixture
-sessions also select the simulation model and build agent explicitly.
+sessions also select the simulation model and build agent explicitly. Since
+OpenCode PR #46639 plugins load after config, so a cold location answers
+`agent.list` and `model.default` with empty data until activation; the fixture
+calls `plugin.awaitActivation` for both project locations before reading them.
 
 Successful runs write `open-picker-report.json` and print `passed: true`.
 Failures retain the case, viewport, marker seed, checkpoint trace, server
@@ -412,6 +422,18 @@ bun run --cwd packages/drive drive start --name tui-multi-tool-interleavings \
   --script test/manual/tui-regressions/multi-tool-interleavings.ts \
   --dev "$OPENCODE_DEV"
 ```
+
+This probe currently fails on V2 at or after OpenCode PR #46724 with
+`InvalidRequestError: Expected JSON value at ["data"][2]["metadata"]["hidden"]`
+from `GET /api/session/:id/permission`. That is a server defect, not probe
+drift: the glob tool copies every optional input into its permission
+`metadata` (`path`, `limit`, and now `hidden`), so an omitted input leaves an
+`undefined` value that the response encoder for `Record(String, Unknown)`
+rejects, and the endpoint answers 400 while that permission is pending. Any
+model call that omits `hidden` (or `path`, or `limit`) trips it. The probe
+deliberately keeps its realistic `{ pattern, path, limit }` input rather than
+adding `hidden: false` to dodge the bug; expect it to pass again once the
+server drops or defaults undefined permission metadata.
 
 ## Plugin registry
 
