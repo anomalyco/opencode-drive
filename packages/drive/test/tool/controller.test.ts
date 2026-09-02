@@ -5,7 +5,7 @@ import * as Fiber from "effect/Fiber"
 import * as Scope from "effect/Scope"
 import * as ToolController from "../../src/tool/controller.js"
 import { Failure } from "../../src/tool/index.js"
-import plugin from "../../src/tool/plugin.js"
+import plugin from "../../src/tool/plugin/index.js"
 import type { OpenCodeConfig } from "../../src/script/types.js"
 import { makeTransport } from "./transport.js"
 

@@ -33,7 +33,7 @@ export const makeTransport = Effect.fn("ToolTransport.make")(function* () {
   // through the package entrypoint rather than the compiled module's URL.
   config.plugins = [{
     ...plugin,
-    package: fileURLToPath(new URL("./tool/plugin.js", import.meta.resolve("opencode-drive"))),
+    package: fileURLToPath(new URL("./tool/plugin", import.meta.resolve("opencode-drive"))),
     options,
   }]
   const shells = yield* controller.controls.control("shell")

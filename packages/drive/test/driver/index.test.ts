@@ -234,7 +234,7 @@ it.live("injects declared tool handlers for library drivers", () =>
     )
     expect(config.plugins).toEqual([
       expect.objectContaining({
-        package: expect.stringMatching(/\/src\/tool\/plugin\.js$/),
+        package: expect.stringMatching(/\/src\/tool\/plugin$/),
         options: expect.objectContaining({ tools: ["shell"] }),
       }),
     ])
@@ -263,7 +263,7 @@ it.live("exposes runtime controls for tools declared by name", () =>
     )
     expect(config.plugins).toEqual([
       expect.objectContaining({
-        package: expect.stringMatching(/\/src\/tool\/plugin\.js$/),
+        package: expect.stringMatching(/\/src\/tool\/plugin$/),
         options: expect.objectContaining({ tools: ["shell"] }),
       }),
     ])

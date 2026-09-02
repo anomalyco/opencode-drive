@@ -322,7 +322,8 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
       }),
   )
   const endpoint = `http://${server.hostname}:${server.port}`
-  const plugin = fileURLToPath(new URL("./plugin.js", import.meta.url))
+  // V2 resolves configured local plugins as directories with an index entrypoint, not single files.
+  const plugin = fileURLToPath(new URL("./plugin", import.meta.url))
   const schemas = Object.fromEntries(
     [...definitions].map(([name, definition]) => [
       name,
