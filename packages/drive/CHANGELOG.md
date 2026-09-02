@@ -1,5 +1,15 @@
 # opencode-drive
 
+## 2.0.1
+
+### Patch Changes
+
+- Bump the pinned `@opencode-ai/client` to `0.0.0-dev-18862`. The previous client predated the nested `Plugin.Info` `state` and `source.target` fields, so `opencode.plugin.list` responses from current OpenCode V2 servers failed schema decoding with an empty-message `ClientError`, and scripts reading `plugin.state.status` failed `opencode-drive check`.
+- Register Drive's controlled-tool plugin as a directory with an index entrypoint. Current OpenCode V2 resolves configured local plugins as directories and rejected the bare file, so `tools: [...]` never registered and `tools.control()` blocked indefinitely.
+- 46601f2: Write `tuiConfig` to the isolated OpenCode V2 `cli.json` configuration file so terminal settings take effect. Merge `.opencode/cli.json` fixture values before declared options and setup mutations, without generating a legacy `tui.jsonc` file.
+- 46601f2: Pin scripted TUIs to the script-owned server and retain its HTTP endpoint across restarts, preventing TUI reconnects from electing a competing managed service. Existing SDK clients also remain connected to the replacement server; network-chaos TUIs continue to use the proxy.
+- 46601f2: Keep static tool requests cancellable after progress arrives so session interruption promptly notifies held calls and interrupts foreground callback handlers, while detached background shells continue running.
+
 ## 2.0.0
 
 ### Major Changes
