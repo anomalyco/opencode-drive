@@ -423,7 +423,8 @@ bun run --cwd packages/drive drive start --name tui-multi-tool-interleavings \
   --dev "$OPENCODE_DEV"
 ```
 
-This probe currently fails on V2 at or after OpenCode PR #46724 with
+This probe currently fails on V2 at or after OpenCode PR #46724
+([`anomalyco/opencode#37650`](https://github.com/anomalyco/opencode/issues/37650)) with
 `InvalidRequestError: Expected JSON value at ["data"][2]["metadata"]["hidden"]`
 from `GET /api/session/:id/permission`. That is a server defect, not probe
 drift: the glob tool copies every optional input into its permission
