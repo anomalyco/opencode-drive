@@ -12,6 +12,7 @@
 
 ### Patch Changes
 
+- Pin the V2 client and its matching protocol/schema packages to `0.0.0-dev-19066`, the published OpenCode build containing mouse control and pointer recording support.
 - f6a3f55: Bump the pinned `@opencode-ai/client` to `0.0.0-dev-18911` so the generated SDK exposes `plugin.awaitActivation`, which scripts need before reading agents or models from a cold location on current V2 servers.
 
 ## 2.0.1
