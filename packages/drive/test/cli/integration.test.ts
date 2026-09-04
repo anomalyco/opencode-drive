@@ -1211,6 +1211,23 @@ describe("opencode-drive", () => {
     })
   })
 
+  test("inherits --record for pointer-enabled scripts without leaking recording to additional TUIs", async () => {
+    const root = await temporary()
+    const child = spawn([
+      "start", "--name", "pointer-options-test", "--record", "--pointer-overlay",
+      "--script", fixture("pointer-options-script.ts"),
+      "--", process.execPath, fixture("fake-opencode.ts"),
+    ], root)
+    const stderr = new Response(child.stderr).text()
+    expect(await child.exited).toBe(0)
+    const artifacts = artifactPath(await stderr)
+    expect(await Bun.file(join(artifacts, "pointer-options.json")).json()).toEqual({
+      primaryRecording: true,
+      secondaryRecording: false,
+      rejected: "pointerOverlay requires recording",
+    })
+  }, 60_000)
+
   test.each(["setup", "run"] as const)("rejects a Promise-returning script %s callback", async (callback) => {
     const root = await temporary()
     const script = join(root, `promise-${callback}-script.js`)

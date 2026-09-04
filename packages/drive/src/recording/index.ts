@@ -1,4 +1,5 @@
 export { decodeTimeline } from "./decode.js"
+export { loadPointers, pointerAt, pointersPath, PointerOverlayOptions, RecordingPointer, type PointerFrame } from "./pointer.js"
 export {
   applyClips,
   labelAt,

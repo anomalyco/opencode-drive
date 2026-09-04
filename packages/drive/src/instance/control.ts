@@ -91,20 +91,6 @@ export async function requestStop(
   return value
 }
 
-export async function requestResponses(path: string, input: ResponseUpdate) {
-  const response = await send(
-    path,
-    Object.keys(input).length === 0
-      ? "responses"
-      : `responses ${JSON.stringify(input)}`,
-  )
-  if (!response.startsWith("success ")) throw responseError(response)
-  const value: unknown = JSON.parse(response.slice("success ".length))
-  if (!isResponseConfiguration(value))
-    throw new Error("instance returned an invalid response configuration")
-  return value
-}
-
 function send(path: string, command: string, onProgress?: (percent: number) => void) {
   return new Promise<string>((resolve, reject) => {
     const socket = connect(path)
@@ -157,14 +143,6 @@ function stringArray(value: unknown) {
   if (!Array.isArray(value) || !value.every((item) => typeof item === "string"))
     throw new Error("response types and tools must be string arrays")
   return value
-}
-
-function isResponseConfiguration(
-  value: unknown,
-): value is ResponseConfiguration {
-  if (typeof value !== "object" || value === null) return false
-  if (!("types" in value) || !stringArrayValue(value.types)) return false
-  return "tools" in value && stringArrayValue(value.tools)
 }
 
 function isStopResult(value: unknown): value is StopResult {

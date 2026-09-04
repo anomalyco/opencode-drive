@@ -9,51 +9,22 @@ import * as SimulationConnector from "../simulation/connector.js"
 import type { DriveCommand } from "./types.js"
 import { appendKeypress, formatArrow, formatPress } from "../recording/keypresses.js"
 
-export const commandInfo = {
-  "ui.type": { value: true, description: "Type text using JSON params" },
-  "ui.press": { value: true, description: "Press a key using JSON params" },
-  "ui.enter": { value: false, description: "Press Enter" },
-  "ui.arrow": {
-    value: true,
-    description: "Press an arrow key using JSON params",
-  },
-  "ui.focus": {
-    value: true,
-    description: "Focus an element using JSON params",
-  },
-  "ui.click": { value: true, description: "Click using JSON params" },
-  "ui.resize": {
-    value: true,
-    description: "Resize terminal viewport using JSON params",
-  },
-  "ui.screenshot": {
-    value: "optional",
-    description: "Take a screenshot with optional JSON params and return its path",
-  },
-  "ui.capture": {
-    value: false,
-    description: "Capture the terminal frame as JSON",
-  },
-  "ui.state": {
-    value: false,
-    description: "Return focus, elements, and available UI actions",
-  },
-  "ui.snapshot": {
-    value: false,
-    description: "Return the semantic UI tree as JSON",
-  },
-  "ui.matches": {
-    value: true,
-    description: "Check for literal screen text using JSON params",
-  },
-  "ui.recording.finish": {
-    value: false,
-    description: "Finish recording and return the timeline path",
-  },
-} as const satisfies Record<
-  DriveCommand["operation"],
-  { readonly value: boolean | "optional"; readonly description: string }
->
+const commandInfo = {
+  "ui.type": true,
+  "ui.press": true,
+  "ui.enter": false,
+  "ui.arrow": true,
+  "ui.focus": true,
+  "ui.click": true,
+  "ui.mouse": true,
+  "ui.resize": true,
+  "ui.screenshot": "optional",
+  "ui.capture": false,
+  "ui.state": false,
+  "ui.snapshot": false,
+  "ui.matches": true,
+  "ui.recording.finish": false,
+} as const satisfies Record<DriveCommand["operation"], boolean | "optional">
 
 type CommandName = DriveCommand["operation"]
 
@@ -62,11 +33,7 @@ export function isCommandName(operation: string): operation is CommandName {
 }
 
 export function commandAcceptsValue(operation: CommandName) {
-  return commandInfo[operation].value
-}
-
-export function commandNames() {
-  return Object.keys(commandInfo).sort()
+  return commandInfo[operation]
 }
 
 export class SimulationError extends Error {
@@ -187,7 +154,7 @@ const execute = (
   )
 
 function decodeCommand(command: DriveCommand): Frontend.Request {
-  if (command.value === undefined && commandInfo[command.operation].value === true)
+  if (command.value === undefined && commandInfo[command.operation] === true)
     throw new Error(`${command.operation} requires a value`)
   const operation = command.operation
   if (operation === "ui.screenshot") throw new Error("ui.screenshot must be decoded by Drive")
@@ -229,6 +196,8 @@ function dispatch(
       ),
     )
   switch (request.method) {
+    case "ui.mouse":
+      return OpenCodeUi.make(connection).mouse(request.params)
     case "ui.type":
       return connection.rpc["ui.type"](request.params)
     case "ui.press":

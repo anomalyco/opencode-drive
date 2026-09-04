@@ -210,6 +210,61 @@ Captured frames use the official full Commit Mono v1.143 faces at 16px with bund
 
 ## UI development
 
+### Mouse control and recorded pointer
+
+`ui.mouse` dispatches real mouse input through OpenCode's renderer. Coordinates
+are zero-based terminal cells, absolute within the current viewport. Moves run
+native hover/leave handlers; a move while a button is down drags. Existing
+`ui.click(element, { x, y })` remains target-relative.
+
+```ts
+yield* ui.mouse({ action: "move", x: 20, y: 8 })
+yield* ui.mouse({ action: "down", x: 20, y: 8, button: "left" })
+yield* ui.mouse({ action: "move", x: 30, y: 8 })
+yield* ui.mouse({ action: "up", x: 30, y: 8, button: "left" })
+yield* ui.mouse({ action: "scroll", x: 30, y: 8, direction: "down" })
+```
+
+Buttons are `left` (default), `middle`, or `right`. Mouse modifiers use
+`{ shift, alt, ctrl }`; keyboard modifiers retain their existing `meta` spelling.
+The CLI takes the same protocol parameters with `--command.ui.mouse`.
+`ui.mouse` requires the optional `ui.mouse` endpoint capability. Unsupported
+endpoints fail with `UiCapabilityError` before input is sent; older endpoints
+remain usable for existing operations.
+
+Enable a minimal eased cursor in exported videos:
+
+```ts
+OpenCodeDriver.use({
+  tui: {
+    recording: true,
+    pointerOverlay: { leadMs: 180, lingerMs: 700, motionMs: 220 },
+  },
+}, ({ ui }) => ui.mouse({ action: "move", x: 20, y: 8 }))
+```
+
+`pointerOverlay: true` uses those defaults. Live CLI runs use
+`start --record --pointer-overlay`. This requires an OpenCode build advertising
+`ui.recording.pointer`; Drive does not silently manufacture mouse evidence for
+older endpoints. The overlay is off by default and affects videos, not the
+terminal text caret or raw screenshots.
+
+OpenCode records actual input positions in `*.pointers.jsonl` beside the terminal
+timeline using the same monotonic clock. Keep this sidecar when copying a
+recording. `exportRecording(timeline, output, { pointerOverlay: true })` can
+re-render it, including trimmed, sped-up, or held clips. Holds freeze the whole
+composition. Keypress labels still use their own output-time display duration.
+Visibility windows are bounded by retained recording time: export does not add
+extra pre/post-roll. Clips crop the raw composition, so an approach to an input
+just outside the clip may still be visible.
+
+The pointer appears before input, eases to the recorded cell, and lingers after
+it; nearby interactions stay connected. This is presentation-only: enabling it
+does not delay a script or send extra moves. To test hover along a path, send
+real intermediate `ui.mouse` moves. The runnable
+[`test/manual/pointer-demo.ts`](test/manual/pointer-demo.ts) checks production
+hover/leave and click behavior and exports a wide/narrow recording.
+
 If you are doing UI development in OpenCode, you might want to run it in a simulated mode. This allows `opencode-drive` to drive it and always put it into a state that you want to see.
 
 Run it in visible mode:

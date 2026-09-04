@@ -160,6 +160,17 @@ it.live("rejects recording for a visible TUI", () =>
   }),
 )
 
+it.live("rejects pointer overlays on endpoints without recorded input evidence", () => Effect.gen(function* () {
+  const failure = yield* OpenCodeDriver.make({
+    tui: { recording: true, pointerOverlay: true },
+    opencode: { command: [...fakeOpenCode, "omit-pointer-capability"] },
+  }).pipe(Effect.scoped, Effect.flip)
+  expect(failure).toMatchObject({
+    _tag: "OpenCodeDriverError", operation: "tui.launch",
+    message: "pointerOverlay requires an OpenCode endpoint with ui.recording.pointer",
+  })
+}))
+
 it.live("supports explicit terminal settlement with make", () =>
   Effect.gen(function* () {
     let artifacts = ""

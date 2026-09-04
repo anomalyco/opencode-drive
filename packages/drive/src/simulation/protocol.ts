@@ -116,6 +116,8 @@ export namespace Frontend {
     "ui.focus",
     "ui.click",
     "ui.click.semantic",
+    "ui.mouse",
+    "ui.recording.pointer",
     "ui.resize",
     "ui.matches",
     "ui.state",
@@ -143,6 +145,30 @@ export namespace Frontend {
   export interface SemanticClickTarget
     extends Schema.Schema.Type<typeof SemanticClickTarget> {}
 
+  const MousePosition = {
+    x: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    y: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    modifiers: Schema.optionalKey(Schema.Struct({
+      shift: Schema.optionalKey(Schema.Boolean),
+      alt: Schema.optionalKey(Schema.Boolean),
+      ctrl: Schema.optionalKey(Schema.Boolean),
+    })),
+  }
+  export const MouseParams = Schema.Union([
+    Schema.Struct({ ...MousePosition, action: Schema.Literal("move") }),
+    Schema.Struct({
+      ...MousePosition,
+      action: Schema.Literals(["down", "up"]),
+      button: Schema.optionalKey(Schema.Literals(["left", "middle", "right"])),
+    }),
+    Schema.Struct({
+      ...MousePosition,
+      action: Schema.Literal("scroll"),
+      direction: Schema.Literals(["up", "down", "left", "right"]),
+    }),
+  ])
+  export type MouseParams = Schema.Schema.Type<typeof MouseParams>
+
   export const Action = Schema.Union([
     Schema.Struct({ type: Schema.Literal("ui.type"), text: Schema.String }),
     Schema.Struct({
@@ -156,6 +182,7 @@ export namespace Frontend {
       direction: Schema.Literals(["up", "down", "left", "right"]),
     }),
     Schema.Struct({ type: Schema.Literal("ui.focus"), target: Schema.Number }),
+    Schema.Struct({ type: Schema.Literal("ui.mouse"), params: MouseParams }),
     Schema.Struct({
       type: Schema.Literal("ui.click"),
       target: Schema.Number,
@@ -339,6 +366,11 @@ export namespace Frontend {
       ...JsonRpc.RequestFields,
       method: Schema.Literal("ui.click"),
       params: ClickParams,
+    }),
+    Schema.Struct({
+      ...JsonRpc.RequestFields,
+      method: Schema.Literal("ui.mouse"),
+      params: MouseParams,
     }),
     Schema.Struct({
       ...JsonRpc.RequestFields,

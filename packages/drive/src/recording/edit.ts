@@ -25,7 +25,11 @@ export interface RecordingClip {
 
 export interface EditedSample extends SampledFrame {
   readonly label?: string
+  /** Raw playback time; sourceAtMs still identifies the borrowed terminal snapshot. */
+  readonly playbackAtMs?: number
 }
+
+type PlaybackSample = EditedSample & { readonly playbackAtMs: number }
 
 /** The annotation label active at `atMs` on the raw timeline, if any. */
 export function labelAt(annotations: ReadonlyArray<RecordingAnnotation>, atMs: number) {
@@ -50,9 +54,9 @@ export function labelAt(annotations: ReadonlyArray<RecordingAnnotation>, atMs: n
 export function applyClips(
   samples: ReadonlyArray<SampledFrame>,
   clips: ReadonlyArray<RecordingClip>,
-): EditedSample[] {
+): PlaybackSample[] {
   if (clips.length === 0) throw new Error("clips must not be empty")
-  const edited: EditedSample[] = []
+  const edited: PlaybackSample[] = []
   let offset = 0
   for (const clip of clips) {
     const speed = clip.speed ?? 1
@@ -64,14 +68,22 @@ export function applyClips(
     const inside = samples.filter((sample) => sample.sourceAtMs > clip.fromMs && sample.sourceAtMs <= clip.toMs)
     const kept = opener ? [opener, ...inside] : inside
     for (const sample of kept) {
-      edited.push({ ...sample, atMs: scale(sample.sourceAtMs), label: clip.label })
+      edited.push({
+        ...sample,
+        atMs: scale(sample.sourceAtMs),
+        playbackAtMs: Math.max(sample.sourceAtMs, clip.fromMs),
+        label: clip.label,
+      })
     }
     const clipEnd = offset + (clip.toMs - clip.fromMs) / speed
     const last = edited.at(-1)
-    // Preserve quiet time up to the clip end and any hold after it by
-    // re-emitting the final frame.
-    if (last && (clip.holdMs ?? 0) >= 0 && last.atMs < clipEnd + (clip.holdMs ?? 0)) {
-      edited.push({ ...last, atMs: clipEnd + (clip.holdMs ?? 0) })
+    // Borrow terminal pixels, not their timestamp. Animation reaches the exact
+    // clip boundary, then the whole composition freezes during a hold.
+    if (last && last.atMs < clipEnd) {
+      edited.push({ ...last, atMs: clipEnd, playbackAtMs: clip.toMs })
+    }
+    if (last && (clip.holdMs ?? 0) > 0) {
+      edited.push({ ...last, atMs: clipEnd + (clip.holdMs ?? 0), playbackAtMs: clip.toMs })
     }
     offset = clipEnd + (clip.holdMs ?? 0)
   }

@@ -77,6 +77,10 @@ export const UiRpcs = RpcGroup.make(
     payload: Frontend.ClickParams,
     success: Frontend.State,
   }),
+  request("ui.mouse", {
+    payload: Frontend.MouseParams,
+    success: Frontend.State,
+  }),
   request("ui.resize", {
     payload: Frontend.ResizeParams,
     success: Frontend.State,

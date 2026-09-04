@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createCanvas, loadImage } from "@napi-rs/canvas"
-import { encodeFrames, exportRecording, joinFrames, renderFrame } from "../../src/recording/index.js"
+import { encodeFrames, exportRecording, joinFrames, pointerAt, renderFrame, replayRecording } from "../../src/recording/index.js"
 
 const directories: string[] = []
 
@@ -26,6 +26,81 @@ test("exports the final frame as a PNG and creates its parent", async () => {
   expect(result).toEqual({ frames: 1, durationMs: 0, width: 40, height: 40 })
   expect((await readFile(output)).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   expect((await stat(output)).size).toBeGreaterThan(100)
+})
+
+test.each([undefined, 2_000])("aligns keypresses with the replay origin (%s), without extending the recording", async (startAtMs) => {
+  const directory = await mkdtemp(join(tmpdir(), "drive-export-key-origin-"))
+  directories.push(directory)
+  const timeline = join(directory, "timeline.jsonl")
+  await writeFile(timeline, [
+    { type: "header", version: 1, cols: 40, rows: 10, encoding: "base64" },
+    { type: "output", at_ms: 2_000, data: Buffer.from("ready").toString("base64") },
+    { type: "output", at_ms: 2_400, data: "" },
+  ].map((event) => JSON.stringify(event)).join("\n") + "\n")
+  const options = { startAtMs, durationMs: startAtMs === undefined ? undefined : 350 }
+  const plain = join(directory, "plain.png")
+  const overlaid = join(directory, "keys.png")
+  const baseline = await exportRecording(timeline, plain, options)
+  const result = await exportRecording(timeline, overlaid, {
+    ...options,
+    // This key expires at the retained end; test a point before expiry.
+    keypresses: [{ atMs: 2_100, label: "Enter" }],
+  })
+  expect(result.durationMs).toBe(baseline.durationMs)
+  expect(result.durationMs).toBeLessThanOrEqual(400)
+})
+
+test("renders an opt-in pointer at raw time through trims, speed changes and holds", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drive-export-pointer-"))
+  directories.push(directory)
+  const timeline = join(directory, "timeline.jsonl")
+  await writeFile(timeline, [
+    { type: "header", version: 1, cols: 40, rows: 10, encoding: "base64" },
+    { type: "output", at_ms: 2_000, data: Buffer.from("ready").toString("base64") },
+    { type: "output", at_ms: 2_400, data: "" },
+  ].map((event) => JSON.stringify(event)).join("\n") + "\n")
+  await writeFile(join(directory, "timeline.pointers.jsonl"), JSON.stringify({ action: "click", atMs: 2_350, x: 5, y: 2 }) + "\n")
+  const plain = join(directory, "plain.png")
+  const overlaid = join(directory, "pointer.png")
+  const options = { clips: [{ fromMs: 2_000, toMs: 2_400, speed: 2, holdMs: 500 }], header: "Pointer" }
+  const baseline = await exportRecording(timeline, plain, options)
+  const result = await exportRecording(timeline, overlaid, { ...options, pointerOverlay: true })
+  expect(result).toEqual(baseline)
+  expect(result.durationMs).toBe(700)
+  expect(await readFile(overlaid)).not.toEqual(await readFile(plain))
+  const image = await loadImage(await readFile(overlaid))
+  const canvas = createCanvas(image.width, image.height)
+  const context = canvas.getContext("2d")
+  context.drawImage(image, 0, 0)
+  // Icon origin is centered in (5,2), with the 40px header offset applied.
+  const ink = context.getImageData(55, 90, 20, 24).data
+  expect(ink.some((channel, index) => index % 4 !== 3 && channel > 200)).toBe(true)
+})
+
+test("off-grid clips sample pointer playback time rather than the older terminal snapshot", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drive-pointer-off-grid-"))
+  directories.push(directory)
+  const timeline = join(directory, "timeline.jsonl")
+  await writeFile(timeline, [
+    { type: "header", version: 1, cols: 40, rows: 10, encoding: "base64" },
+    { type: "output", at_ms: 0, data: Buffer.from("ready").toString("base64") },
+    { type: "output", at_ms: 1_200, data: "" },
+  ].map((event) => JSON.stringify(event)).join("\n") + "\n")
+  const pointers = [
+    { action: "move", atMs: 900, x: 1, y: 2 },
+    { action: "move", atMs: 1_050, x: 20, y: 2 },
+  ] as const
+  await writeFile(join(directory, "timeline.pointers.jsonl"), pointers.map((event) => JSON.stringify(event)).join("\n") + "\n")
+  const output = join(directory, "pointer.png")
+  await exportRecording(timeline, output, {
+    fps: 10,
+    clips: [{ fromMs: 1_010, toMs: 1_090, speed: 2, holdMs: 500 }],
+    footer: false,
+    pointerOverlay: true,
+  })
+  const samples = await replayRecording(timeline, { fps: 10 })
+  expect(await readFile(output)).toEqual(renderFrame(samples[0]!.frame, { pointer: pointerAt(pointers, 1_090) }))
+  expect(await readFile(output)).not.toEqual(renderFrame(samples[0]!.frame, { pointer: pointerAt(pointers, 1_000) }))
 })
 
 test("rejects invalid encoding frame rates", async () => {

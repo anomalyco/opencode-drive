@@ -140,6 +140,11 @@ UI operations are Effects:
 - `ui.getElement(query, options?)`, `ui.focus(...)`, and `ui.click(...)` target interactive elements.
 - `ui.screenshot(name?)` asks OpenCode for the raw frame, saves it as a PNG inside Drive, and returns its absolute path. It requires no media-directory configuration.
 - `ui.resize({ cols, rows })`, `ui.press(...)`, and `ui.arrow(...)` control the TUI.
+- `ui.mouse({ action: "move", x, y })` sends real mouse movement at absolute,
+  zero-based terminal cell coordinates. `down`/`up` accept `button`
+  (`left` by default, `middle`, `right`); moves with a held button drag.
+  `scroll` requires `direction`. Mouse modifiers are `{ shift, alt, ctrl }`.
+  Older endpoints without `ui.mouse` fail with `UiCapabilityError`.
 
 Build deterministic simulated responses with the `Llm` namespace and schedule them through the driver's `llm` controller:
 
@@ -182,6 +187,20 @@ yield* secondary.ui.screenshot("secondary")
 ```
 
 ### Annotated Recordings
+
+Set `tui: { recording: true, pointerOverlay: true }` for a minimal animated mouse
+cursor in exported videos. A configuration object accepts `leadMs` (180),
+`lingerMs` (700), and `motionMs` (220). Nearby inputs stay connected. This needs
+an OpenCode build advertising `ui.recording.pointer`; input timestamps and actual
+click coordinates come from its recording clock, not Drive-side estimates.
+Keep the `*.pointers.jsonl` sidecar with the terminal recording when copying it.
+`exportRecording` accepts the same `pointerOverlay` option.
+
+The cursor animation never sends input or delays the script. To exercise hover
+along a path, send real intermediate `ui.mouse` moves. Use state-based waits for
+the hover result. Clips crop the already-composited raw animation (including
+approaches to later inputs); holds freeze both terminal pixels and the pointer.
+Visibility windows are bounded by retained recording time, not extra video time.
 
 With `tui: { recording: true }`, label moments during the run and the exported
 MP4 gets a burned-in footer (segment label bottom-left, elapsed timecode and
@@ -506,6 +525,7 @@ Drive chooses the PNG directory. Do not configure a media directory or expect th
 - `--command.ui.arrow '{"direction":"down"}'`
 - `--command.ui.focus '{"target":12}'`
 - `--command.ui.click '{"target":12,"x":4,"y":1}'`
+- `--command.ui.mouse '{"action":"move","x":20,"y":8}'`
 - `--command.ui.resize '{"cols":120,"rows":40}'`
 - `--command.ui.screenshot` or `--command.ui.screenshot '{"name":"home"}'`
 - `--command.ui.state`
@@ -522,6 +542,9 @@ Start with `--record` to record a headless live instance. `stop` finishes the re
 Add `--keypress-overlay` when the video should show KeyCastr-style pills for
 the agent's semantic hotkeys, Enter presses, and arrow navigation. It requires
 `--record`; batched typed text is deliberately omitted.
+
+Add `--pointer-overlay` for real mouse input with an eased cursor in the video.
+It also requires `--record` and a pointer-capable OpenCode build.
 
 ```bash
 opencode-drive start --name demo --record --keypress-overlay

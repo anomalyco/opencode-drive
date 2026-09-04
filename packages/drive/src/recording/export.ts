@@ -6,6 +6,7 @@ import { encodeFrames } from "./encode.js"
 import { progressReporter } from "./frame-rate.js"
 import { replayRecording, type ReplayOptions } from "./replay.js"
 import { CellHeight, CellWidth, FooterHeight, formatTimecode, renderFrame } from "./render.js"
+import { loadPointers, pointerAt, PointerOverlayOptions } from "./pointer.js"
 import {
   activeKeypresses,
   injectKeypressSamples,
@@ -27,6 +28,8 @@ export interface ExportRecordingOptions extends ReplayOptions {
   clips?: ReadonlyArray<RecordingClip>
   /** Semantic key presses to display briefly over the terminal. */
   keypresses?: ReadonlyArray<RecordingKeypress>
+  /** Animate actual mouse input from the recording sidecar. Off by default. */
+  pointerOverlay?: boolean | PointerOverlayOptions
   onProgress?: (percent: number) => void
   signal?: AbortSignal
 }
@@ -48,21 +51,41 @@ export async function exportRecording(
   options.signal?.throwIfAborted()
   const annotations = options.annotations ?? []
   const keypresses = options.keypresses ?? []
+  const pointerOptions = options.pointerOverlay
+    ? PointerOverlayOptions.make(options.pointerOverlay === true ? {} : options.pointerOverlay)
+    : undefined
+  const pointers = pointerOptions ? await loadPointers(timelinePath) : []
   const edited =
     options.clips && options.clips.length > 0
       ? applyClips(replayed, options.clips)
-      : replayed.map((sample) => ({ ...sample, label: undefined }))
-  const outputKeypresses = mapKeypresses(keypresses, options.clips)
-  const samples = injectKeypressSamples(edited, outputKeypresses)
+      : replayed.map((sample) => ({ ...sample, playbackAtMs: sample.sourceAtMs, label: undefined }))
+  // Even an unedited video has a raw-time origin: replay trims blank startup
+  // or starts at startAtMs. Overlay times must use that same retained range.
+  const outputKeypresses = mapKeypresses(keypresses, options.clips?.length ? options.clips : [{
+    fromMs: replayed[0]!.sourceAtMs,
+    toMs: replayed.at(-1)!.sourceAtMs,
+  }])
+  const originalSamples = new Set(edited)
+  const samples = injectKeypressSamples(edited, outputKeypresses).map((sample) => {
+    if (originalSamples.has(sample)) return sample
+    const previous = edited.findLast((frame) => frame.atMs <= sample.atMs)
+    const next = edited.find((frame) => frame.atMs > sample.atMs)
+    if (!previous || !next || sample.atMs === previous.atMs) return sample
+    return {
+      ...sample,
+      playbackAtMs: previous.playbackAtMs + (next.playbackAtMs - previous.playbackAtMs) *
+        (sample.atMs - previous.atMs) / (next.atMs - previous.atMs),
+    }
+  })
   const footerEnabled =
     options.footer === false
       ? false
       : options.footer !== undefined || annotations.length > 0 || (options.clips?.length ?? 0) > 0
   const brand = typeof options.footer === "object" ? options.footer.brand : undefined
-  const footer = (sample: { atMs: number; sourceAtMs: number; label?: string }) =>
+  const footer = (sample: { atMs: number; playbackAtMs: number; label?: string }) =>
     footerEnabled
       ? {
-          label: sample.label ?? labelAt(annotations, sample.sourceAtMs),
+          label: sample.label ?? labelAt(annotations, sample.playbackAtMs),
           timecodeMs: sample.atMs,
           brand,
         }
@@ -89,6 +112,7 @@ export async function exportRecording(
         header: header(final.atMs),
         footer: footer(final),
         keys: activeKeypresses(outputKeypresses, final.atMs),
+        pointer: pointerOptions ? pointerAt(pointers, final.playbackAtMs, pointerOptions) : undefined,
       }),
       { signal: options.signal },
     )
@@ -100,6 +124,7 @@ export async function exportRecording(
         const label = header(sample.atMs)
         const overlay = footer(sample)
         const keys = activeKeypresses(outputKeypresses, sample.atMs)
+        const pointer = pointerOptions ? pointerAt(pointers, sample.playbackAtMs, pointerOptions) : undefined
         let frameKey = frameKeys.get(sample.frame)
         if (frameKey === undefined) {
           frameKey = createHash("sha256").update(JSON.stringify(sample.frame)).digest("hex")
@@ -112,8 +137,9 @@ export async function exportRecording(
             label,
             overlay ? [overlay.label, overlay.brand, formatTimecode(overlay.timecodeMs)] : undefined,
             keys,
+            pointer,
           ]),
-          render: () => renderFrame(sample.frame, { cols, rows, header: label, footer: overlay, keys }),
+          render: () => renderFrame(sample.frame, { cols, rows, header: label, footer: overlay, keys, pointer }),
         }
       }),
       outputPath,

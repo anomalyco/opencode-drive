@@ -69,6 +69,33 @@ void operationErrorExcludesScreenshotError
 void screenshotErrorIsSpecific
 
 describe("OpenCodeUi", () => {
+  it.live("dispatches real mouse params unchanged and keeps transforms around mouse operations", () => Effect.gen(function* () {
+    const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, state))
+    yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+    const connection = yield* SimulationConnector.ui(peer.url)
+    const operations: string[] = []
+    const ui = OpenCodeUi.transform(OpenCodeUi.make(connection), (effect) => effect.pipe(
+      Effect.tap(() => Effect.sync(() => { operations.push("mouse") })),
+    ))
+    const params = { action: "move", x: 23, y: 11, modifiers: { shift: true } } as const
+    expect(yield* ui.mouse(params)).toEqual(state)
+    expect(peer.received[0]?.request).toMatchObject({ method: "ui.mouse", params })
+    expect(operations).toEqual(["mouse"])
+  }))
+
+  it.live("keeps older endpoints usable and rejects unsupported mouse before sending input", () => Effect.gen(function* () {
+    const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, state), {
+      capabilities: (capabilities) => capabilities.filter((capability) => capability !== "ui.mouse"),
+    })
+    yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+    const connection = yield* SimulationConnector.ui(peer.url)
+    const ui = OpenCodeUi.make(connection)
+    expect(yield* ui.mouse({ action: "move", x: 1, y: 2 }).pipe(Effect.flip)).toMatchObject({
+      _tag: "UiCapabilityError", capability: "ui.mouse",
+    })
+    expect(peer.received).toEqual([])
+    expect(yield* ui.state()).toEqual(state)
+  }))
   it.live("captures a normalized terminal frame", () => {
     const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, frame))
 

@@ -57,6 +57,19 @@ describe("applyClips", () => {
     const edited = applyClips(samples, [{ fromMs: 150, toMs: 300 }])
     expect(edited.map((entry) => entry.sourceAtMs)).toEqual([100, 200, 300])
     expect(edited[0]!.atMs).toBe(0)
+    expect(edited[0]!.playbackAtMs).toBe(150)
+    expect(edited[0]!.frame).toBe(samples[1]!.frame)
+  })
+
+  test("separates off-grid playback boundaries from borrowed pixels through reordered clips and holds", () => {
+    const edited = applyClips(samples, [
+      { fromMs: 310, toMs: 390, speed: 2, holdMs: 30 },
+      { fromMs: 110, toMs: 190 },
+    ])
+    expect(edited.map((entry) => [entry.atMs, entry.sourceAtMs, entry.playbackAtMs])).toEqual([
+      [0, 300, 310], [40, 300, 390], [70, 300, 390],
+      [70, 100, 110], [150, 100, 190],
+    ])
   })
 
   test("speed rescales the clip and holds freeze the last frame", () => {
