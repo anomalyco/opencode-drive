@@ -190,7 +190,10 @@ yield* secondary.ui.screenshot("secondary")
 
 Set `tui: { recording: true, pointerOverlay: true }` for a minimal animated mouse
 cursor in exported videos. A configuration object accepts `leadMs` (180),
-`lingerMs` (700), and `motionMs` (220). Nearby inputs stay connected. This needs
+`lingerMs` (700), `motionMs` (220), and `curve` (0.12). Travel uses a critically
+damped Motion spring, arriving exactly at input time along a bounded arc. Use
+`curve: 0` for straight travel; held drags never add decorative curvature.
+Nearby inputs stay connected. This needs
 an OpenCode build advertising `ui.recording.pointer`; input timestamps and actual
 click coordinates come from its recording clock, not Drive-side estimates.
 Keep the `*.pointers.jsonl` sidecar with the terminal recording when copying it.

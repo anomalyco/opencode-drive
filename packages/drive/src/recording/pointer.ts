@@ -1,4 +1,10 @@
 import { Schema } from "effect"
+import { spring } from "motion"
+import { CellHeight, CellWidth } from "../frame/index.js"
+
+// Motion's duration-based bounce: 0 resolves to a critically damped spring.
+// Sample normalized time so any configured travel window still ends at real input.
+const travel = spring({ keyframes: [0, 1], duration: 1_000, bounce: 0 })
 
 /** Actual simulation input, timestamped on the terminal recording's clock. */
 export const RecordingPointer = Schema.Struct({
@@ -15,8 +21,10 @@ export const PointerOverlayOptions = Schema.Struct({
   leadMs: Schema.optionalKey(Milliseconds),
   /** Keep it visible after input, merging nearby interactions. Default: 700ms. */
   lingerMs: Schema.optionalKey(Milliseconds),
-  /** Ease between nearby positions, arriving at the input instant. Default: 220ms. */
+  /** Spring between nearby positions, arriving at the input instant. Default: 220ms. */
   motionMs: Schema.optionalKey(Milliseconds),
+  /** Arc height as a fraction of travel distance, capped at 40px. Default: 0.12; 0 is straight. */
+  curve: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))),
 })
 export interface PointerOverlayOptions extends Schema.Schema.Type<typeof PointerOverlayOptions> {}
 
@@ -65,18 +73,29 @@ export function pointerAt(
   if (!destination) return undefined
   const connected = previous && (held || destination.atMs - previous.atMs <= linger + lead)
   const start = previous ? Math.max(previous.atMs, destination.atMs - motion) : destination.atMs
-  const amount = connected ? ease((atMs - start) / (destination.atMs - start)) : 1
+  const amount = connected ? travel.next(progress((atMs - start) / (destination.atMs - start)) * 1_000).value : 1
   const origin = connected ? previous : destination
+  // Use pixels for the arc: terminal cells are twice as tall as they are wide.
+  // A held drag follows the recorded segments, never a decorative detour.
+  const dx = (destination.x - origin.x) * CellWidth
+  const dy = (destination.y - origin.y) * CellHeight
+  const distance = Math.hypot(dx, dy)
+  const bend = held || distance === 0 ? 0 :
+    Math.min(40, distance * (options.curve ?? 0.12)) * 4 * amount * (1 - amount) / distance
   return {
-    x: origin.x + (destination.x - origin.x) * amount,
-    y: origin.y + (destination.y - origin.y) * amount,
+    x: origin.x + (dx * amount + dy * bend) / CellWidth,
+    y: origin.y + (dy * amount - dx * bend) / CellHeight,
     opacity,
     pressed: held || (button?.action === "click" && atMs - button.atMs < 120),
   }
 }
 
 function ease(value: number) {
+  const amount = progress(value)
+  return amount * amount * (3 - 2 * amount)
+}
+
+function progress(value: number) {
   // A zero-duration interval is an immediate transition, including 0 / 0.
-  const progress = Number.isNaN(value) ? 1 : Math.max(0, Math.min(1, value))
-  return progress * progress * (3 - 2 * progress)
+  return Number.isNaN(value) ? 1 : Math.max(0, Math.min(1, value))
 }
