@@ -190,7 +190,7 @@ yield* secondary.ui.screenshot("secondary")
 
 Set `tui: { recording: true, pointerOverlay: true }` for a minimal animated mouse
 cursor in exported videos. A configuration object accepts `leadMs` (180),
-`lingerMs` (700), `motionMs` (220), and `curve` (0.12). Travel uses a critically
+`lingerMs` (700), `motionMs` (500), and `curve` (0.06). Travel uses a critically
 damped Motion spring, arriving exactly at input time along a bounded arc. Use
 `curve: 0` for straight travel; held drags never add decorative curvature.
 Nearby inputs stay connected. This needs

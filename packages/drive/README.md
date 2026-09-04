@@ -238,7 +238,7 @@ Enable a minimal spring-animated cursor in exported videos:
 OpenCodeDriver.use({
   tui: {
     recording: true,
-    pointerOverlay: { leadMs: 180, lingerMs: 700, motionMs: 220, curve: 0.12 },
+    pointerOverlay: { leadMs: 180, lingerMs: 700, motionMs: 500, curve: 0.06 },
   },
 }, ({ ui }) => ui.mouse({ action: "move", x: 20, y: 8 }))
 ```
@@ -262,7 +262,7 @@ The pointer appears before input, follows a small arc to the recorded cell with
 a critically damped Motion spring, and lingers after it. It arrives exactly at
 the input time without overshooting; nearby interactions stay connected.
 `curve` controls the arc height as a fraction of the pixel distance (capped at
-40px); set it to `0` for straight travel. Held drags always follow straight
+24px); set it to `0` for straight travel. Held drags always follow straight
 segments between recorded points. Motion's sampler runs without React or a browser.
 This is presentation-only: enabling it
 does not delay a script or send extra moves. To test hover along a path, send

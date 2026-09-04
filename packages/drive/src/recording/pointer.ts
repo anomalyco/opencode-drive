@@ -21,9 +21,9 @@ export const PointerOverlayOptions = Schema.Struct({
   leadMs: Schema.optionalKey(Milliseconds),
   /** Keep it visible after input, merging nearby interactions. Default: 700ms. */
   lingerMs: Schema.optionalKey(Milliseconds),
-  /** Spring between nearby positions, arriving at the input instant. Default: 220ms. */
+  /** Spring between nearby positions, arriving at the input instant. Default: 500ms. */
   motionMs: Schema.optionalKey(Milliseconds),
-  /** Arc height as a fraction of travel distance, capped at 40px. Default: 0.12; 0 is straight. */
+  /** Arc height as a fraction of travel distance, capped at 24px. Default: 0.06; 0 is straight. */
   curve: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))),
 })
 export interface PointerOverlayOptions extends Schema.Schema.Type<typeof PointerOverlayOptions> {}
@@ -58,7 +58,7 @@ export function pointerAt(
 ): PointerFrame | undefined {
   const lead = options.leadMs ?? 180
   const linger = options.lingerMs ?? 700
-  const motion = options.motionMs ?? 220
+  const motion = options.motionMs ?? 500
   const index = events.findLastIndex((event) => event.atMs <= atMs)
   const previous = events[index]
   const next = events[index + 1]
@@ -69,9 +69,10 @@ export function pointerAt(
   const fadingIn = next ? ease((atMs - next.atMs + lead) / Math.min(120, lead)) : 0
   const opacity = held ? 1 : Math.max(fadingOut, fadingIn)
   if (opacity <= 0) return undefined
-  const destination = next && atMs >= next.atMs - Math.max(lead, motion) ? next : previous
+  const connected = previous && next && (held || next.atMs - previous.atMs <= linger + lead)
+  // A longer travel window must not reveal disconnected input during the old pointer's fade-out.
+  const destination = next && atMs >= next.atMs - Math.max(lead, connected ? motion : 0) ? next : previous
   if (!destination) return undefined
-  const connected = previous && (held || destination.atMs - previous.atMs <= linger + lead)
   const start = previous ? Math.max(previous.atMs, destination.atMs - motion) : destination.atMs
   const amount = connected ? travel.next(progress((atMs - start) / (destination.atMs - start)) * 1_000).value : 1
   const origin = connected ? previous : destination
@@ -81,7 +82,7 @@ export function pointerAt(
   const dy = (destination.y - origin.y) * CellHeight
   const distance = Math.hypot(dx, dy)
   const bend = held || distance === 0 ? 0 :
-    Math.min(40, distance * (options.curve ?? 0.12)) * 4 * amount * (1 - amount) / distance
+    Math.min(24, distance * (options.curve ?? 0.06)) * 4 * amount * (1 - amount) / distance
   return {
     x: origin.x + (dx * amount + dy * bend) / CellWidth,
     y: origin.y + (dy * amount - dx * bend) / CellHeight,

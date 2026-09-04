@@ -34,26 +34,42 @@ describe("recorded pointer", () => {
   })
 
   it("keeps nearby clicks connected with a critically damped spring and exact arrival", () => {
-    const second = { ...click, atMs: 1_500, x: 30 }
+    const second = { ...click, atMs: 1_800, x: 30 }
     expect(pointerAt([click, second], 1_200)).toMatchObject({ x: 10, opacity: 1 })
     const expected = spring({ keyframes: [10, 30], duration: 1_000, bounce: 0 })
-    expect(pointerAt([click, second], 1_390)?.x).toBeCloseTo(expected.next(500).value)
-    expect(pointerAt([click, second], 1_390)?.y).toBeLessThan(5)
-    expect(pointerAt([click, second], 1_500)).toMatchObject({ x: 30, y: 5, opacity: 1, pressed: true })
-    const positions = Array.from({ length: 221 }, (_, index) => visible([click, second], 1_280 + index).x)
+    expect(pointerAt([click, second], 1_550)?.x).toBeCloseTo(expected.next(500).value)
+    expect(pointerAt([click, second], 1_550)?.y).toBeLessThan(5)
+    expect(pointerAt([click, second], 1_800)).toMatchObject({ x: 30, y: 5, opacity: 1, pressed: true })
+    const positions = Array.from({ length: 501 }, (_, index) => visible([click, second], 1_300 + index).x)
     expect(positions.every((x) => x >= 10 && x <= 30)).toBe(true)
     expect(positions.every((x, index) => x >= (positions[index - 1] ?? 10))).toBe(true)
   })
 
   it("can disable the arc without losing the spring and caps long-distance bends", () => {
-    const second = { ...click, atMs: 1_500, x: 100 }
-    expect(pointerAt([click, second], 1_335, { curve: 0 })).toMatchObject({ y: 5 })
-    const positions = Array.from({ length: 221 }, (_, index) => visible([click, second], 1_280 + index))
+    const second = { ...click, atMs: 1_800, x: 100 }
+    expect(pointerAt([click, second], 1_425, { curve: 0 })).toMatchObject({ y: 5 })
+    const positions = Array.from({ length: 501 }, (_, index) => visible([click, second], 1_300 + index))
     expect(positions.some((point) => point.y < 5)).toBe(true)
-    expect(positions.every((point) => (5 - point.y) * 20 <= 40)).toBe(true)
-    const vertical = visible([click, { ...second, x: 10, y: 50 }], 1_335)
+    expect(positions.every((point) => (5 - point.y) * 20 <= 24)).toBe(true)
+    const vertical = visible([click, { ...second, x: 10, y: 50 }], 1_425)
     expect(vertical.x).toBeGreaterThan(10)
-    expect((vertical.x - 10) * 10).toBeLessThanOrEqual(40)
+    expect((vertical.x - 10) * 10).toBeLessThanOrEqual(24)
+  })
+
+  it("more than halves peak travel speed compared with the previous 220ms window", () => {
+    const events = [click, { ...click, atMs: 1_800, x: 100 }]
+    const peak = (options: PointerOverlayOptions) => {
+      const positions = Array.from({ length: 501 }, (_, index) => visible(events, 1_300 + index, options).x)
+      return Math.max(...positions.map((x, index) => x - (positions[index - 1] ?? x)))
+    }
+    expect(peak({})).toBeLessThan(peak({ motionMs: 220 }) * 0.5)
+  })
+
+  it("does not borrow an old fade-out to jump early across a disconnected gap", () => {
+    const later = { ...click, atMs: 2_000, x: 80 }
+    expect(pointerAt([click, later], 1_600)).toMatchObject({ x: 10, y: 5 })
+    expect(pointerAt([click, later], 1_750)).toBeUndefined()
+    expect(pointerAt([click, later], 1_850)).toMatchObject({ x: 80, y: 5 })
   })
 
   it("samples identically when clips request frames in reverse or repeated order", () => {
@@ -92,8 +108,8 @@ describe("recorded pointer", () => {
   })
 })
 
-function visible(events: ReadonlyArray<RecordingPointer>, atMs: number) {
-  const frame = pointerAt(events, atMs)
+function visible(events: ReadonlyArray<RecordingPointer>, atMs: number, options?: PointerOverlayOptions) {
+  const frame = pointerAt(events, atMs, options)
   assert(frame, `Expected visible pointer at ${atMs}ms`)
   return frame
 }
