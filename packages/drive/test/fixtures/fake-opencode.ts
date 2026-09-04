@@ -395,7 +395,8 @@ function handshake(params: unknown, role: "ui" | "backend") {
     protocolVersion: 1,
     role,
     server: { name: "opencode", version: "test" },
-    capabilities: [...required, ...optional],
+    capabilities: [...required, ...optional].filter((capability) =>
+      !process.argv.includes("omit-pointer-capability") || capability !== "ui.recording.pointer"),
   }
 }
 

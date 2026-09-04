@@ -6,9 +6,11 @@ import * as Scope from "effect/Scope"
 import * as Deferred from "effect/Deferred"
 import type * as OpenCodeInstance from "../instance/runtime.js"
 import type * as SimulationConnector from "../simulation/connector.js"
+import { supportsCapability } from "../simulation/connector.js"
 import type { Frontend } from "../client/protocol.js"
 import { finalizeRecording } from "../recording/finalize.js"
 import { appendMark } from "../recording/marks.js"
+import type { PointerOverlayOptions } from "../recording/pointer.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 import * as OpenCodeUi from "./ui.js"
 import * as SharedEffect from "./shared.js"
@@ -17,6 +19,8 @@ export interface TuiOptions {
   readonly recording?: boolean
   /** Show recent semantic key presses in screenshots and exported recordings. */
   readonly keypressOverlay?: boolean
+  /** Animate real mouse input in exported videos. Requires recording and a pointer-capable endpoint. */
+  readonly pointerOverlay?: boolean | PointerOverlayOptions
   readonly viewport?: Frontend.ResizeParams
 }
 
@@ -90,6 +94,10 @@ export const make = Effect.fn("OpenCodeTui.make")(function* (
       error("tui.launch", "keypressOverlay requires recording"),
     )
   const connection = yield* connector.ui(launched.endpoint, { compatibility })
+  if (options.pointerOverlay && launched.recording === undefined)
+    return yield* Effect.fail(error("tui.launch", "pointerOverlay requires recording"))
+  if (options.pointerOverlay && !supportsCapability(connection.compatibility, "ui.recording.pointer"))
+    return yield* Effect.fail(error("tui.launch", "pointerOverlay requires an OpenCode endpoint with ui.recording.pointer"))
   const ui = OpenCodeUi.make(connection, {
     screenshotDirectory: launched.media,
     ...(options.keypressOverlay && launched.recording
@@ -120,7 +128,7 @@ export const make = Effect.fn("OpenCodeTui.make")(function* (
     const exportFinishedRecording = yield* SharedEffect.make(
       Effect.flatMap(finishTimeline, (timeline) =>
         Effect.tryPromise({
-          try: (signal) => finalizeRecording(timeline, recording, { signal }),
+          try: (signal) => finalizeRecording(timeline, recording, { signal, pointerOverlay: options.pointerOverlay }),
           catch: (cause) => error("recording.export", cause),
         }),
       ),

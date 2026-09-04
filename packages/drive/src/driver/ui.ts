@@ -96,7 +96,7 @@ export class UiNodeAmbiguousError extends Schema.TaggedError<UiNodeAmbiguousErro
 export class UiCapabilityError extends Schema.TaggedError<UiCapabilityError>()(
   "UiCapabilityError",
   {
-    capability: Schema.Literals(["ui.snapshot", "ui.click.semantic"]),
+    capability: Schema.Literals(["ui.snapshot", "ui.click.semantic", "ui.mouse"]),
     message: Schema.String,
   },
 ) {}
@@ -163,6 +163,10 @@ export interface Ui {
   readonly focus: (
     target: number | Frontend.Element,
   ) => Effect.Effect<Frontend.State, OperationError>
+  /** Send real terminal mouse input at zero-based absolute cell coordinates. */
+  readonly mouse: (
+    params: Frontend.MouseParams,
+  ) => Effect.Effect<Frontend.State, SemanticOperationError>
   readonly click: (
     target: number | Frontend.Element | Frontend.SemanticNode,
     position?: Position,
@@ -219,6 +223,7 @@ export const transform = (ui: Ui, apply: Transform): Ui => ({
   enter: () => apply(ui.enter()),
   arrow: (direction) => apply(ui.arrow(direction)),
   focus: (target) => apply(ui.focus(target)),
+  mouse: (params) => apply(ui.mouse(params)),
   click: (target, position) => apply(ui.click(target, position)),
   resize: (viewport) => apply(ui.resize(viewport)),
   submit: (text) => apply(ui.submit(text)),
@@ -318,6 +323,14 @@ export const make = (connection: UiConnection, options?: Options): Control => {
   const resize = Effect.fn("Ui.resize")((viewport: Frontend.ResizeParams) =>
     call("resize", rpc["ui.resize"](viewport)),
   )
+  const mouse = Effect.fn("Ui.mouse")(function* (params: Frontend.MouseParams) {
+    if (!supportsCapability(connection.compatibility, "ui.mouse"))
+      return yield* Effect.fail(new UiCapabilityError({
+        capability: "ui.mouse",
+        message: "ui.mouse is not available on this OpenCode endpoint",
+      }))
+    return yield* call("mouse", rpc["ui.mouse"](params))
+  })
   const submit = Effect.fn("Ui.submit")(function* (text: string) {
     yield* type(text)
     return yield* enter()
@@ -511,6 +524,7 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     enter,
     arrow,
     focus,
+    mouse,
     click,
     resize,
     submit,

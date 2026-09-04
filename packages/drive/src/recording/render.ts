@@ -13,6 +13,7 @@ import {
 } from "../frame/index.js"
 import type { Frontend } from "../client/protocol.js"
 import type { CapturedFrame } from "./types.js"
+import type { PointerFrame } from "./pointer.js"
 
 export { CellHeight, CellWidth } from "../frame/index.js"
 
@@ -73,6 +74,7 @@ export interface RenderFrameOptions {
   readonly footer?: RenderFrameFooter
   /** Recent semantic key presses, rendered as a KeyCastr-style overlay. */
   readonly keys?: ReadonlyArray<string>
+  readonly pointer?: PointerFrame
 }
 
 export const FooterHeight = 40
@@ -228,6 +230,35 @@ export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, optio
       )
       x += pill.width + gap
     }
+  }
+  if (options.pointer) {
+    const pointer = options.pointer
+    context.save()
+    context.beginPath()
+    context.rect(0, headerHeight, frame.cols * CellWidth, frame.rows * CellHeight)
+    context.clip()
+    context.translate((pointer.x + 0.5) * CellWidth, headerHeight + (pointer.y + 0.5) * CellHeight)
+    context.globalAlpha = pointer.opacity
+    context.scale(pointer.pressed ? 0.88 : 1, pointer.pressed ? 0.88 : 1)
+    context.shadowColor = "rgba(0, 0, 0, 0.45)"
+    context.shadowBlur = 3
+    context.shadowOffsetY = 1
+    context.beginPath()
+    context.moveTo(0, 0)
+    context.lineTo(1, 20)
+    context.lineTo(6, 15)
+    context.lineTo(10, 23)
+    context.lineTo(14, 21)
+    context.lineTo(10, 13)
+    context.lineTo(17, 13)
+    context.closePath()
+    context.fillStyle = "#f7f7f7"
+    context.strokeStyle = "#202020"
+    context.lineWidth = 1.5
+    context.lineJoin = "round"
+    context.fill()
+    context.stroke()
+    context.restore()
   }
   return canvas.toBuffer("image/png")
 }

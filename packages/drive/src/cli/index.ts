@@ -126,6 +126,10 @@ const startCommand = Command.make(
       Flag.withDefault(false),
       Flag.withDescription("Show recent key presses in screenshots and recordings"),
     ),
+    pointerOverlay: Flag.boolean("pointer-overlay").pipe(
+      Flag.withDefault(false),
+      Flag.withDescription("Animate real mouse input in recordings"),
+    ),
     dev: Flag.string("dev").pipe(
       Flag.optional,
       Flag.withDescription("Path to an OpenCode development checkout"),
@@ -233,6 +237,7 @@ function toStartOptions(
     readonly visible: boolean
     readonly record: boolean
     readonly keypressOverlay: boolean
+    readonly pointerOverlay: boolean
     readonly dev: Option.Option<string>
   },
   commands: ReadonlyArray<DriveCommand>,
@@ -251,6 +256,7 @@ function toStartOptions(
     visible: config.visible,
     record: config.record,
     keypressOverlay: config.keypressOverlay,
+    pointerOverlay: config.pointerOverlay,
     dev: Option.getOrUndefined(config.dev),
     command: app,
   }
@@ -258,6 +264,8 @@ function toStartOptions(
     throw new Error("--dev cannot be combined with a command after --")
   if (options.keypressOverlay && !options.record)
     throw new Error("--keypress-overlay requires --record")
+  if (options.pointerOverlay && !options.record)
+    throw new Error("--pointer-overlay requires --record")
   return options
 }
 

@@ -53,8 +53,7 @@ export const Mode = Data.taggedEnum<Mode>()
 
 export interface State {
   readonly mode: Mode
-  readonly titleHandler: TitleHandler
-  readonly titleConfigured: boolean
+  readonly titleHandler: TitleHandler | undefined
   readonly requests: ReadonlyArray<AttachedRequest>
   readonly responses: ReadonlyArray<QueuedResponse>
   readonly activeNormal: ReadonlyArray<Completion>
@@ -69,8 +68,7 @@ export interface State {
 
 export const initial: State = {
   mode: Mode.Unset(),
-  titleHandler: () => Effect.succeed("OpenCode Drive"),
-  titleConfigured: false,
+  titleHandler: undefined,
   requests: [],
   responses: [],
   activeNormal: [],
@@ -121,7 +119,7 @@ export const rejectServe = (state: State): RejectionError | undefined => {
 /** Why a title call must be rejected, or undefined to proceed. */
 export const rejectTitle = (state: State): RejectionError | undefined => {
   if (state.failure !== undefined) return state.failure
-  if (state.titleConfigured)
+  if (state.titleHandler !== undefined)
     return new LlmModeError({
       operation: "title",
       message: "llm.title may only be configured once",
@@ -148,7 +146,6 @@ export const serve = (state: State, handler: ServeHandler): State => ({
 
 export const configureTitle = (state: State, handler: TitleHandler): State => ({
   ...state,
-  titleConfigured: true,
   titleHandler: handler,
 })
 
@@ -267,7 +264,7 @@ export const startTitle = (
     titleIndex: state.titleIndex + 1,
   },
   {
-    handler: state.titleHandler,
+    handler: state.titleHandler ?? (() => Effect.succeed("OpenCode Drive")),
     index: state.titleIndex,
     awaiting: state.activeNormal,
   },

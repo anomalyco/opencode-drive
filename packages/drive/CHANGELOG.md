@@ -1,5 +1,20 @@
 # opencode-drive
 
+## 2.1.0
+
+### Minor Changes
+
+- e0fb4c7: Add real terminal mouse move, button, and scroll control through `ui.mouse`, plus an opt-in animated pointer in recordings. Mouse controls and pointer recording negotiate capabilities with OpenCode; older endpoints remain usable for existing operations. Fix keypress placement after recording trims and simplify shared terminal-operation ownership without changing settlement behavior.
+
+  Animate pointer travel with a critically damped Motion spring and a configurable, bounded arc while preserving exact recorded input positions and times.
+
+  Refresh the native canvas and terminal replay dependencies, align repository and CI Bun versions, and document the distinction between the pinned V2 SDK and the separately installed OpenCode executable.
+
+### Patch Changes
+
+- Pin the V2 client and its matching protocol/schema packages to `0.0.0-dev-19066`, the published OpenCode build containing mouse control and pointer recording support.
+- f6a3f55: Bump the pinned `@opencode-ai/client` to `0.0.0-dev-18911` so the generated SDK exposes `plugin.awaitActivation`, which scripts need before reading agents or models from a cold location on current V2 servers.
+
 ## 2.0.1
 
 ### Patch Changes

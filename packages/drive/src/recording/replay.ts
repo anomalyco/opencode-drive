@@ -1,7 +1,7 @@
 import { decodeTimeline } from "./decode.js"
 import { resolveFps } from "./frame-rate.js"
 import { createTerminalParser, type TerminalParserFactory } from "./terminal.js"
-import type { SampledFrame, TimelineHeader } from "./types.js"
+import type { SampledFrame, TimelineHeader, TimelineRecord } from "./types.js"
 
 export interface ReplayOptions {
   fps?: number
@@ -26,6 +26,14 @@ export async function replay(path: string, options: InternalReplayOptions = {}):
   if (options.durationMs !== undefined && (!Number.isFinite(options.durationMs) || options.durationMs < 0))
     throw new Error("durationMs must be a non-negative finite number")
   const records = decodeTimeline(path)[Symbol.asyncIterator]()
+  try {
+    return await replayFrames(records, options, interval)
+  } finally {
+    await records.return(undefined)
+  }
+}
+
+async function replayFrames(records: AsyncGenerator<TimelineRecord>, options: InternalReplayOptions, interval: number) {
   const first = await records.next()
   options.signal?.throwIfAborted()
   if (first.done || first.value.type !== "header") throw new Error("Recording timeline is missing its header")

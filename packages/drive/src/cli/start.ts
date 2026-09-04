@@ -68,12 +68,13 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
         Effect.tap(() => Effect.sync(() => logSuccess(`loading script ${scriptModule}`))),
       )
     : undefined
-  const script = loadedScript && options.keypressOverlay
+  const script = loadedScript && (options.keypressOverlay || options.pointerOverlay)
     ? {
         ...loadedScript,
         tui: {
           ...loadedScript.tui,
-          keypressOverlay: true,
+          ...(options.keypressOverlay ? { keypressOverlay: true } : {}),
+          ...(options.pointerOverlay ? { pointerOverlay: true } : {}),
         },
       }
     : loadedScript
@@ -169,7 +170,7 @@ async function runLifecycle(
       options.script !== undefined
     )
       return Promise.resolve(undefined)
-    recording ??= finishRecording(instance, onProgress)
+    recording ??= finishRecording(instance, onProgress, options.pointerOverlay)
     return recording
   }
   const interrupt = () => {
@@ -390,6 +391,7 @@ function shouldCleanArtifacts(
 async function finishRecording(
   instance: OpenCodeInstance.Instance,
   onProgress?: (percent: number) => void,
+  pointerOverlay?: boolean,
 ) {
   const expected = await runEffect(instance.recording)
   if (!expected) throw new Error("recording was not enabled for this instance")
@@ -415,7 +417,7 @@ async function finishRecording(
       ),
     )
   }
-  return finalizeRecording(timeline, expected, { onProgress })
+  return finalizeRecording(timeline, expected, { onProgress, pointerOverlay })
 }
 
 const startDetached = Effect.fn("DriveCli.startDetached")(function* (
@@ -437,6 +439,7 @@ const startDetached = Effect.fn("DriveCli.startDetached")(function* (
     ...(options.dev ? ["--dev", options.dev] : []),
     ...(options.record ? ["--record"] : []),
     ...(options.keypressOverlay ? ["--keypress-overlay"] : []),
+    ...(options.pointerOverlay ? ["--pointer-overlay"] : []),
     ...(options.command.length ? ["--", ...options.command] : []),
   ], {
     cwd: process.cwd(),
@@ -492,6 +495,12 @@ function run(
     if (!driveScript) {
       log("waiting for OpenCode")
       await runEffect(instance.waitForDrive("both"))
+      if (options.pointerOverlay)
+        await runEffect(Effect.scoped(Effect.gen(function* () {
+          const connection = yield* SimulationConnector.ui(instance.endpoints.ui)
+          if (!SimulationConnector.supportsCapability(connection.compatibility, "ui.recording.pointer"))
+              yield* Effect.fail(new Error("--pointer-overlay requires an OpenCode endpoint with ui.recording.pointer"))
+        })))
       log("OpenCode ready")
     }
     if (driveScript) {

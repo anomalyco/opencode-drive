@@ -170,10 +170,10 @@ export const ui = Effect.fn("SimulationConnector.ui")(function* (
   const rpc = yield* RpcClient.make(UiRpcs).pipe(
     Effect.provideService(RpcClient.Protocol, protocol),
   )
-  const required = FrontendProtocol.Capabilities.filter(
-    (capability) =>
-      capability !== "ui.snapshot" && capability !== "ui.click.semantic",
-  )
+  const optional: ReadonlyArray<FrontendProtocol.Capability> = [
+    "ui.snapshot", "ui.click.semantic", "ui.mouse", "ui.recording.pointer",
+  ]
+  const required = FrontendProtocol.Capabilities.filter((capability) => !optional.includes(capability))
   const compatibility = yield* negotiate(
     endpoint,
     "ui",
@@ -183,7 +183,7 @@ export const ui = Effect.fn("SimulationConnector.ui")(function* (
       expectedRole: "ui",
       offeredVersions: [1],
       requiredCapabilities: required,
-      optionalCapabilities: ["ui.snapshot", "ui.click.semantic"],
+      optionalCapabilities: optional,
     }),
     options?.compatibility,
   )

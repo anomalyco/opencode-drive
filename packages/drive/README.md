@@ -8,11 +8,18 @@ This project gives your agents control over OpenCode:
 ## Requirements
 
 OpenCode Drive requires [Bun](https://bun.sh/) 1.3.14 or newer. MP4 recording export also requires `ffmpeg` on `PATH`.
+Repository development, CI, and releases use Bun 1.4.0.
 
 Effect programs must use `effect@4.0.0-rc.112`, Drive's exact peer dependency.
-The platform and test packages use the same release as the current V2 client,
-`@opencode-ai/client@0.0.0-dev-18535` and its matching protocol and schema
-packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
+The platform and test packages use the same release as the V2 client.
+The exact `@opencode-ai/client` version is pinned in
+[`package.json`](package.json), which also selects its matching protocol and
+schema packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
+
+Drive does not download or pin an OpenCode executable: it runs `opencode2` from
+`PATH` unless `--dev` or an explicit command selects another target. New mouse
+controls require a target advertising `ui.mouse` and `ui.recording.pointer`;
+upgrading Drive's SDK dependency alone does not upgrade that executable.
 
 Install dependencies with:
 
@@ -209,6 +216,66 @@ Screenshots and videos are written beneath `<system temp>/opencode-drive/output/
 Captured frames use the official full Commit Mono v1.143 faces at 16px with bundled Noto Symbols, Symbols 2, and Math fallbacks in a fixed 10x20 cell grid. Set `OPENCODE_DRIVE_FONT` to a comma-separated list of font files (for example regular, bold, italic, and bold-italic faces) to use a different primary capture font without changing the symbol fallback or cell geometry.
 
 ## UI development
+
+### Mouse control and recorded pointer
+
+`ui.mouse` dispatches real mouse input through OpenCode's renderer. Coordinates
+are zero-based terminal cells, absolute within the current viewport. Moves run
+native hover/leave handlers; a move while a button is down drags. Existing
+`ui.click(element, { x, y })` remains target-relative.
+
+```ts
+yield* ui.mouse({ action: "move", x: 20, y: 8 })
+yield* ui.mouse({ action: "down", x: 20, y: 8, button: "left" })
+yield* ui.mouse({ action: "move", x: 30, y: 8 })
+yield* ui.mouse({ action: "up", x: 30, y: 8, button: "left" })
+yield* ui.mouse({ action: "scroll", x: 30, y: 8, direction: "down" })
+```
+
+Buttons are `left` (default), `middle`, or `right`. Mouse modifiers use
+`{ shift, alt, ctrl }`; keyboard modifiers retain their existing `meta` spelling.
+The CLI takes the same protocol parameters with `--command.ui.mouse`.
+`ui.mouse` requires the optional `ui.mouse` endpoint capability. Unsupported
+endpoints fail with `UiCapabilityError` before input is sent; older endpoints
+remain usable for existing operations.
+
+Enable a minimal spring-animated cursor in exported videos:
+
+```ts
+OpenCodeDriver.use({
+  tui: {
+    recording: true,
+    pointerOverlay: { leadMs: 180, lingerMs: 700, motionMs: 500, curve: 0.06 },
+  },
+}, ({ ui }) => ui.mouse({ action: "move", x: 20, y: 8 }))
+```
+
+`pointerOverlay: true` uses those defaults. Live CLI runs use
+`start --record --pointer-overlay`. This requires an OpenCode build advertising
+`ui.recording.pointer`; Drive does not silently manufacture mouse evidence for
+older endpoints. The overlay is off by default and affects videos, not the
+terminal text caret or raw screenshots.
+
+OpenCode records actual input positions in `*.pointers.jsonl` beside the terminal
+timeline using the same monotonic clock. Keep this sidecar when copying a
+recording. `exportRecording(timeline, output, { pointerOverlay: true })` can
+re-render it, including trimmed, sped-up, or held clips. Holds freeze the whole
+composition. Keypress labels still use their own output-time display duration.
+Visibility windows are bounded by retained recording time: export does not add
+extra pre/post-roll. Clips crop the raw composition, so an approach to an input
+just outside the clip may still be visible.
+
+The pointer appears before input, follows a small arc to the recorded cell with
+a critically damped Motion spring, and lingers after it. It arrives exactly at
+the input time without overshooting; nearby interactions stay connected.
+`curve` controls the arc height as a fraction of the pixel distance (capped at
+24px); set it to `0` for straight travel. Held drags always follow straight
+segments between recorded points. Motion's sampler runs without React or a browser.
+This is presentation-only: enabling it
+does not delay a script or send extra moves. To test hover along a path, send
+real intermediate `ui.mouse` moves. The runnable
+[`test/manual/pointer-demo.ts`](test/manual/pointer-demo.ts) checks production
+hover/leave and click behavior and exports a wide/narrow recording.
 
 If you are doing UI development in OpenCode, you might want to run it in a simulated mode. This allows `opencode-drive` to drive it and always put it into a state that you want to see.
 

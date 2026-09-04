@@ -269,7 +269,6 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
   const indexes = new Map<string, number>()
   const active = new Map<AbortController, Promise<unknown>>()
   const background = new Map<string, BackgroundJob>()
-  let closing = false
   const server = yield* Effect.acquireRelease(
     Effect.sync(() =>
       Bun.serve({
@@ -279,7 +278,7 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
         fetch(request) {
           if (request.headers.get("authorization") !== `Bearer ${token}`)
             return new Response("Unauthorized", { status: 401 })
-          if (closing && request.method === "POST")
+          if (closed && request.method === "POST")
             return new Response("Tool controller is stopping", { status: 503 })
           const pathname = new URL(request.url).pathname
           const shellID = pathname.match(/^\/background\/([^/]+)$/)?.[1]
@@ -309,7 +308,6 @@ export const make = Effect.fn("ToolController.make")(function* (configuration?: 
     ),
     (server) =>
       Effect.gen(function* () {
-        closing = true
         closed = true
         yield* Effect.all(closeControls, { discard: true })
         yield* Effect.sync(() => {

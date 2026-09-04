@@ -17,6 +17,16 @@ const request = (id: string): LlmState.AttachedRequest =>
 const handler: LlmState.ServeHandler = () => Stream.empty
 
 describe("LlmState", () => {
+  it("allows configuring a title handler after a default title, but only once", () => {
+    const [state, first] = LlmState.startTitle(LlmState.initial, completion())
+    expect(Effect.runSync(first.handler(request("title").request, first.index))).toBe("OpenCode Drive")
+    expect(LlmState.rejectTitle(state)).toBeUndefined()
+    const configured = LlmState.configureTitle(state, () => Effect.succeed("Configured title"))
+    expect(LlmState.rejectTitle(configured)).toMatchObject({ _tag: "LlmModeError", operation: "title" })
+    const [, next] = LlmState.startTitle(configured, completion())
+    expect(next.index).toBe(1)
+    expect(Effect.runSync(next.handler(request("title").request, next.index))).toBe("Configured title")
+  })
   it("rejects queue/send after serve mode is selected", () => {
     const state = LlmState.serve(LlmState.initial, handler)
     expect(LlmState.rejectEnqueue(state, "queue")).toMatchObject({
