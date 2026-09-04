@@ -11,7 +11,7 @@
   "homepage": "https://github.com/anomalyco/opencode-drive#readme",
   "bugs": "https://github.com/anomalyco/opencode-drive/issues",
   "type": "module",
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.0",
   "engines": {
     "bun": ">=1.3.14"
   },
@@ -60,12 +60,12 @@
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.112",
     "@effect/platform-node-shared": "4.0.0-rc.112",
-    "@napi-rs/canvas": "1.0.2",
+    "@napi-rs/canvas": "1.0.8",
     "@opencode-ai/client": "0.0.0-dev-18911",
-    "@types/bun": "1.3.13",
+    "@types/bun": "1.4.0",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",
-    "@wterm/core": "0.3.0",
-    "@wterm/ghostty": "0.3.0",
+    "@wterm/core": "0.4.1",
+    "@wterm/ghostty": "0.4.1",
     "motion": "13.2.0"
   },
   "peerDependencies": {

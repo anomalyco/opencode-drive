@@ -8,11 +8,18 @@ This project gives your agents control over OpenCode:
 ## Requirements
 
 OpenCode Drive requires [Bun](https://bun.sh/) 1.3.14 or newer. MP4 recording export also requires `ffmpeg` on `PATH`.
+Repository development, CI, and releases use Bun 1.4.0.
 
 Effect programs must use `effect@4.0.0-rc.112`, Drive's exact peer dependency.
-The platform and test packages use the same release as the current V2 client,
-`@opencode-ai/client@0.0.0-dev-18535` and its matching protocol and schema
-packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
+The platform and test packages use the same release as the V2 client.
+The exact `@opencode-ai/client` version is pinned in
+[`package.json`](package.json), which also selects its matching protocol and
+schema packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
+
+Drive does not download or pin an OpenCode executable: it runs `opencode2` from
+`PATH` unless `--dev` or an explicit command selects another target. New mouse
+controls require a target advertising `ui.mouse` and `ui.recording.pointer`;
+upgrading Drive's SDK dependency alone does not upgrade that executable.
 
 Install dependencies with:
 
