@@ -20,7 +20,7 @@ OpenCodeDriver
 
 The names distinguish the two kinds of client involved:
 
-- `opencode` is the generated `@opencode-ai/client` SDK value.
+- `opencode` is the generated `@opencode/client` SDK value.
 - `Tui` is a launched OpenCode frontend process with `ui`, `close`, and an
   optional `recording`.
 - `Tuis` launches and supervises additional frontend processes connected to

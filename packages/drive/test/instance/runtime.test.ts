@@ -30,7 +30,7 @@ it.live("pins scripted TUIs and existing SDKs to the owned server across replace
       })
       yield* instance.launchServer
       const sdk = yield* make(artifacts)
-      const before = yield* sdk.health.get()
+      const before = yield* sdk.server.status()
       const registration = yield* Effect.promise(() => discoverRegistration(`${artifacts}/home/.local/state`))
       yield* instance.launchTui("retained")
       const connection = yield* Effect.promise(() => Bun.file(`${artifacts}/client-connection.json`).text()).pipe(
@@ -40,8 +40,8 @@ it.live("pins scripted TUIs and existing SDKs to the owned server across replace
       expect(connection.authenticated).toBe(true)
       yield* instance.killServer
       yield* instance.launchServer
-      const after = yield* sdk.health.get()
-      expect(after.healthy).toBe(true)
+      const after = yield* sdk.server.status()
+      expect(after.version).toBe("test")
       expect(after.pid).not.toBe(before.pid)
       const replacement = yield* Effect.promise(() => discoverRegistration(`${artifacts}/home/.local/state`))
       expect(replacement?.url).toBe(registration?.url)
@@ -79,7 +79,7 @@ it.live("preserves owned-port boot failures and permits launch after the overlap
       expect(Exit.isFailure(failed)).toBe(true)
       yield* Effect.promise(() => blocker.stop(true))
       yield* instance.launchServer
-      expect((yield* sdk.health.get()).healthy).toBe(true)
+      expect((yield* sdk.server.status()).version).toBe("test")
     }),
   ).pipe(Effect.provide(NodeServices.layer)),
 )

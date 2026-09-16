@@ -44,11 +44,10 @@ it.live("runs and settles a complete scoped driver", () =>
       },
       (driver) =>
         Effect.gen(function* () {
-          expect(yield* driver.opencode.health.get()).toMatchObject({
-            healthy: true,
+          expect(yield* driver.opencode.server.status()).toMatchObject({
             version: "test",
+            urls: [],
           })
-          expect(yield* driver.opencode.server.get()).toEqual({ urls: [] })
           yield* driver.llm.queue(
             Llm.text("library response", { delay: 0, chunkSize: 100 }),
           )

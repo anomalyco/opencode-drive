@@ -111,11 +111,11 @@ export default defineScript({
       yield* opencode.permission.reply({
         sessionID,
         requestID: permissions.question.id,
-        reply: "once",
+        decision: "once",
       })
       const form = yield* poll(
         Effect.all({
-          forms: opencode.form.list({ sessionID }),
+          forms: opencode.session.form.list({ sessionID }),
           permissions: opencode.permission.list({ sessionID }),
         }).pipe(
           Effect.map(({ forms, permissions: current }) =>
@@ -135,7 +135,7 @@ export default defineScript({
       yield* opencode.permission.reply({
         sessionID,
         requestID: permissions.glob.id,
-        reply: "once",
+        decision: "once",
       })
       yield* poll(
         opencode.message.list({ sessionID, limit: 20, order: "desc" }).pipe(
@@ -157,7 +157,7 @@ export default defineScript({
       yield* opencode.permission.reply({
         sessionID,
         requestID: permissions.read.id,
-        reply: "reject",
+        decision: "reject",
       })
       yield* ui.waitFor(question, { timeout: 10_000 })
       yield* saveFrame(artifacts, "form-with-running-shell", yield* ui.capture())
@@ -165,8 +165,8 @@ export default defineScript({
 
       yield* ui.enter()
       yield* poll(
-        opencode.form.state({ sessionID, formID: form.id }).pipe(
-          Effect.map((state) => state.status === "answered" ? state : undefined),
+        opencode.session.form.get({ sessionID, formID: form.id }).pipe(
+          Effect.map((detail) => detail.state.status === "answered" ? detail.state : undefined),
         ),
         "answered question form",
       )

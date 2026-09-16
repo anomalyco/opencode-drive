@@ -50,7 +50,7 @@ export default defineScript({
         yield* tui.ui.submit("Ask one runtime question and wait for my answer.")
         yield* tui.ui.waitFor(question.question, { timeout: 15_000 })
         const sessionID = yield* latestSessionId(opencode)
-        assert.equal((yield* opencode.form.list({ sessionID })).length, 1)
+        assert.equal((yield* opencode.session.form.list({ sessionID })).length, 1)
         checkpoint("open-form-before-restart")
         yield* tui.ui.screenshot("pending-form-before-restart")
 
@@ -65,7 +65,7 @@ export default defineScript({
           "succeeded",
           "recovery settled without succeeding",
         )
-        assert.equal((yield* resumed.form.list({ sessionID })).length, 0, "stale form stayed open")
+        assert.equal((yield* resumed.session.form.list({ sessionID })).length, 0, "stale form stayed open")
         assert(!(yield* tui.ui.matches("Form not found")), "stale form accepted local interaction")
         yield* tui.ui.waitFor((state) => state.focused.editor, { timeout: 10_000 })
         assert((yield* settled(tui.ui)).stable, "recovered UI did not settle")

@@ -12,7 +12,7 @@ Repository development, CI, and releases use Bun 1.4.0.
 
 Effect programs must use `effect@4.0.0-rc.112`, Drive's exact peer dependency.
 The platform and test packages use the same release as the V2 client.
-The exact `@opencode-ai/client` version is pinned in
+The exact `@opencode/client` version is pinned in
 [`package.json`](package.json), which also selects its matching protocol and
 schema packages. Effect's `latest` tag still selects V3; install the exact V4 peer.
 

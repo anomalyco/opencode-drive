@@ -1062,7 +1062,7 @@ describe("opencode-drive", () => {
     const error = await stderr
     const artifacts = artifactPath(error)
     expect(await Bun.file(join(artifacts, "manual-clients.json")).json()).toEqual({
-      apiHealthy: true,
+      apiVersion: "test",
       aliceFrame: { cols: 80, rows: 24 },
       aliceMatches: true,
       bobMatches: true,
