@@ -3,8 +3,8 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import {
   OpenCode as OpenCodeService,
   type OpenCodeClient,
-} from "@opencode-ai/client/effect"
-import * as Service from "@opencode-ai/client/effect/service"
+} from "@opencode/client/effect"
+import * as Service from "@opencode/client/effect/service"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import {

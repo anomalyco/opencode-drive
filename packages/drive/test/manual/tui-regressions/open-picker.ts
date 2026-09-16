@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { Effect, Stream } from "effect"
+import { Effect, Schedule, Stream } from "effect"
 import { defineScript, Llm } from "../../../src/index.js"
 import { appeared, settled } from "./support.js"
 import { saveFailure } from "./state-machine.js"
@@ -59,12 +59,29 @@ export default defineScript({
         const location = yield* opencode.location.get({ location: { directory: `${artifacts}/files` } })
         const archive = yield* opencode.location.get({ location: { directory: `${artifacts}/files/archive` } })
         assert.notEqual(archive.project.id, location.project.id, "archive must be a distinct Git project")
-        // Plugins load after config (OpenCode PR #46639), so a cold location
-        // answers agent and model reads with empty data until activation.
-        yield* opencode.plugin.awaitActivation({ location })
-        yield* opencode.plugin.awaitActivation({ location: archive })
-        const model = (yield* opencode.model.default({ location })).data
-        const agent = (yield* opencode.agent.list({ location })).data.find((agent) => agent.id === "build")
+        // Plugins load after config (OpenCode PR #46639) and catalog reads never
+        // block on activation, so a cold location answers agent and model reads
+        // with empty data until its plugins finish starting.
+        const catalog = yield* Effect.repeat(
+          Effect.all({
+            model: opencode.model.default({ location }).pipe(Effect.map((output) => output.data)),
+            agent: opencode.agent
+              .list({ location })
+              .pipe(Effect.map((output) => output.data.find((agent) => agent.id === "build"))),
+            archiveModel: opencode.model.default({ location: archive }).pipe(Effect.map((output) => output.data)),
+          }),
+          {
+            until: (value) => value.model !== undefined && value.agent !== undefined && value.archiveModel !== undefined,
+            schedule: Schedule.spaced(50),
+          },
+        ).pipe(
+          Effect.timeoutOrElse({
+            duration: 10_000,
+            orElse: () => Effect.fail(new Error("timed out waiting for plugin activation")),
+          }),
+        )
+        const model = catalog.model
+        const agent = catalog.agent
         assert(model, "no default model after plugin activation")
         assert(agent, "no build agent after plugin activation")
         // Created before frontend launch: these are neither open tabs nor event-
@@ -240,7 +257,7 @@ export default defineScript({
             assert.equal(movedSession.location.directory, moved.directory)
             // This visible rename is later on the same ordered SSE stream; seeing
             // it proves this TUI processed the dismissed picker's earlier move.
-            yield* opencode.session.rename({ sessionID: newer.id, title: "Atlas barrier" })
+            yield* opencode.session.update({ sessionID: newer.id, title: "Atlas barrier" })
             yield* ui.waitFor("Atlas barrier")
             checkpoint("retained-unhydrated-rows-usable-under-blackhole")
             yield* network.set({ blackhole: true })
@@ -301,7 +318,7 @@ export default defineScript({
             yield* open()
             yield* ui.waitFor(older.title)
             yield* filter("Atlas archive")
-            yield* opencode.session.rename({ sessionID: newer.id, title: "Boreal updated" })
+            yield* opencode.session.update({ sessionID: newer.id, title: "Boreal updated" })
             yield* network.clear()
             yield* ready()
             assert(yield* absent("discarded-query"))

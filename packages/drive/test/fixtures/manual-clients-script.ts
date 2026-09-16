@@ -17,7 +17,7 @@ export default defineScript({
         },
       )
       const opencode = yield* server.launch()
-      const health = yield* opencode.health.get()
+      const status = yield* opencode.server.status()
       const duplicateServer = yield* Effect.matchEffect(server.launch(), {
         onFailure: (error) => Effect.succeed(errorMessage(error)),
         onSuccess: () => Effect.succeed("unexpected success"),
@@ -43,7 +43,7 @@ export default defineScript({
             aliceMatches,
             aliceFrame: { cols: aliceFrame.cols, rows: aliceFrame.rows },
             bobMatches,
-            apiHealthy: health.healthy,
+            apiVersion: status.version,
             tuiBeforeServer,
             duplicateServer,
             aliceScreenshot,
