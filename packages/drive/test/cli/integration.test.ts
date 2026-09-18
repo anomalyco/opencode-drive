@@ -1074,6 +1074,28 @@ describe("opencode-drive", () => {
     expect((await Bun.file(join(artifacts, "launches.txt")).text()).trim().split("\n")).toHaveLength(2)
   }, 60_000)
 
+  test("marks a manual server-only script ready and stops it", async () => {
+    const root = await temporary()
+    const name = "manual-server-hold-test"
+    const owner = spawn(
+      [
+        "start",
+        "--name",
+        name,
+        "--script",
+        fixture("manual-server-hold-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    await waitForManifest(root, name)
+
+    expect(await spawn(["stop", "--name", name], root).exited).toBe(0)
+    expect(await owner.exited).toBe(0)
+  }, 60_000)
+
   test("controls a statically declared tool from the running script", async () => {
     const root = await temporary()
     const child = spawn(
