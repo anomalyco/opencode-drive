@@ -74,6 +74,17 @@ describe("opencode-drive run", () => {
     expect(await Bun.file(join(root, "node_modules")).exists()).toBe(false)
   }, 30_000)
 
+  test("runs a program imported from the Drive source checkout", async () => {
+    const child = spawn(["run", resolve("test/fixtures/source-run.ts")])
+    const [status, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ])
+
+    expect(status, `${stdout}\n${stderr}`).toBe(0)
+  }, 30_000)
+
   test.each([
     [["run", "program.ts", "--command.ui.state"], "command flags"],
     [["run", "program.ts", "--", "argument"], "arguments after --"],

@@ -14,6 +14,7 @@ import type {
   Project,
   Setup,
 } from "../project.js"
+import { defaultConfig } from "./default-config.js"
 
 export function artifactDirectory() {
   return resolve(join(tmpdir(), "opencode-drive"))
@@ -39,16 +40,13 @@ export async function initializeInstance(name?: string) {
     mkdir(join(artifacts, "home", ".local", "state"), { recursive: true }),
   ])
   const files = join(artifacts, "files")
-  const defaultConfig = await Bun.file(
-    new URL("./default-config.jsonc", import.meta.url),
-  ).text()
   await Promise.all([
     mkdir(join(files, ".git"), { recursive: true }),
     mkdir(join(files, ".opencode"), { recursive: true }),
     mkdir(join(files, "src"), { recursive: true }),
   ])
   await Promise.all([
-    Bun.write(join(files, ".opencode", "opencode.jsonc"), defaultConfig),
+    Bun.write(join(files, ".opencode", "opencode.jsonc"), `${JSON.stringify(defaultConfig, undefined, 2)}\n`),
     Bun.write(
       join(files, "src", "garden.js"),
       "export function greet(name) {\n  return `Hello, ${name}.`\n}\n",
@@ -128,9 +126,7 @@ async function readConfig(
   try {
     value = await file.exists()
       ? Bun.JSONC.parse(await file.text())
-      : fallback ?? Bun.JSONC.parse(
-          await Bun.file(new URL("./default-config.jsonc", import.meta.url)).text(),
-        )
+      : structuredClone(fallback ?? defaultConfig)
   } catch (cause) {
     throw new Error(`invalid .opencode/${name}`, { cause })
   }
