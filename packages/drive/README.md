@@ -122,7 +122,7 @@ processes are `tui` and `tuis`. This keeps SDK calls distinct from terminal UI
 control:
 
 ```ts
-const health = yield* opencode.health.get()
+const info = yield* opencode.server.info()
 const frame = yield* tui.ui.capture()
 ```
 
@@ -497,7 +497,7 @@ Only declared or registered tools are replaced. Unhandled tools continue to
 use OpenCode's real implementations. Each `progress` value replaces the
 visible tool output; send accumulated output when earlier lines should remain
 visible.
-Supported adapters are `shell`, `webfetch`, and `websearch`; each handler
+Supported adapters are `shell`, `webfetch`, `websearch`, and `write`; each handler
 receives its canonical typed V2 input and maintains an independent call index.
 When a shell call sets `background: true`, Drive returns immediately with the
 OpenCode tool call ID as `shellID`, keeps the handler running, and injects the
