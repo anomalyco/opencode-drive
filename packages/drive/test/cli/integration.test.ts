@@ -966,6 +966,27 @@ describe("opencode-drive", () => {
     expect(await Bun.file(artifacts).exists()).toBe(false)
   })
 
+  test("prints a nested cause when a script error has an empty message", async () => {
+    const root = await temporary()
+    const child = spawn(
+      [
+        "start",
+        "--name",
+        "empty-message-script-test",
+        "--script",
+        fixture("empty-message-script.ts"),
+        "--",
+        process.execPath,
+        fixture("fake-opencode.ts"),
+      ],
+      root,
+    )
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+
+    expect(status).toBe(1)
+    expect(stderr).toContain("schema mismatch")
+  })
+
   test("checks a typed script without modifying its source directory", async () => {
     const root = await temporary()
     const directory = join(root, "scripts")
