@@ -17,7 +17,7 @@ export default defineScript({
         },
       )
       const opencode = yield* server.launch()
-      const status = yield* opencode.server.status()
+      const status = yield* opencode.server.info()
       const duplicateServer = yield* Effect.matchEffect(server.launch(), {
         onFailure: (error) => Effect.succeed(errorMessage(error)),
         onSuccess: () => Effect.succeed("unexpected success"),

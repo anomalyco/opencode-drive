@@ -44,7 +44,7 @@ it.live("runs and settles a complete scoped driver", () =>
       },
       (driver) =>
         Effect.gen(function* () {
-          expect(yield* driver.opencode.server.status()).toMatchObject({
+          expect(yield* driver.opencode.server.info()).toMatchObject({
             version: "test",
             urls: [],
           })

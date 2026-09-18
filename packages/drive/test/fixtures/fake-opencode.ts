@@ -37,7 +37,7 @@ const api = role === "service"
         )
           return Response.json({ _tag: "UnauthorizedError", message: "Unauthorized" }, { status: 401 })
         const url = new URL(request.url)
-        if (url.pathname === "/api/status") {
+        if (url.pathname === "/api/info") {
           // Service discovery probes without a directory; the located SDK must send the project.
           const located = request.headers.get("x-opencode-directory")
           const directory = process.env.XDG_STATE_HOME
@@ -45,7 +45,7 @@ const api = role === "service"
             : undefined
           if (located !== null && located !== encodeURIComponent(directory ?? ""))
             return Response.json({ _tag: "InvalidRequestError", message: "Wrong directory" }, { status: 400 })
-          return Response.json({ version: "test", pid: process.pid, urls: [] })
+          return Response.json({ version: "test", pid: process.pid, urls: [], paths: { tmp: "/tmp" } })
         }
         return Response.json({ _tag: "InvalidRequestError", message: "Not found" }, { status: 404 })
       },

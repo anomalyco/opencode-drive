@@ -17,7 +17,7 @@ export default defineScript({
       const save = () =>
         Effect.promise(() => Bun.write(`${artifacts}/restart-ownership.json`, JSON.stringify(evidence, null, 2)))
       const original = yield* server.launch()
-      const initial = yield* original.server.status()
+      const initial = yield* original.server.info()
       let response = "restart-ownership-ready"
       yield* llm.serve(() => Stream.make(Llm.text(response)))
       const tui = yield* tuis.launch("ownership")
@@ -28,7 +28,7 @@ export default defineScript({
         Array.from({ length: cycles }, (_, index) => index),
         (cycle) =>
           Effect.gen(function* () {
-            const before = yield* original.server.status()
+            const before = yield* original.server.info()
             const registered = yield* registration
             yield* server.kill()
             yield* tui.ui.waitFor("Connection lost", { timeout: 5_000 })
@@ -50,8 +50,8 @@ export default defineScript({
               return yield* Effect.fail(new Error("TUI elected a replacement while the script server was stopped"))
             }
             const replacement = yield* server.launch()
-            const current = yield* replacement.server.status()
-            const oldClient = yield* original.server.status()
+            const current = yield* replacement.server.info()
+            const oldClient = yield* original.server.info()
             const after = yield* registration
             evidence.push({
               cycle,
