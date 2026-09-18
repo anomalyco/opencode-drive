@@ -194,6 +194,24 @@ transition is also streamed to stderr as it runs, so a failed seed keeps its
 trace even when the failure lands in the terminal verify phase (which writes
 its own `state-machine-failure.json`).
 
+## Transcript padding gauntlets
+
+`padding-gauntlet.ts` samples the seeded network-chaos flow and records each
+distinct transcript block whose top or bottom padding disappears. Use
+`padding-tools.ts` for a denser controlled-shell workload with streamed
+progress. Both write the offending frame JSON and a text rendering to
+`PADDING_GAUNTLET_OUT` (or the retained run artifacts by default):
+
+```sh
+OPENCODE_DRIVE_SEED=42 OPENCODE_DRIVE_STEPS=24 \
+  bun run --cwd packages/drive drive start --name padding-gauntlet \
+  --script test/manual/tui-regressions/padding-gauntlet.ts --dev "$OPENCODE_DEV"
+
+OPENCODE_DRIVE_SEED=42 OPENCODE_DRIVE_STEPS=12 \
+  bun run --cwd packages/drive drive start --name padding-tools \
+  --script test/manual/tui-regressions/padding-tools.ts --dev "$OPENCODE_DEV"
+```
+
 ## Type-during-submit input destruction
 
 Seeds 1, 7, and 99 of `network-properties.ts` all reduced to one TUI bug: the
