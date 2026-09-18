@@ -1,5 +1,11 @@
 # opencode-drive
 
+## 2.1.2
+
+### Patch Changes
+
+- d7af1c8: Refresh the OpenCode client protocol for the consolidated `/api/info` server discovery endpoint.
+
 ## 2.1.1
 
 ### Patch Changes
