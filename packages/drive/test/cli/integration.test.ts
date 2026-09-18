@@ -154,6 +154,17 @@ describe("opencode-drive", () => {
     })
   })
 
+  test("rejects an artifact root beneath ambient OpenCode configuration", async () => {
+    const root = await temporary()
+    await mkdir(join(root, ".opencode", "skills", "ambient"), { recursive: true })
+    const child = spawn(["init", "--name", "ambient-config"], root)
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+
+    expect(status).toBe(1)
+    expect(stderr).toContain(`would inherit ambient OpenCode configuration from ${join(root, ".opencode")}`)
+    expect(stderr).toContain("use a neutral TMPDIR")
+  })
+
   test("starts, drives, prints dir, restarts, and stops a named detached instance", async () => {
     const root = await temporary()
     const name = "detached-test"

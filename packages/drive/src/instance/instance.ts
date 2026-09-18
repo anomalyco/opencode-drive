@@ -1,6 +1,6 @@
-import { mkdir } from "node:fs/promises"
+import { mkdir, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import * as Effect from "effect/Effect"
 import { createScriptFileSystem } from "../script/filesystem.js"
 import {
@@ -20,6 +20,11 @@ export function artifactDirectory() {
 }
 
 export async function initializeInstance(name?: string) {
+  const ambient = await ambientConfigSource(artifactDirectory())
+  if (ambient)
+    throw new Error(
+      `Drive's isolated project would inherit ambient OpenCode configuration from ${ambient}; use a neutral TMPDIR`,
+    )
   const artifacts = resolve(
     join(artifactDirectory(), `run-${crypto.randomUUID()}`),
   )
@@ -51,6 +56,20 @@ export async function initializeInstance(name?: string) {
     ...(name ? [Bun.write(join(drive, "name"), `${name}\n`)] : []),
   ])
   return artifacts
+}
+
+async function ambientConfigSource(root: string) {
+  const names = [".opencode", ".claude", ".agents", "opencode.json", "opencode.jsonc"]
+  let directory = dirname(root)
+  while (true) {
+    for (const name of names) {
+      const source = join(directory, name)
+      if (await stat(source).then(() => true, () => false)) return source
+    }
+    const parent = dirname(directory)
+    if (parent === directory) return undefined
+    directory = parent
+  }
 }
 
 export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject")(function* (options: {
