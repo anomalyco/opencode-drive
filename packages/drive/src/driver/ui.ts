@@ -126,6 +126,14 @@ export class UiScreenshotError extends Schema.TaggedError<UiScreenshotError>()(
   },
 ) {}
 
+export class UiPressError extends Schema.TaggedError<UiPressError>()(
+  "UiPressError",
+  {
+    key: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 export interface Options {
   /** Per-RPC timeout in milliseconds. Defaults to 30,000. */
   readonly requestTimeout?: number
@@ -140,6 +148,7 @@ const RequestTimeout = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 export type WaitError = UiWaitTimeoutError | UiWaitOptionsError
 type RpcError = SimulationRequestError | RpcClientError.RpcClientError
 export type OperationError = RpcError | UiTimeoutError
+export type PressError = OperationError | UiPressError
 export type ScreenshotError = OperationError | UiScreenshotError
 export type SemanticOperationError = OperationError | UiCapabilityError
 
@@ -155,7 +164,7 @@ export interface Ui {
   readonly press: (
     key: string,
     modifiers?: Frontend.KeyModifiers,
-  ) => Effect.Effect<Frontend.State, OperationError>
+  ) => Effect.Effect<Frontend.State, PressError>
   readonly enter: () => Effect.Effect<Frontend.State, OperationError>
   readonly arrow: (
     direction: Frontend.ArrowParams["direction"],
@@ -295,12 +304,19 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     options?.keypressTimeline
       ? Effect.promise(() => appendKeypress(options.keypressTimeline!, label))
       : Effect.void
-  const press = Effect.fn("Ui.press")(
-    (key: string, modifiers?: Frontend.KeyModifiers) =>
-      call("press", rpc["ui.press"](Frontend.pressParams(key, modifiers))).pipe(
-        Effect.tap(() => recordKeypress(formatPress(key, modifiers))),
-      ),
-  )
+  const press = Effect.fn("Ui.press")(function* (
+    key: string,
+    modifiers?: Frontend.KeyModifiers,
+  ) {
+    if (/^(?:alt|cmd|ctrl|meta|mod|shift)\+/i.test(key))
+      return yield* Effect.fail(new UiPressError({
+        key,
+        message: `ui.press key must not contain chord syntax; pass modifiers separately (for example, ui.press("u", { ctrl: true }))`,
+      }))
+    const result = yield* call("press", rpc["ui.press"](Frontend.pressParams(key, modifiers)))
+    yield* recordKeypress(formatPress(key, modifiers))
+    return result
+  })
   const enter = Effect.fn("Ui.enter")(() =>
     call("enter", rpc["ui.enter"]()).pipe(
       Effect.tap(() => recordKeypress("Enter")),

@@ -170,6 +170,18 @@ describe("OpenCodeUi", () => {
     })
   })
 
+  it.live("rejects chord-shaped press keys before sending input", () => Effect.gen(function* () {
+    const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, state))
+    yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+    const connection = yield* SimulationConnector.ui(peer.url)
+
+    expect(yield* OpenCodeUi.make(connection).press("ctrl+u").pipe(Effect.flip)).toMatchObject({
+      _tag: "UiPressError",
+      key: "ctrl+u",
+    })
+    expect(peer.received).toEqual([])
+  }))
+
   it.live("records successful semantic key presses for overlays", () => {
     const peer = startTransportPeer(({ request, socket }) =>
       sendResult(socket, request, state)
