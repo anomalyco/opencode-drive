@@ -166,9 +166,9 @@ Frontend protocol schemas
 ```
 
 CLI `--command.ui.*` names are exhaustively checked against
-`Frontend.Capabilities`. The Promise transport under `opencode-drive/client`
-is separate from the Effect programmatic model but consumes the same protocol
-schemas.
+`Frontend.Capabilities`. `opencode-drive/client` publishes the canonical
+protocol schemas and default simulation ports without defining another
+transport model.
 
 ## Transport Seam
 
@@ -211,7 +211,7 @@ project     -> Effect and Schema
 simulation  -> canonical protocol and Effect RPC
 driver      -> project + simulation + instance + recording
 script      -> project + driver capabilities
-cli         -> script + driver + Promise transport
+cli         -> script + driver + simulation
 ```
 
 Lower-level modules do not import the package root or the driver/script
@@ -223,6 +223,6 @@ must not reference script types.
 - `opencode-drive`: Effect driver, scripts, project contracts, LLM constructors.
 - `opencode-drive/driver`: complete Effect driver namespace.
 - `opencode-drive/script`: `defineScript` and script contracts.
-- `opencode-drive/client`: Promise simulation transport.
+- `opencode-drive/client`: canonical simulation protocol schemas and default ports.
 - `opencode-drive/llm`: pure LLM output constructors and schemas.
 - `opencode-drive/recording`: recording decode, replay, and export utilities.

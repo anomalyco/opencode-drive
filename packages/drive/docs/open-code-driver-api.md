@@ -1,8 +1,6 @@
 # OpenCode Driver API
 
-Status: exploratory implementation, settled call sites only
-
-This document records interface shapes that have been accepted during design. It intentionally omits unresolved alternatives rather than presenting them as competing proposals.
+This document records the released API. It intentionally omits unresolved alternatives rather than presenting them as competing proposals.
 
 Internal resource ownership and desugaring are documented in [OpenCode Driver Architecture](./open-code-driver-architecture.md).
 
@@ -94,14 +92,14 @@ const program = Effect.scoped(
 )
 ```
 
-Capture font size is not part of this interface. The current renderer uses a fixed 16px font in 10-by-20 cells; the terminal catalog's `OPENCODE_DRIVE_FONT_SIZE=14` environment variable is currently ignored.
+Capture font size is fixed by the terminal frame geometry. Set `OPENCODE_DRIVE_FONT` to a comma-separated list of font files when a capture needs a different typeface.
 
 The generated SDK client is `opencode`. The primary frontend process is `tui`,
 its UI is also available directly as `ui`, and `tuis` launches more frontend
 processes:
 
 ```ts
-const health = yield* driver.opencode.health.get()
+const info = yield* driver.opencode.server.info()
 const frame = yield* driver.tui.ui.capture()
 const secondary = yield* driver.tuis.launch()
 ```

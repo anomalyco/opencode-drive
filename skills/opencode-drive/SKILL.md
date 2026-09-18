@@ -315,7 +315,7 @@ change non-scripted live launches' managed-service behavior.
 
 `driver.settle()` returns the report with its recording paths. Use `OpenCodeDriver.useReport(options, run)` when a safe lifecycle program also needs the report alongside its result.
 
-Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. Additional built-in tool adapters remain follow-ups.
+Drive prefers protocol negotiation and reports explicit legacy fallback. Set `opencode.compatibility` to `"required"` when protocol skew must fail before the program runs. Static adapters are available for `shell`, `webfetch`, `websearch`, and `write`; use dynamic tools for everything else.
 
 ### Arbitrary Dynamic Tools
 
@@ -351,7 +351,7 @@ yield* lookup.finish({
 
 Use `awaitCancelled()` to observe native interruption. Do not synthesize
 cancellation or expose transport sequence numbers. Dynamic effective names may
-not collide with configured `shell`, `webfetch`, or `websearch` adapters.
+not collide with configured `shell`, `webfetch`, `websearch`, or `write` adapters.
 
 ### Simulated Shell Execution
 
@@ -385,7 +385,7 @@ export default OpenCodeDriver.use({ tools: ["shell"] }, ({ tools, llm, ui }) =>
 ```
 
 The same declaration and runtime `tools` capability are available in
-`defineScript`. Supported adapters are `shell`, `webfetch`, and `websearch`.
+`defineScript`. Supported adapters are `shell`, `webfetch`, `websearch`, and `write`.
 Each progress value replaces the visible tool output, so send accumulated text
 when earlier lines should remain visible. Calls settle exactly once;
 `awaitInterrupted()` observes session interruption or transport disconnection.
