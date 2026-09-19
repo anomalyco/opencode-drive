@@ -231,6 +231,36 @@ describe("OpenCodeUi", () => {
     })
   })
 
+  it.live("composites captured terminal images into screenshots", () => {
+    const imageFrame = {
+      ...frame,
+      images: [{
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        pixelWidth: 1,
+        pixelHeight: 1,
+        rgba: "/wAA/w==",
+      }],
+    }
+    const peer = startTransportPeer(({ request, socket }) => sendResult(socket, request, imageFrame))
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const directory = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "opencode-drive-image-screenshot-")))
+      yield* Effect.addFinalizer(() => Effect.promise(() => rm(directory, { recursive: true, force: true })))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const path = yield* OpenCodeUi.make(connection, { screenshotDirectory: directory }).screenshot("image")
+      const screenshot = yield* Effect.promise(() => loadImage(path))
+      const canvas = createCanvas(screenshot.width, screenshot.height)
+      const context = canvas.getContext("2d")
+      context.drawImage(screenshot, 0, 0)
+
+      expect([...context.getImageData(4, 9, 1, 1).data]).toEqual([255, 0, 0, 255])
+    })
+  })
+
   it.live("preserves transparent foreground and background colors in screenshots", () => {
     const transparent = {
       cols: 2,
