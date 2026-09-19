@@ -181,6 +181,32 @@ export function renderFrame(frame: CapturedFrame | Frontend.CapturedFrame, optio
     }
   })
 
+  if ("images" in frame && frame.images) {
+    context.save()
+    context.beginPath()
+    context.rect(0, headerHeight, frame.cols * CellWidth, frame.rows * CellHeight)
+    context.clip()
+    for (const image of frame.images) {
+      const rgba = Buffer.from(image.rgba, "base64")
+      const expected = image.pixelWidth * image.pixelHeight * 4
+      if (rgba.length !== expected)
+        throw new Error(`captured image has ${rgba.length} RGBA bytes; expected ${expected}`)
+      const source = createCanvas(image.pixelWidth, image.pixelHeight)
+      const sourceContext = source.getContext("2d")
+      const pixels = sourceContext.createImageData(image.pixelWidth, image.pixelHeight)
+      pixels.data.set(rgba)
+      sourceContext.putImageData(pixels, 0, 0)
+      context.drawImage(
+        source,
+        image.x * CellWidth,
+        headerHeight + image.y * CellHeight,
+        image.width * CellWidth,
+        image.height * CellHeight,
+      )
+    }
+    context.restore()
+  }
+
   const cursor = frame.cursor
   if ("visible" in cursor && cursor.visible && cursor.row >= 0 && cursor.row < frame.rows) {
     context.strokeStyle = "#d8d8d8"

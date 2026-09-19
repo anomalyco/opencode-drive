@@ -365,11 +365,17 @@ async function runLifecycle(
         logError(`failed to clean artifacts ${instance.artifacts}: ${error}`)
       })
     if (options.script && failure !== undefined) {
-      logError(failure instanceof Error ? failure.message : toStringUnknown(failure))
+      logError(formatFailure(failure))
       process.exit(1)
     }
     if (failure === undefined && cleanupFailure !== undefined) process.exitCode = 1
   }
+}
+
+function formatFailure(failure: unknown): string {
+  if (!(failure instanceof Error)) return toStringUnknown(failure)
+  const cause = failure.cause === undefined ? "" : formatFailure(failure.cause)
+  return [failure.message || failure.name, cause].filter(Boolean).join("\nCaused by: ")
 }
 
 function shouldCleanArtifacts(
