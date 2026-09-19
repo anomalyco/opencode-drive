@@ -1,5 +1,14 @@
 # opencode-drive
 
+## 2.1.3
+
+### Patch Changes
+
+- 76bbdd8: Reject negative recording clip holds and keep annotated export dimensions aligned with the frame renderer.
+- 6744327: Reject chord-shaped press keys, preserve nested script failures, support source-checkout runs, and composite terminal images into screenshots.
+- bcce802: Reject artifact roots beneath ambient OpenCode configuration instead of silently contaminating isolated fixtures.
+- b8dc1a4: Mark manual server-only scripts ready so named instances can be inspected and stopped while their run Effect remains active.
+
 ## 2.1.2
 
 ### Patch Changes
