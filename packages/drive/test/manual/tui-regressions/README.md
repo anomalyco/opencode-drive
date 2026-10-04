@@ -409,6 +409,49 @@ moved rows, and filtered selection remaining visible after an overflowing
 refresh. The Drive cases establish their stated checkpoints and convergence,
 not continuous absence of transient rows.
 
+## Running indicators
+
+The open picker draws a spinner beside a root session when the root or any
+descendant is running in the TUI's client store. That store is fed by live
+execution events and replaced by a `GET /api/session/active` snapshot on each
+reconnect. `stale-running.ts` is a seeded state machine for that contract:
+
+```sh
+OPENCODE_DRIVE_SEED=5 OPENCODE_DRIVE_STEPS=40 \
+  bun run --cwd packages/drive drive start --daemon --name stale-running \
+  --script test/manual/tui-regressions/stale-running.ts --dev "$OPENCODE_DEV"
+```
+
+Root sessions and prompts go through the clean SDK, so the TUI only observes.
+Foreground and background subagents either stream a short reply or hold their
+response (optionally with no output) until released. Children and roots are
+interrupted from the SDK or with a double Escape in the TUI, while latency,
+blackholes, and connection kills degrade only TUI traffic. `verify` heals the
+network, waits for three identical server activity snapshots, and then requires
+each root's picker spinner to equal "the root or a descendant is in
+`/api/session/active`" within 15 seconds. Each successful verification prints
+the observed map so a run that never saw a running root is visible; vary seeds
+until some do.
+
+Only picker rows below the filter input count. The tab strip behind the dialog
+also renders titles with spinners, but its busy state deliberately includes
+queued inbox items, so reading it would report false divergences.
+
+`reconnect-child-family.ts` is the deterministic reduction of seed 5: a
+background subagent starts while the TUI's connections are refused, so the TUI
+misses the child's `session.created`. After reconnecting, the root row must show
+the running child. OpenCode's
+`packages/client/test/solid-data.test.ts` covers the same hydration rule at the
+data-layer seam. Set `OPENCODE_DRIVE_LABEL` to annotate before/after
+recordings; the probe exports its recording before asserting, so a failing
+base revision still produces a clip.
+
+```sh
+OPENCODE_DRIVE_LABEL=AFTER OPENCODE_DRIVE_MEDIA_DIR="$PWD/.drive-output" \
+  bun run --cwd packages/drive drive start --daemon --name reconnect-child-family \
+  --script test/manual/tui-regressions/reconnect-child-family.ts --dev "$OPENCODE_DEV"
+```
+
 ## Probe helpers
 
 `support.ts` collects the patterns these probes kept relearning: `serveMarkers`
