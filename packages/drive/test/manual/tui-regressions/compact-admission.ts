@@ -63,10 +63,15 @@ export default defineScript({
         yield* llm.serve((request) => {
           const body = JSON.stringify(request.body)
           if (body.includes("title generator")) return Stream.make(Llm.text("Admission fixture"))
-          // Compaction (OpenCode PR #46751) asks for a structured summary and
-          // rejects a reply without one of its `##` section headings as
-          // `compaction.failed`. Match the prompt frame, not the template text.
-          if (body.includes("Summarize only the history shown")) return Stream.make(Llm.text(compactionSummary))
+          // Compaction (OpenCode PR #46751, updated in #48058) asks for a
+          // structured summary and rejects a reply without one of its `##`
+          // section headings as `compaction.failed`. Match the prompt frame,
+          // not the template text.
+          if (
+            body.includes("Summarize only the history shown") ||
+            body.includes("Summarize only what the user and the assistant")
+          )
+            return Stream.make(Llm.text(compactionSummary))
           // History includes previous markers. Only the newest prompt selects a reply.
           const marker = ["CA_WARM", "CA_HOLD", "CA_NEXT"].reduce((latest, candidate) =>
             body.lastIndexOf(candidate) > body.lastIndexOf(latest) ? candidate : latest,
