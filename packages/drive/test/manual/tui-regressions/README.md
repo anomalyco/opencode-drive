@@ -327,9 +327,10 @@ and terminal frame in `state-machine-failure.json`.
 The simulated compaction reply is a structured summary with the `##` section
 headings that OpenCode requires since PR #46751; a plain sentence now settles as
 `compaction.failed` ("did not match the required template") instead of
-`completed`. The fake model routes compaction requests on the stable prompt
-frame ("Summarize only the history shown"), not on template wording, which has
-already changed once since.
+`completed`. The fake model routes compaction requests on the prompt frame
+("Summarize only what the user and the assistant" since PR #48058, or
+"Summarize only the history shown" from PR #46751), not on template wording,
+which has changed across revisions.
 
 The simulated model paces a busy-step checkpoint before holding the response
 open; this isolates admission behavior from stream-publication behavior. The
