@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect"
-import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
-import type { RpcClientError } from "effect/unstable/rpc"
+import type { RpcClientError } from "effect/rpc"
 import {
   supportsCapability,
   type UiConnection,
@@ -405,9 +404,12 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     })
     return Effect.gen(function* () {
       yield* validate
-      return yield* Effect.repeat(read, {
-        until: (value): value is A => value !== undefined,
-        schedule: Schedule.spaced(interval),
+      return yield* Effect.gen(function* () {
+        while (true) {
+          const value = yield* read
+          if (value !== undefined) return value
+          yield* Effect.sleep(interval)
+        }
       }).pipe(
         Effect.timeoutOrElse({
           duration: timeout,

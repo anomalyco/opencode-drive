@@ -7,7 +7,7 @@ import * as Option from "effect/Option"
 import * as Queue from "effect/Queue"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import { RpcClient, RpcClientError } from "effect/unstable/rpc"
+import { RpcClient, RpcClientError } from "effect/rpc"
 import packageJson from "../../package.json" with { type: "json" }
 import * as OpenCodeRpcProtocol from "./opencode-protocol.js"
 import {

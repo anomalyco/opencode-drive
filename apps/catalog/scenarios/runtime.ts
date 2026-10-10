@@ -47,14 +47,7 @@ export function catalogScenarioRuntime(options: {
       )
       tools.handle("websearch", () => Effect.fail(new Tool.Failure({ message: "catalog web search provider failure" })))
     },
-    setup:
-      options.theme === undefined
-        ? undefined
-        : ({ fs }) =>
-            fs.writeFile(
-              ".opencode/tui.json",
-              `${JSON.stringify({ $schema: "https://opencode.ai/tui.json", theme: options.theme }, undefined, 2)}\n`,
-            ),
+    tuiConfig: options.theme === undefined ? undefined : { theme: { name: options.theme } },
     tui: { viewport: catalogViewport },
     opencode: { dev: options.opencode },
   }

@@ -11,7 +11,7 @@ import {
   FetchHttpClient,
   HttpClient,
   HttpClientRequest,
-} from "effect/unstable/http"
+} from "effect/http"
 import { error, type OpenCodeDriverError } from "./error.js"
 
 export type OpenCode = OpenCodeClient

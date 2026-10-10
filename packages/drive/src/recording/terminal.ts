@@ -52,7 +52,8 @@ function capture(core: TerminalCore): CapturedFrame {
     }
     return { spans }
   })
-  return { cols, rows, cursor: core.getCursor(), lines }
+  const cursor = core.getCursor()
+  return { cols, rows, cursor: { row: cursor.row, col: cursor.col, visible: cursor.visible }, lines }
 }
 
 class GhosttyTerminal implements TerminalParser {

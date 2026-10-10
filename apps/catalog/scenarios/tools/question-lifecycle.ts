@@ -116,7 +116,7 @@ export const questionLifecycleFlow = defineExecutableFlow(
         yield* checkpoint(awaiting)
         yield* driver.ui.enter()
         yield* driver.ui.enter()
-        yield* driver.ui.waitFor("Review", { timeout: 5_000 })
+        yield* driver.ui.waitFor("Validation: Focused", { timeout: 5_000 })
         yield* checkpoint(review)
         yield* driver.ui.enter()
         yield* driver.ui.waitFor("The catalog answers were submitted.", { timeout: 15_000 })

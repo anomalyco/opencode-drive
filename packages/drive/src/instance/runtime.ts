@@ -7,7 +7,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Ref from "effect/Ref"
 import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
-import { ChildProcessSpawner } from "effect/unstable/process"
+import { ChildProcessSpawner } from "effect/process"
 import { prepareDev } from "./dev.js"
 import { discoverRegistration } from "./discovery.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
@@ -132,7 +132,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   // Retained TUIs and SDK clients keep their endpoint across server generations.
   const serverPort = options.scripted ? yield* freePort : undefined
   const toolController = configuredTools ?? (yield* ToolController.make(options.tools))
-  const database = yield* Config.string("OPENCODE_DRIVE_DB").pipe(
+  const database = yield* Config.String("OPENCODE_DRIVE_DB").pipe(
     Config.withDefault(":memory:"),
   )
   const setup = configuredTools === undefined

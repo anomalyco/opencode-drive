@@ -33,12 +33,13 @@ export async function loadAnnotations(timeline: string): Promise<RecordingAnnota
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      typeof (parsed as { wallMs?: unknown }).wallMs !== "number" ||
-      typeof (parsed as { label?: unknown }).label !== "string"
+      !("wallMs" in parsed) ||
+      typeof parsed.wallMs !== "number" ||
+      !("label" in parsed) ||
+      typeof parsed.label !== "string"
     )
       throw new Error(`Invalid recording mark: ${line}`)
-    const mark = parsed as { wallMs: number; label: string }
-    annotations.push({ atMs: Math.max(0, mark.wallMs - anchor), label: mark.label })
+    annotations.push({ atMs: Math.max(0, parsed.wallMs - anchor), label: parsed.label })
   }
   return annotations
 }

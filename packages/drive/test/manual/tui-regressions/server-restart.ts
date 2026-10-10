@@ -5,7 +5,7 @@ export default defineScript({
   launch: "manual",
   run: ({ server, tuis, llm, artifacts }) =>
     Effect.gen(function* () {
-      yield* Config.string("OPENCODE_DRIVE_DB")
+      yield* Config.String("OPENCODE_DRIVE_DB")
       yield* server.launch()
       const tui = yield* tuis.launch("restart-regression")
 

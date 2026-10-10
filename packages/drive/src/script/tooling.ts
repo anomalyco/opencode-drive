@@ -112,7 +112,10 @@ async function typecheck(root: string, source: string, contract: Contract) {
             "opencode-drive": [join(packageRoot, "src", "index.ts")],
             "opencode-drive/*": [join(packageRoot, "src", "*")],
             effect: [join(effectRoot, "dist", "index.d.ts")],
-            "effect/*": [join(effectRoot, "dist", "*.d.ts")],
+            "effect/*": [
+              join(effectRoot, "dist", "*.d.ts"),
+              join(effectRoot, "dist", "*", "index.d.ts"),
+            ],
           },
         },
         files: [contractFile],
@@ -123,7 +126,7 @@ async function typecheck(root: string, source: string, contract: Contract) {
   )
   const capture = contract === "script"
   const child = Bun.spawn(
-    [process.execPath, join(compilerRoot, "bin", "tsgo.js"), "-p", tsconfig],
+    [process.execPath, join(compilerRoot, "lib", "tsgo.js"), "-p", tsconfig],
     {
       cwd: root,
       stdin: "ignore",

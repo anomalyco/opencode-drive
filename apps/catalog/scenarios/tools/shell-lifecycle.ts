@@ -101,7 +101,7 @@ export const shellLifecycleFlow = defineExecutableFlow(
         yield* driver.ui.submit("Run one successful foreground shell command.")
         yield* Effect.sleep(250)
         yield* checkpoint(thinkingStreaming)
-        yield* driver.ui.waitFor("Writing command...", { timeout: 15_000 })
+        yield* driver.ui.waitFor("Writing command", { timeout: 15_000 })
         yield* checkpoint(inputStreaming)
         yield* driver.ui.waitFor("printf catalog-shell-success", { timeout: 15_000 })
         yield* checkpoint(outputStreaming)

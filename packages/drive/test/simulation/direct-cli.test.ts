@@ -15,7 +15,7 @@ const frame = {
   lines: [{ spans: [{ text: "ok", fg: [255, 255, 255, 255], bg: [0, 0, 0, 255], attributes: 0, width: 2 }] }],
 }
 
-test.sequential("CLI drives an externally owned OpenCode endpoint on the default port", async () => {
+test("CLI drives an externally owned OpenCode endpoint on the default port", async () => {
   const root = await mkdtemp(join(tmpdir(), "opencode-drive-direct-test-"))
   const requests: unknown[] = []
   const server = Bun.serve({

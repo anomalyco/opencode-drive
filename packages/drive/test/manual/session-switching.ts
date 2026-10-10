@@ -35,7 +35,7 @@ export default defineScript({
               index: 0,
               id: "call_read_garden",
               name: "read",
-              input: { filePath: "src/garden.ts" },
+              input: { path: "src/garden.ts" },
             }),
             Llm.finish("tool-calls"),
           )

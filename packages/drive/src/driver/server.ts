@@ -69,7 +69,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
   const parentScope = yield* Scope.Scope
   const generation = yield* Ref.make<
     {
-      readonly scope: Scope.Scope
+      readonly scope: Scope.Closeable
       readonly attachment: LlmController.Attachment
       readonly process: import("../instance/process.js").Running
     } | undefined

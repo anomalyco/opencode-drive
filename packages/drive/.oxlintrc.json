@@ -14,6 +14,7 @@
     "no-control-regex": "off",
     "triple-slash-reference": "off",
     "no-shadow": "off",
+    "no-underscore-dangle": "off",
     "unicorn/consistent-function-scoping": "off",
     "unicorn/no-array-sort": "off",
     "unicorn/no-array-reverse": "off",

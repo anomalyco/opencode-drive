@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
-import { RpcClient, RpcClientError, RpcMessage } from "effect/unstable/rpc"
+import { RpcClient, RpcClientError, RpcMessage } from "effect/rpc"
 import * as OpenCodeRpcProtocol from "../../src/simulation/opencode-protocol.js"
 import { SimulationRequestError, UiRpcs } from "../../src/simulation/rpc.js"
 import { sendError, sendResult, startTransportPeer } from "./transport-peer.js"

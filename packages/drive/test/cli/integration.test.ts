@@ -993,7 +993,7 @@ describe("opencode-drive", () => {
     await mkdir(directory, { recursive: true })
     await Bun.write(
       join(directory, "valid.ts"),
-      'import { Effect } from "effect"\nimport { defineScript } from "opencode-drive"\nexport default defineScript({ project: { git: true, files: { "src/index.ts": "export {}\\n" } }, run: () => Effect.sleep(1) })\n',
+      'import { Effect } from "effect"\nimport { HttpClient } from "effect/http"\nimport { defineScript } from "opencode-drive"\nvoid HttpClient\nexport default defineScript({ project: { git: true, files: { "src/index.ts": "export {}\\n" } }, run: () => Effect.sleep(1) })\n',
     )
     const checked = spawn(["check", join(directory, "valid.ts")], root)
     expect(await checked.exited).toBe(0)

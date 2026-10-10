@@ -2,7 +2,7 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { Effect, Option } from "effect"
-import { Argument, Command, Flag } from "effect/unstable/cli"
+import { Argument, Command, Flag } from "effect/cli"
 import packageJson from "../../package.json" with { type: "json" }
 import { extractCommands } from "./parse.js"
 import { check } from "./check.js"
@@ -20,18 +20,18 @@ import { logError } from "../log.js"
 import type { DriveCommand, SendOptions, StartOptions } from "./types.js"
 
 const extracted = extract()
-const initName = Flag.string("name").pipe(
+const initName = Flag.String("name").pipe(
   Flag.withDescription("Instance name"),
 )
-const startName = Flag.string("name").pipe(
+const startName = Flag.String("name").pipe(
   Flag.optional,
   Flag.withDescription("Instance name (optional with --visible)"),
 )
-const name = Flag.string("name").pipe(
+const name = Flag.String("name").pipe(
   Flag.optional,
   Flag.withDescription("Instance name (defaults to the visible instance)"),
 )
-const pruneName = Flag.string("name").pipe(
+const pruneName = Flag.String("name").pipe(
   Flag.optional,
   Flag.withDescription("Instance name"),
 )
@@ -50,7 +50,7 @@ const initCommand = Command.make("init", { name: initName }, (config) =>
 
 const checkCommand = Command.make(
   "check",
-  { file: Argument.string("script") },
+  { file: Argument.String("script") },
   (config) => execute(() => check(config.file)),
 ).pipe(
   Command.withDescription("Type-check an OpenCode Drive script"),
@@ -64,7 +64,7 @@ const checkCommand = Command.make(
 
 const scriptInitCommand = Command.make(
   "init",
-  { file: Argument.string("file") },
+  { file: Argument.String("file") },
   (config) => execute(() => initScript(config.file)),
 ).pipe(
   Command.withDescription("Create an Effect-native OpenCode Drive script"),
@@ -83,7 +83,7 @@ const scriptCommand = Command.make("script").pipe(
 
 const runCommand = Command.make(
   "run",
-  { module: Argument.string("module") },
+  { module: Argument.String("module") },
   (config) =>
     executeEffect(
       Effect.try({
@@ -105,32 +105,32 @@ const startCommand = Command.make(
   "start",
   {
     name: startName,
-    daemon: Flag.boolean("daemon").pipe(
+    daemon: Flag.Boolean("daemon").pipe(
       Flag.withDefault(false),
       Flag.withHidden,
       Flag.withDescription("Run as detached instance owner"),
     ),
-    script: Flag.string("script").pipe(
+    script: Flag.String("script").pipe(
       Flag.optional,
       Flag.withDescription("JavaScript or TypeScript automation module"),
     ),
-    visible: Flag.boolean("visible").pipe(
+    visible: Flag.Boolean("visible").pipe(
       Flag.withDefault(false),
       Flag.withDescription("Show OpenCode in the terminal"),
     ),
-    record: Flag.boolean("record").pipe(
+    record: Flag.Boolean("record").pipe(
       Flag.withDefault(false),
       Flag.withDescription("Record the complete headless session and export it on stop"),
     ),
-    keypressOverlay: Flag.boolean("keypress-overlay").pipe(
+    keypressOverlay: Flag.Boolean("keypress-overlay").pipe(
       Flag.withDefault(false),
       Flag.withDescription("Show recent key presses in screenshots and recordings"),
     ),
-    pointerOverlay: Flag.boolean("pointer-overlay").pipe(
+    pointerOverlay: Flag.Boolean("pointer-overlay").pipe(
       Flag.withDefault(false),
       Flag.withDescription("Animate real mouse input in recordings"),
     ),
-    dev: Flag.string("dev").pipe(
+    dev: Flag.String("dev").pipe(
       Flag.optional,
       Flag.withDescription("Path to an OpenCode development checkout"),
     ),
@@ -194,7 +194,7 @@ const pruneCommand = Command.make(
   "prune",
   {
     name: pruneName,
-    force: Flag.boolean("force").pipe(
+    force: Flag.Boolean("force").pipe(
       Flag.withDefault(false),
       Flag.withDescription("Delete all matching artifact directories, including active ones"),
     ),

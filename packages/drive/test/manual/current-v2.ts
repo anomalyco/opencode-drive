@@ -26,6 +26,7 @@ export default OpenCodeDriver.useReport(
       const messages = yield* opencode.message.list({ sessionID, limit: 20 })
       assert(messages.data.some((message) => message.type === "user" && message.text === "Reply to the fixture prompt"))
       assert.deepEqual(yield* opencode.session.inbox.list({ sessionID }), [])
+      assert((yield* opencode.integration.list()).data.length > 0)
 
       const events = yield* opencode.event.subscribe().pipe(Stream.toQueue({ capacity: "unbounded" }))
       assert.equal((yield* Queue.take(events)).type, "server.connected")

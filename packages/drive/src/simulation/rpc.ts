@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { Rpc, RpcClientError, RpcGroup } from "effect/unstable/rpc"
+import { Rpc, RpcClientError, RpcGroup } from "effect/rpc"
 import { Backend, Frontend, Handshake } from "./protocol.js"
 
 export class SimulationRequestError extends Schema.TaggedError<SimulationRequestError>()(

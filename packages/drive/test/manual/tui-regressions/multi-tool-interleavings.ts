@@ -1,5 +1,5 @@
 import { defineScript, Llm } from "../../../src/index.js"
-import { Deferred, Effect, Schedule, Stream } from "effect"
+import { Deferred, Effect, Stream } from "effect"
 
 const shellCallID = "call_multi_shell"
 const questionCallID = "call_multi_question"
@@ -207,9 +207,12 @@ export default defineScript({
 })
 
 function poll<A, E, R>(effect: Effect.Effect<A | undefined, E, R>, description: string) {
-  return Effect.repeat(effect, {
-    until: (value): value is A => value !== undefined,
-    schedule: Schedule.spaced(50),
+  return Effect.gen(function* () {
+    while (true) {
+      const value = yield* effect
+      if (value !== undefined) return value
+      yield* Effect.sleep(50)
+    }
   }).pipe(
     Effect.timeoutOrElse({
       duration: 10_000,
