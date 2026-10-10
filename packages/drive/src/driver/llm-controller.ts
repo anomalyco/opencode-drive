@@ -108,7 +108,7 @@ export const make = Effect.fn("LlmController.make")(function* (
   const tasks = yield* FiberSet.make<void, never>()
   const parentScope = yield* Scope.Scope
   const attached = yield* Ref.make<
-    { readonly backend: BackendConnection; readonly scope: Scope.Scope }
+    { readonly backend: BackendConnection; readonly scope: Scope.Closeable }
     | undefined
   >(undefined)
 

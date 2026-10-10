@@ -6,7 +6,7 @@ import {
   RpcClient,
   RpcClientError,
   type RpcMessage,
-} from "effect/unstable/rpc"
+} from "effect/rpc"
 import { JsonRpc } from "./protocol.js"
 import { SimulationRequestError } from "./rpc.js"
 

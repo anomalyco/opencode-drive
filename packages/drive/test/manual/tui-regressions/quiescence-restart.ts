@@ -19,7 +19,7 @@ export default defineScript({
 
   run: ({ server, tuis, llm }) =>
     Effect.gen(function* () {
-      yield* Config.string("OPENCODE_DRIVE_DB")
+      yield* Config.String("OPENCODE_DRIVE_DB")
       const markers: Array<string> = []
       yield* llm.serve((request) => {
         const body = JSON.stringify(request.body)

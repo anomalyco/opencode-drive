@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
-import { RpcTest } from "effect/unstable/rpc"
+import { RpcTest } from "effect/rpc"
 import { BackendRpcs, SimulationRequestError, UiRpcs } from "../../src/simulation/rpc.js"
 
 const state = {

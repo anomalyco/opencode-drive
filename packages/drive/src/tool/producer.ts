@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
-import { RpcClientError } from "effect/unstable/rpc"
+import { RpcClientError } from "effect/rpc"
 import {
   SimulationCompatibilityError,
   SimulationConnectionError,
@@ -94,7 +94,7 @@ export const make = Effect.fn("ToolProducer.make")(function* (
   const current = yield* Ref.make<
     | {
         readonly backend: BackendConnection
-        readonly scope: Scope.Scope
+        readonly scope: Scope.Closeable
         readonly disconnected: Deferred.Deferred<void>
       }
     | undefined

@@ -94,7 +94,7 @@ export const webLifecycleFlow = defineExecutableFlow(
         )
 
         yield* driver.ui.submit("Fetch the Example Domain.")
-        yield* driver.ui.waitFor("Fetching from the web...", { timeout: 30_000 })
+        yield* driver.ui.waitFor(() => driver.ui.matches("1 fetch").pipe(Effect.flatMap((matched) => matched ? Effect.succeed(true) : driver.ui.matches("Fetching from the web"))), { timeout: 30_000 })
         yield* checkpoint(webfetchStreaming)
         yield* driver.ui.waitFor("Permission required", { timeout: 15_000 })
         yield* driver.ui.enter()
@@ -102,7 +102,7 @@ export const webLifecycleFlow = defineExecutableFlow(
         yield* checkpoint(webfetchSuccess)
 
         yield* driver.ui.submit("Search the web for the OpenCode terminal interface.")
-        yield* driver.ui.waitFor("Searching web...", { timeout: 30_000 })
+        yield* driver.ui.waitFor(() => driver.ui.matches("1 search").pipe(Effect.flatMap((matched) => matched ? Effect.succeed(true) : driver.ui.matches("Searching web"))), { timeout: 30_000 })
         yield* checkpoint(websearchRunning)
         yield* Effect.sleep(1_000)
         yield* checkpoint(websearchFailure)

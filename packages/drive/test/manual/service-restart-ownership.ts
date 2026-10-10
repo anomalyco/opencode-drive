@@ -8,8 +8,8 @@ export default defineScript({
   launch: "manual",
   run: ({ server, tuis, llm, artifacts }) =>
     Effect.gen(function* () {
-      const cycles = yield* Config.int("OPENCODE_DRIVE_RESTART_CYCLES").pipe(Config.withDefault(1))
-      const outage = yield* Config.int("OPENCODE_DRIVE_RESTART_GATE_MS").pipe(Config.withDefault(10_000))
+      const cycles = yield* Config.Int("OPENCODE_DRIVE_RESTART_CYCLES").pipe(Config.withDefault(1))
+      const outage = yield* Config.Int("OPENCODE_DRIVE_RESTART_GATE_MS").pipe(Config.withDefault(10_000))
       const registration = Effect.tryPromise(() =>
         Bun.file(`${artifacts}/home/.local/state/opencode/service-local.json`).text(),
       ).pipe(Effect.flatMap(decodeRegistration), Effect.option)

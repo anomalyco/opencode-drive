@@ -2,7 +2,7 @@
   "name": "@opencode-drive/catalog",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.2",
   "scripts": {
     "generate": "bun ./scripts/generate-catalog.ts",
     "capture": "bun ./scripts/capture-opencode-drive.ts",
@@ -20,22 +20,22 @@
     "drive:capture": "bun run capture"
   },
   "dependencies": {
-    "@fontsource/commit-mono": "5.2.5",
+    "@fontsource/commit-mono": "5.3.0",
     "@fontsource/noto-sans-math": "5.2.8",
-    "@fontsource/noto-sans-symbols": "5.2.8",
-    "@fontsource/noto-sans-symbols-2": "5.2.8",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "@fontsource/noto-sans-symbols": "5.3.0",
+    "@fontsource/noto-sans-symbols-2": "5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@napi-rs/canvas": "1.0.8",
-    "@types/bun": "^1.4.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "effect": "4.0.0-rc.112",
+    "@napi-rs/canvas": "1.0.11",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "effect": "4.0.1",
     "opencode-drive": "workspace:*",
-    "oxlint": "1.60.0",
+    "oxlint": "1.87.0",
     "typescript": "^7.0.2",
-    "wrangler": "4.110.0"
+    "wrangler": "4.149.0"
   }
 }

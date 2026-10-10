@@ -85,7 +85,7 @@ describe("catalog lifecycle scenarios", () => {
       "src/ledger.ts": expect.stringContaining("total"),
     })
     expect(runtime.tools).toBeFunction()
-    expect(runtime.setup).toBeFunction()
+    expect(runtime.tuiConfig).toEqual({ theme: { name: "rosepine" } })
     expect(catalogScenarioRuntime({ opencode: "/tmp/opencode", git: true }).project).toMatchObject({
       git: true,
       files: { ".gitignore": ".opencode/\n" },

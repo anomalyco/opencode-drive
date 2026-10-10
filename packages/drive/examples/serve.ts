@@ -27,7 +27,7 @@ export default defineScript({
               index: 0,
               id: "call_read_greeting",
               name: "read",
-              input: { filePath: "src/greeting.ts" },
+              input: { path: "src/greeting.ts" },
             }),
             Llm.finish("tool-calls"),
           )

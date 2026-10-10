@@ -28,8 +28,6 @@ export default defineScript({
           },
         ),
       )
-      yield* llm.send(Llm.text("Message export"))
-
       yield* ui.waitFor("Hello from OpenCode Drive")
       if (!(yield* ui.matches("OpenCode Drive")))
         throw new Error("the expected response was not visible")

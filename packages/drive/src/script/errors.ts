@@ -1,4 +1,4 @@
-import { RpcClientError as RpcClientErrors } from "effect/unstable/rpc"
+import { RpcClientError as RpcClientErrors } from "effect/rpc"
 
 export const RpcClientError = RpcClientErrors.RpcClientError
 export type RpcClientError = RpcClientErrors.RpcClientError

@@ -503,7 +503,7 @@ server drops or defaults undefined permission metadata.
 `plugin-registry.ts` checks that plugin registrations reach both the frontend and the model without a server restart. A discovered local plugin registers a command and a tool; the probe asserts the command through `command.list`, the tool through the captured provider request body, and the slash menu through the TUI. It then writes a second plugin into `.opencode/plugins/` at runtime, asserts both appear, removes it, and asserts it disappears. Activation is observed through `plugin.list`.
 
 ```sh
-TMPDIR="$PWD/.drive-output/tmp" bun run --cwd packages/drive drive start --name tui-plugin-registry \
+TMPDIR=/private/tmp bun run --cwd packages/drive drive start --name tui-plugin-registry \
   --script test/manual/tui-regressions/plugin-registry.ts \
   --dev "$OPENCODE_DEV"
 ```

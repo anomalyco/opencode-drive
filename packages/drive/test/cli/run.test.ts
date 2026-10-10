@@ -19,7 +19,7 @@ describe("opencode-drive run", () => {
     const program = await writeProgram(
       root,
       "valid.ts",
-      `import { Effect } from "effect"\nimport { OpenCodeDriver } from "opencode-drive"\nimport { value } from "./helper.ts"\nvoid OpenCodeDriver\nexport default Effect.promise(() => Bun.write(${JSON.stringify(marker)}, value))\n`,
+      `import { Effect } from "effect"\nimport { HttpClient } from "effect/http"\nimport { OpenCodeDriver } from "opencode-drive"\nimport { value } from "./helper.ts"\nvoid OpenCodeDriver\nvoid HttpClient\nexport default Effect.promise(() => Bun.write(${JSON.stringify(marker)}, value))\n`,
     )
 
     const child = spawn(["run", program])

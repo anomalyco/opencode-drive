@@ -132,7 +132,8 @@ const openNewSession = Effect.fn("Catalog.openNewSession")(function* (ui: OpenCo
   yield* ui.type("New session")
   yield* ui.waitFor("New session", { timeout: 15_000 })
   yield* ui.enter()
-  yield* ui.waitFor("Ask anything...", { timeout: 15_000 })
+  yield* ui.waitFor((state) => state.focused.editor, { timeout: 15_000 })
+  yield* ui.waitFor("Ask anything", { timeout: 15_000 })
 })
 
 const captureBaseline = (driver: OpenCodeDriver.Driver, variant: Variant) =>
@@ -336,6 +337,18 @@ function isCaptureId(value: string): value is CaptureId {
   return value in screens
 }
 
+function toCaptureSet(variant: Variant): CaptureSet {
+  return {
+    id: variant.id,
+    label: variant.label,
+    source: variant.source,
+    revision: variant.revision,
+    ref: variant.ref,
+    committedAt: variant.committedAt,
+    ...(variant.theme === undefined ? {} : { theme: variant.theme }),
+  }
+}
+
 try {
   const captured =
     options.workerOutput === undefined && options.flow === undefined && variants.length > 1 && options.jobs > 1
@@ -374,7 +387,7 @@ try {
     await rename(join(stagingRoot, variant.id), target)
     await Bun.write(
       join(options.workerOutput, `${variant.id}.json`),
-      `${JSON.stringify({ variant: (({ path: _, ...value }) => value)(variant), captures: captured[0] ?? [] })}\n`,
+      `${JSON.stringify({ variant: toCaptureSet(variant), captures: captured[0] ?? [] })}\n`,
     )
   } else {
     for (const variant of variants) {
@@ -384,7 +397,7 @@ try {
       await rename(join(stagingRoot, variant.id), target)
     }
     const manifestFile = new URL("../public/drive-captures.json", import.meta.url)
-    const captureSets = variants.map(({ path: _, ...variant }) => variant satisfies CaptureSet)
+    const captureSets = variants.map(toCaptureSet)
     const manifest = captureMatrixManifest(captureSets, captures)
     await Bun.write(manifestFile, `${JSON.stringify(manifest, undefined, 2)}\n`)
   }
