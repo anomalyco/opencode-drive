@@ -1,5 +1,12 @@
 # opencode-drive
 
+## 2.3.0
+
+### Minor Changes
+
+- da07122: Expose `environment` on drivers, prepared instances, and script contexts: the variables that point another process, such as `opencode run` or an SDK script, at the isolated OpenCode.
+- fd77c4c: Add `project.name` to name the isolated project directory, expose it as `directory` on drivers and script contexts, and create artifacts under the real temp path so OpenCode shows the project as `~/<name>` instead of a truncated `/…/run-*/files` path on macOS.
+
 ## 2.2.0
 
 ### Minor Changes
