@@ -116,7 +116,7 @@ export default OpenCodeDriver.use(
 
 The DSL is applied in this order:
 
-1. `project.files` is written into the isolated project.
+1. `project.name` (default `files`) names the isolated project directory, shown as `~/<name>` in OpenCode; `project.files` is written into it. Read the path from `directory` on the driver or script context.
 2. `config` and `tuiConfig` are deeply merged over `.opencode/opencode.jsonc` and `.opencode/cli.json` fixture values. Objects merge recursively; arrays and scalar values replace existing values.
 3. `setup` runs and may write project files or mutate the merged `config` and `tuiConfig` objects. Its mutations take final precedence.
 4. Drive writes both configs as stable, formatted JSON. With `project.git: true`, it creates a repository and commits the complete pre-launch state with fixed Git identity and timestamps.
@@ -178,8 +178,8 @@ Use the capability names literally: `opencode` is the generated OpenCode SDK,
 `tui` is the primary frontend process, `ui` is `tui.ui`, and `tuis` launches
 additional frontend processes. `environment` holds the variables that point any
 other process, such as `opencode run` or an SDK script, at the isolated
-OpenCode; spread it over `process.env` and use `${artifacts}/files` as the
-working directory.
+OpenCode; spread it over `process.env` and use `directory` as the working
+directory.
 
 Additional TUIs share the server and LLM controller:
 
@@ -489,7 +489,7 @@ cp -R ./fixtures/project/. "$artifacts/files/"
 opencode-drive start --name demo --dev ~/projects/opencode
 ```
 
-The simulated project is under `$artifacts/files`. A later `start --name demo` reuses the prepared artifacts; otherwise `start` initializes them automatically.
+The simulated project is under `$artifacts/files` until a script's `project.name` renames it at start. A later `start --name demo` reuses the prepared artifacts; otherwise `start` initializes them automatically.
 
 Drive uses an in-memory OpenCode database by default. For a script that restarts
 the OpenCode service and must recover the same sessions, set

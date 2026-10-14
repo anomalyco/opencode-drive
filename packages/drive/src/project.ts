@@ -43,6 +43,11 @@ export interface SetupContext {
 }
 
 export interface Project {
+  /**
+   * Directory name of the isolated project, shown by OpenCode as `~/<name>`.
+   * Defaults to `files`.
+   */
+  readonly name?: string
   /** Files written into the isolated project before setup runs. */
   readonly files?: Readonly<Record<string, string | Uint8Array>>
   /** Initializes the project as a Git repository and commits its pre-launch state. */

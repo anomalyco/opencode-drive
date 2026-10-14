@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import {
   initializeInstance,
   prepareInstanceProject,
+  projectDirectory,
 } from "../instance/instance.js"
 import type {
   OpenCodeConfig,
@@ -23,6 +24,7 @@ export interface Options {
 
 export interface Project {
   readonly artifacts: string
+  readonly directory: string
 }
 
 export const make = Effect.fn("OpenCodeProject.make")(function* (
@@ -50,7 +52,7 @@ export const make = Effect.fn("OpenCodeProject.make")(function* (
   }).pipe(
     Effect.mapError((cause) => error("project.prepare", cause)),
   )
-  return { artifacts }
+  return { artifacts, directory: projectDirectory(artifacts, options.project?.name) }
 })
 
 export * as OpenCodeProject from "./project.js"

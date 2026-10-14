@@ -167,7 +167,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
       Effect.onError(() => rollbackLaunch),
     )
     llmAttachment = attachment
-    const opencode = yield* OpenCodeSdk.make(instance.artifacts).pipe(
+    const opencode = yield* OpenCodeSdk.make(instance.artifacts, instance.directory).pipe(
       Effect.onError(() => rollbackLaunch),
     )
     const process = yield* instance.primary.pipe(

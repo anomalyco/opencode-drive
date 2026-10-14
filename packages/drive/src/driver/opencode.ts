@@ -12,12 +12,14 @@ import {
   HttpClient,
   HttpClientRequest,
 } from "effect/http"
+import { projectDirectory } from "../instance/instance.js"
 import { error, type OpenCodeDriverError } from "./error.js"
 
 export type OpenCode = OpenCodeClient
 
 const makeWithServices = Effect.fn("OpenCode.make")(function* (
   artifacts: string,
+  directory: string,
 ) {
   const state = join(artifacts, "home", ".local", "state", "opencode")
   const fs = yield* FileSystem.FileSystem
@@ -48,7 +50,7 @@ const makeWithServices = Effect.fn("OpenCode.make")(function* (
       HttpClient.mapRequest(
         HttpClientRequest.setHeader(
           "x-opencode-directory",
-          encodeURIComponent(join(artifacts, "files")),
+          encodeURIComponent(directory),
         ),
       ),
     )
@@ -73,5 +75,6 @@ const makeWithServices = Effect.fn("OpenCode.make")(function* (
 
 export const make = (
   artifacts: string,
+  directory = projectDirectory(artifacts),
 ): Effect.Effect<OpenCode, OpenCodeDriverError> =>
-  makeWithServices(artifacts).pipe(Effect.provide(NodeFileSystem.layer))
+  makeWithServices(artifacts, directory).pipe(Effect.provide(NodeFileSystem.layer))

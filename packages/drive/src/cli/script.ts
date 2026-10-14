@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path"
+import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -47,7 +47,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     ...(script.llm === undefined ? {} : { llm: script.llm }),
   })
   const protectGit = yield* Effect.promise(() =>
-    hasGitMetadata(join(instance.artifacts, "files")),
+    hasGitMetadata(instance.directory),
   )
   const operationFailure = yield* Deferred.make<never, unknown>()
   // Only control-plane unresponsiveness (UiTimeoutError) aborts the run.
@@ -126,7 +126,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
   }
   const tuis: OpenCodeTui.Tuis = { launch: launchTui }
   const context = {
-    fs: createScriptFileSystem(join(instance.artifacts, "files"), {
+    fs: createScriptFileSystem(instance.directory, {
       git: protectGit,
     }),
     tuis,
@@ -138,6 +138,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     network: prepared.network,
     tools: prepared.tools,
     artifacts: instance.artifacts,
+    directory: instance.directory,
     environment: instance.environment,
   }
   const primaryTui = prepared.primary

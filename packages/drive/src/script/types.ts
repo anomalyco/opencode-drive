@@ -44,6 +44,8 @@ export interface ScriptContext {
   /** Runtime controls for tools declared by name on the script. */
   readonly tools: Tool.Controls
   readonly artifacts: string
+  /** The isolated project directory OpenCode runs in. */
+  readonly directory: string
   /**
    * Variables that point another process, such as `opencode run` or an SDK
    * client using service discovery, at this script's isolated OpenCode.

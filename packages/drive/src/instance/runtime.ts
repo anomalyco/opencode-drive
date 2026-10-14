@@ -13,7 +13,7 @@ import { discoverRegistration } from "./discovery.js"
 import { instanceError, OpenCodeInstanceError } from "./error.js"
 import { makeChaosProxy, type ChaosProxy } from "./proxy.js"
 import { runMediaDirectory } from "./media.js"
-import { prepareInstanceProject } from "./instance.js"
+import { prepareInstanceProject, projectDirectory } from "./instance.js"
 import * as Process from "./process.js"
 import { freePort, waitForWebSocket } from "./readiness.js"
 import { isValidName } from "./registry.js"
@@ -49,6 +49,8 @@ export interface Options {
    * directly to the script-owned server.
    */
   readonly network?: boolean
+  /** The prepared project directory. Defaults to the one named by `project`. */
+  readonly directory?: string
   readonly project?: Project
   readonly config?: OpenCodeConfig
   readonly tui?: OpenCodeTuiConfig
@@ -67,6 +69,8 @@ export interface TuiProcess {
 
 export interface Instance {
   readonly artifacts: string
+  /** The isolated project directory OpenCode runs in. */
+  readonly directory: string
   readonly logs: string
   /**
    * Variables that point another process, such as `opencode run` or an SDK
@@ -128,7 +132,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   const artifacts = resolve(options.artifacts)
   const logs = join(artifacts, "logs")
   const drive = join(artifacts, "drive")
-  const files = join(artifacts, "files")
+  const files = options.directory ?? projectDirectory(artifacts, options.project?.name)
   let mediaGeneration = 0
   let media = runMediaDirectory(artifacts, mediaGeneration)
   const endpoints = {
@@ -643,6 +647,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
 
   return {
     artifacts,
+    directory: files,
     logs,
     environment: isolation,
     visible: options.visible ?? false,

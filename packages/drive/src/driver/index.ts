@@ -58,6 +58,8 @@ export interface Driver {
   readonly tools: Tool.Controls
   readonly tuis: OpenCodeTui.Tuis
   readonly artifacts: string
+  /** The isolated project directory OpenCode runs in. */
+  readonly directory: string
   /**
    * Variables that point another process, such as `opencode run` or an SDK
    * client using service discovery, at this driver's isolated OpenCode.
@@ -86,6 +88,7 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
     })
     const instance = yield* OpenCodeInstance.make({
       artifacts: project.artifacts,
+      directory: project.directory,
       name: `library-${crypto.randomUUID().slice(0, 12)}`,
       scripted: true,
       command: options.opencode?.command,
