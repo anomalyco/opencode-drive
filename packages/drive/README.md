@@ -380,6 +380,34 @@ Drive's isolated `OPENCODE_CONFIG_DIR` points to the fixture's `.opencode`
 directory, so `cli.json` is consumed as global terminal configuration without
 changing the installed client's files. Legacy `tui.jsonc` is not emitted.
 
+The simulated model is an ordinary provider in the fixture configuration, so
+screenshots and recordings can show a realistic name. Requests reach Drive's
+LLM controller for any model of the `simulation` provider, so `config` can
+rename the provider, add a model under any ID, and select it:
+
+```ts
+OpenCodeDriver.use({
+  config: {
+    model: "simulation/claude-opus-5-5",
+    providers: {
+      simulation: {
+        name: "Anthropic",
+        models: {
+          "claude-opus-5-5": {
+            name: "Claude Opus 5.5",
+            capabilities: { tools: true, input: ["text"], output: ["text"] },
+            limit: { context: 128_000, output: 16_000 },
+          },
+        },
+      },
+    },
+  },
+}, program)
+```
+
+The prompt footer then reads `Claude Opus 5.5 Anthropic`. Deep merging keeps
+the default `gpt-sim-model` available.
+
 Scripted TUIs connect explicitly to Drive's owned server endpoint. The endpoint
 and existing registered credential remain usable across manual server restarts;
 the TUI does not elect a competing managed service during an outage. Network

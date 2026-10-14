@@ -121,6 +121,8 @@ The DSL is applied in this order:
 3. `setup` runs and may write project files or mutate the merged `config` and `tuiConfig` objects. Its mutations take final precedence.
 4. Drive writes both configs as stable, formatted JSON. With `project.git: true`, it creates a repository and commits the complete pre-launch state with fixed Git identity and timestamps.
 
+To show a realistic model in screenshots or recordings, rename the `simulation` provider and add a model under `config.providers.simulation.models`, then select it with `config.model` (for example `simulation/claude-opus-5-5`). Drive's LLM controller answers every model of that provider.
+
 `fs.writeFile` is rooted inside the simulated project and creates parent directories. `project.git: true` refuses to replace existing Git metadata; omit it when prepared fixtures already include a repository.
 
 `tuiConfig` contains current V2 CLI settings despite retaining its public option
