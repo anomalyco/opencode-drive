@@ -35,6 +35,7 @@ export interface Prepared {
   readonly tuis: OpenCodeTui.Tuis
   readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
   readonly artifacts: string
+  readonly directory: string
   readonly environment: Driver["environment"]
   readonly settle: Driver["settle"]
   readonly failure: Effect.Effect<never, LlmControllerError | OpenCodeDriverError>
@@ -109,6 +110,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
           tools: server.tools,
           tuis: server.tuis,
           artifacts: instance.artifacts,
+          directory: instance.directory,
           environment: instance.environment,
           settle: () => settle,
         }
@@ -121,6 +123,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       tuis: server.tuis,
       server,
       artifacts: instance.artifacts,
+      directory: instance.directory,
       environment: instance.environment,
       settle: () => settle,
       failure: Effect.raceFirst(

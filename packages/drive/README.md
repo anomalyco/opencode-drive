@@ -129,17 +129,17 @@ const frame = yield* tui.ui.capture()
 Other processes can join the same isolated OpenCode. `environment` holds the
 variables that point `opencode run`, an SDK script using service discovery, or
 any other client at the driver's private service and configuration. Spread it
-over `process.env` and run the process in the project directory:
+over `process.env` and run the process in `directory`, the isolated project:
 
 ```ts
 import { Effect } from "effect"
 import { Llm, OpenCodeDriver } from "opencode-drive"
 
-export default OpenCodeDriver.use(({ llm, artifacts, environment }) =>
+export default OpenCodeDriver.use(({ llm, directory, environment }) =>
   Effect.gen(function* () {
     yield* llm.queue(Llm.text("Fixed the flaky test."))
     const run = Bun.spawn(["opencode2", "run", "Fix the flaky test"], {
-      cwd: `${artifacts}/files`,
+      cwd: directory,
       env: { ...process.env, ...environment },
     })
     yield* Effect.promise(() => run.exited)
@@ -391,6 +391,11 @@ export default defineScript({
     }),
 })
 ```
+
+`project.name` names the isolated project directory, which OpenCode shows as
+`~/<name>` in the prompt footer and next to every session; it defaults to
+`files`. Read the resulting path from `directory` on the driver or script
+context instead of joining it onto `artifacts`.
 
 `project.files` seeds the isolated project before `setup` runs. With
 `project.git: true`, Drive creates a fresh repository and commits the complete

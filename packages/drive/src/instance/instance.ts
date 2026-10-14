@@ -1,4 +1,5 @@
-import { mkdir, stat } from "node:fs/promises"
+import { realpathSync } from "node:fs"
+import { mkdir, rename, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import * as Effect from "effect/Effect"
@@ -17,7 +18,41 @@ import type {
 import { defaultConfig } from "./default-config.js"
 
 export function artifactDirectory() {
-  return resolve(join(tmpdir(), "opencode-drive"))
+  // OpenCode abbreviates paths under the isolated home as `~`, which only
+  // matches when the home is a real path (macOS's tmpdir is a /var symlink).
+  return join(realPath(tmpdir()), "opencode-drive")
+}
+
+/** Resolves symlinks when the path exists, so equal locations compare equal. */
+export function realPath(path: string) {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
+
+const defaultProjectName = "files"
+const reservedProjectNames = new Set(["drive", "home", "logs", "script-runtime"])
+
+/** The isolated project directory inside an instance's artifacts. */
+export function projectDirectory(artifacts: string, name = defaultProjectName) {
+  return join(resolve(artifacts), name)
+}
+
+async function nameProject(artifacts: string, name: string) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || reservedProjectNames.has(name))
+    throw new Error(
+      `invalid project name "${name}": use a single path segment other than ${[...reservedProjectNames].join(", ")}`,
+    )
+  if (name === defaultProjectName) return
+  const from = projectDirectory(artifacts)
+  const to = projectDirectory(artifacts, name)
+  const exists = (path: string) => stat(path).then(() => true, () => false)
+  const [source, target] = await Promise.all([exists(from), exists(to)])
+  if (source && target)
+    throw new Error(`project directory ${to} already exists`)
+  if (source) await rename(from, to)
 }
 
 export async function initializeInstance(name?: string) {
@@ -39,7 +74,7 @@ export async function initializeInstance(name?: string) {
     mkdir(join(artifacts, "home", ".local", "share"), { recursive: true }),
     mkdir(join(artifacts, "home", ".local", "state"), { recursive: true }),
   ])
-  const files = join(artifacts, "files")
+  const files = projectDirectory(artifacts)
   await Promise.all([
     mkdir(join(files, ".git"), { recursive: true }),
     mkdir(join(files, ".opencode"), { recursive: true }),
@@ -77,10 +112,13 @@ export const prepareInstanceProject = Effect.fn("OpenCodeInstance.prepareProject
   readonly tui?: OpenCodeTuiConfig
     readonly setup?: Setup
 }) {
-  const files = join(resolve(options.artifacts), "files")
+  const project = options.project
+  const name = project?.name
+  if (name !== undefined)
+    yield* promise(() => nameProject(options.artifacts, name))
+  const files = projectDirectory(options.artifacts, name)
   const configPath = join(files, ".opencode", "opencode.jsonc")
   const tuiPath = join(files, ".opencode", "cli.json")
-  const project = options.project
   if (project)
     yield* promise(() => initializeScriptProject(files, project))
   const [config, tui] = yield* Effect.all([

@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises"
-import { basename, dirname, resolve } from "node:path"
-import { artifactDirectory } from "../instance/instance.js"
+import { basename, dirname } from "node:path"
+import { artifactDirectory, realPath } from "../instance/instance.js"
 import { requestStop } from "../instance/control.js"
 import { manifestPath, resolveInstance } from "../instance/registry.js"
 import { configureLogFile, logSuccess } from "../log.js"
@@ -37,7 +37,8 @@ export async function stop(name?: string) {
 }
 
 async function pruneArtifacts(artifacts: string) {
-  const directory = resolve(artifacts)
+  // Instances registered by older versions may record the symlinked tmpdir path.
+  const directory = realPath(artifacts)
   if (dirname(directory) !== artifactDirectory() || !/^run-[^/\\]+$/.test(basename(directory))) return
   await rm(directory, { recursive: true, force: true })
 }

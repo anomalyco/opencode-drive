@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, test } from "vitest"
-import { rm } from "node:fs/promises"
-import { join } from "node:path"
+import { realpathSync } from "node:fs"
+import { mkdtemp, rm, stat, symlink } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
 import * as Effect from "effect/Effect"
 import {
+  artifactDirectory,
   initializeInstance,
   prepareInstanceProject,
+  realPath,
 } from "../../src/instance/instance.js"
 
 const artifacts: string[] = []
@@ -123,6 +127,57 @@ describe("instance configuration", () => {
         },
       })),
     ).rejects.toThrow("invalid .opencode/cli.json")
+  })
+
+  test("creates artifacts under a real path so OpenCode can abbreviate the isolated home", async () => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+
+    expect(realpathSync(root)).toBe(root)
+  })
+
+  test("falls back to the configured tmpdir when it does not exist yet", () => {
+    const previous = process.env.TMPDIR
+    const missing = join(tmpdir(), `opencode-drive-missing-${crypto.randomUUID()}`)
+    process.env.TMPDIR = missing
+    try {
+      expect(artifactDirectory()).toBe(join(resolve(missing), "opencode-drive"))
+    } finally {
+      if (previous === undefined) delete process.env.TMPDIR
+      else process.env.TMPDIR = previous
+    }
+  })
+
+  test("compares artifact paths through symlinks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "opencode-drive-realpath-"))
+    artifacts.push(root)
+    const link = `${root}-link`
+    artifacts.push(link)
+    await symlink(root, link)
+
+    expect(realPath(join(link, "run-1"))).toBe(join(link, "run-1"))
+    expect(realPath(link)).toBe(realpathSync(root))
+  })
+
+  test("names the project directory", async () => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+    await Effect.runPromise(prepareInstanceProject({
+      artifacts: root,
+      project: { name: "acme", files: { "README.md": "# acme\n" } },
+    }))
+
+    expect(await stat(join(root, "files")).then(() => true, () => false)).toBe(false)
+    expect(await Bun.file(join(root, "acme", "README.md")).text()).toBe("# acme\n")
+    expect(await Bun.file(join(root, "acme", ".opencode", "opencode.jsonc")).exists()).toBe(true)
+  })
+
+  test.each(["../escape", "nested/name", ".hidden", "home", "logs"])("rejects invalid project names: %s", async (name) => {
+    const root = await initializeInstance()
+    artifacts.push(root)
+    await expect(
+      Effect.runPromise(prepareInstanceProject({ artifacts: root, project: { name } })),
+    ).rejects.toThrow("invalid project name")
   })
 
   test("does not let setup mutate declarative configuration inputs", async () => {
