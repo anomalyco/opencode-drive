@@ -44,6 +44,12 @@ export interface ScriptContext {
   /** Runtime controls for tools declared by name on the script. */
   readonly tools: Tool.Controls
   readonly artifacts: string
+  /**
+   * Variables that point another process, such as `opencode run` or an SDK
+   * client using service discovery, at this script's isolated OpenCode.
+   * Spread them over `process.env` when spawning.
+   */
+  readonly environment: Readonly<Record<string, string>>
 }
 
 export interface ManualScriptContext extends Omit<ScriptContext, "opencode" | "tui" | "ui"> {

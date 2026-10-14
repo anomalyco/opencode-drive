@@ -166,3 +166,38 @@ it.live("reads the database target from Effect config", () =>
     Effect.provide(NodeServices.layer),
   ),
 )
+
+it.live("exposes the environment that points other processes at the isolated service", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const artifacts = yield* Effect.promise(() => initializeInstance())
+      yield* Effect.addFinalizer(() => Effect.promise(() => rm(artifacts, { recursive: true, force: true })))
+      const instance = yield* OpenCodeInstance.make({
+        artifacts,
+        name: "environment-test",
+        scripted: true,
+        command: fakeOpenCode,
+      })
+      yield* Effect.addFinalizer(() => instance.stop)
+
+      yield* instance.launchServer
+      const registration = yield* Effect.promise(() => discoverRegistration(`${artifacts}/home/.local/state`))
+      const discovery = resolve("src", "instance", "discovery.ts")
+      const child = Bun.spawnSync(
+        [
+          process.execPath,
+          "-e",
+          `const { discoverRegistration } = await import(${JSON.stringify(discovery)})
+const found = await discoverRegistration(process.env.XDG_STATE_HOME)
+console.log(JSON.stringify({ url: found?.url, config: process.env.OPENCODE_CONFIG_DIR }))`,
+        ],
+        { env: { ...process.env, ...instance.environment } },
+      )
+      expect(JSON.parse(child.stdout.toString())).toEqual({
+        url: registration?.url,
+        config: `${artifacts}/files/.opencode`,
+      })
+      expect(Object.keys(instance.environment).filter((key) => key.startsWith("OPENCODE_DRIVE"))).toEqual([])
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+)

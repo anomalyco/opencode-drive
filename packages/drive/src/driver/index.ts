@@ -58,6 +58,12 @@ export interface Driver {
   readonly tools: Tool.Controls
   readonly tuis: OpenCodeTui.Tuis
   readonly artifacts: string
+  /**
+   * Variables that point another process, such as `opencode run` or an SDK
+   * client using service discovery, at this driver's isolated OpenCode.
+   * Spread them over `process.env` when spawning.
+   */
+  readonly environment: Readonly<Record<string, string>>
   /** Validates queued LLM work, stops TUIs, and exports recordings. */
   readonly settle: () => Effect.Effect<
     RunReport,

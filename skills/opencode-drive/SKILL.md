@@ -174,7 +174,10 @@ yield* llm.serve((_request, index) =>
 
 Use the capability names literally: `opencode` is the generated OpenCode SDK,
 `tui` is the primary frontend process, `ui` is `tui.ui`, and `tuis` launches
-additional frontend processes.
+additional frontend processes. `environment` holds the variables that point any
+other process, such as `opencode run` or an SDK script, at the isolated
+OpenCode; spread it over `process.env` and use `${artifacts}/files` as the
+working directory.
 
 Additional TUIs share the server and LLM controller:
 
