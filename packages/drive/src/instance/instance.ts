@@ -20,7 +20,16 @@ import { defaultConfig } from "./default-config.js"
 export function artifactDirectory() {
   // OpenCode abbreviates paths under the isolated home as `~`, which only
   // matches when the home is a real path (macOS's tmpdir is a /var symlink).
-  return join(realpathSync(tmpdir()), "opencode-drive")
+  return join(realPath(tmpdir()), "opencode-drive")
+}
+
+/** Resolves symlinks when the path exists, so equal locations compare equal. */
+export function realPath(path: string) {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
 }
 
 const defaultProjectName = "files"
