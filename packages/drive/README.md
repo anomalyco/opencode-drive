@@ -126,6 +126,31 @@ const info = yield* opencode.server.info()
 const frame = yield* tui.ui.capture()
 ```
 
+Other processes can join the same isolated OpenCode. `environment` holds the
+variables that point `opencode run`, an SDK script using service discovery, or
+any other client at the driver's private service and configuration. Spread it
+over `process.env` and run the process in the project directory:
+
+```ts
+import { Effect } from "effect"
+import { Llm, OpenCodeDriver } from "opencode-drive"
+
+export default OpenCodeDriver.use(({ llm, artifacts, environment }) =>
+  Effect.gen(function* () {
+    yield* llm.queue(Llm.text("Fixed the flaky test."))
+    const run = Bun.spawn(["opencode2", "run", "Fix the flaky test"], {
+      cwd: `${artifacts}/files`,
+      env: { ...process.env, ...environment },
+    })
+    yield* Effect.promise(() => run.exited)
+  }),
+)
+```
+
+`environment` contains no Drive control variables, so these processes are
+ordinary OpenCode clients. They share the service, sessions, and simulated LLM
+with the TUIs, but Drive does not control or record their terminals.
+
 Enable recording per TUI. Settlement finishes each timeline and exports its
 video automatically:
 

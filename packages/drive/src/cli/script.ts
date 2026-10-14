@@ -138,6 +138,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     network: prepared.network,
     tools: prepared.tools,
     artifacts: instance.artifacts,
+    environment: instance.environment,
   }
   const primaryTui = prepared.primary
   const automatic = (definition: AutomaticScriptDefinition) => {

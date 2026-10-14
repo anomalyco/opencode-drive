@@ -68,6 +68,12 @@ export interface TuiProcess {
 export interface Instance {
   readonly artifacts: string
   readonly logs: string
+  /**
+   * Variables that point another process, such as `opencode run` or an SDK
+   * client using service discovery, at this isolated instance. Spread them
+   * over `process.env` when spawning.
+   */
+  readonly environment: Readonly<Record<string, string>>
   readonly visible: boolean
   readonly endpoints: {
     readonly ui: string
@@ -156,25 +162,28 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   const dev = options.dev !== undefined
     ? yield* prepareDev(artifacts, options.dev)
     : undefined
+  const isolation = {
+    OPENCODE_SIMULATE: "1",
+    DRIVE_REGISTRY_DIR: drive,
+    OPENCODE_CONFIG_DIR: join(files, ".opencode"),
+    OPENCODE_DB: database,
+    OPENCODE_TEST_HOME: artifacts,
+    XDG_CACHE_HOME: join(artifacts, "home", ".cache"),
+    XDG_CONFIG_HOME: join(artifacts, "home", ".config"),
+    XDG_DATA_HOME: logs,
+    XDG_STATE_HOME: join(artifacts, "home", ".local", "state"),
+  }
   const environment = stripGitEnvironment({
     ...process.env,
     ...options.env,
     BUN_OPTIONS: dev === undefined
       ? options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS
       : [options.env?.BUN_OPTIONS ?? process.env.BUN_OPTIONS, ...dev.preloads].filter(Boolean).join(" "),
-    OPENCODE_SIMULATE: "1",
+    ...isolation,
     OPENCODE_DRIVE_SCRIPTED: options.scripted ? "1" : undefined,
-    DRIVE_REGISTRY_DIR: drive,
     OPENCODE_DRIVE_RENDERER: options.visible ? "visible" : "headless",
     OPENCODE_DRIVE_DEV: options.dev,
-    OPENCODE_CONFIG_DIR: join(files, ".opencode"),
-    OPENCODE_DB: database,
     OPENCODE_LOG_LEVEL: !options.visible ? "DEBUG" : process.env.OPENCODE_LOG_LEVEL,
-    OPENCODE_TEST_HOME: artifacts,
-    XDG_CACHE_HOME: join(artifacts, "home", ".cache"),
-    XDG_CONFIG_HOME: join(artifacts, "home", ".config"),
-    XDG_DATA_HOME: logs,
-    XDG_STATE_HOME: join(artifacts, "home", ".local", "state"),
   })
   const command = dev !== undefined
     ? dev.command
@@ -635,6 +644,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
   return {
     artifacts,
     logs,
+    environment: isolation,
     visible: options.visible ?? false,
     endpoints,
     media: Effect.sync(() => media),
