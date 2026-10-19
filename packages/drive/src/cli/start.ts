@@ -4,6 +4,7 @@ import * as Exit from "effect/Exit"
 import { toStringUnknown } from "effect/Inspectable"
 import { initializeInstance } from "../instance/instance.js"
 import * as DriveProcess from "../instance/process.js"
+import * as OpenCodeGui from "../driver/gui.js"
 import * as OpenCodeInstance from "../instance/runtime.js"
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
@@ -79,15 +80,19 @@ const startScoped = Effect.fn("DriveCli.startScoped")(function* (options: StartO
       }
     : loadedScript
   if (script && "launch" in script && options.record) {
-    return yield* Effect.fail(new Error("--record is not supported when launch is manual"))
+    return yield* Effect.fail(new Error(`--record is not supported when launch is ${script.launch}`))
   }
+  // A packaged Desktop only adopts a service of its own version, so serve with its bundled CLI.
+  const desktop = script && "launch" in script && script.launch === "gui" && !options.dev && !options.command.length
+    ? OpenCodeGui.packagedApp(script.gui)
+    : undefined
   const responses = createResponseSettings()
   logSuccess("launching instance")
   const log = options.visible ? (message: string) => logSuccess(message, { terminal: false }) : logSuccess
   const instance = yield* OpenCodeInstance.make({
     artifacts: initialized.artifacts,
     name: options.name,
-    command: options.command,
+    command: desktop ? [OpenCodeGui.bundledCli(desktop)] : options.command,
     dev: options.dev,
     scripted: options.script !== undefined,
     network: script?.network,

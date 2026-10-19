@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 const packageRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)))
 const requireFromDrive = createRequire(join(packageRoot, "package.json"))
 const effectRoot = dirname(requireFromDrive.resolve("effect/package.json"))
+const playwrightRoot = dirname(requireFromDrive.resolve("playwright-core/package.json"))
 const compilerRoot = dirname(requireFromDrive.resolve("@typescript/native-preview/package.json"))
 const bunTypesRoot = dirname(requireFromDrive.resolve("@types/bun/package.json"))
 const requireFromBunTypes = createRequire(join(bunTypesRoot, "package.json"))
@@ -59,7 +60,7 @@ async function compileScript(root: string, source: string) {
     outdir: output,
     target: "bun",
     packages: "bundle",
-    external: ["opencode-drive", "opencode-drive/*", "effect", "effect/*"],
+    external: ["opencode-drive", "opencode-drive/*", "effect", "effect/*", "playwright-core"],
     sourcemap: "inline",
   })
   if (!result.success) {
@@ -155,6 +156,7 @@ async function prepareRuntimeRoot(artifacts: string) {
   await Promise.all([
     symlink(packageRoot, join(modules, "opencode-drive"), linkType),
     symlink(effectRoot, join(modules, "effect"), linkType),
+    symlink(playwrightRoot, join(modules, "playwright-core"), linkType),
     symlink(bunTypesRoot, join(modules, "@types", "bun"), linkType),
     symlink(bunRuntimeTypesRoot, join(modules, "bun-types"), linkType),
   ])

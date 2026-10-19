@@ -197,6 +197,7 @@ export function use<A, E, R>(
 }
 
 export { OpenCodeDriverError } from "./error.js"
+export { GuiLaunchError } from "./gui.js"
 export {
   LlmControllerError,
   LlmModeError,
@@ -233,6 +234,7 @@ export type { Network, NetworkConditions } from "./network.js"
 export type { Target as OpenCodeTarget } from "./server.js"
 export type { OpenCode } from "./opencode.js"
 export type { ScreenshotError, Ui } from "./ui.js"
+export type { Gui, GuiOptions } from "./gui.js"
 export type {
   Project,
   ProjectFileSystem,

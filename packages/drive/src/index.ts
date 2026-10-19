@@ -6,6 +6,8 @@ export * as Errors from "./script/errors.js"
 export * as Tool from "./tool/index.js"
 export { Frontend } from "./client/protocol.js"
 export type {
+  Gui,
+  GuiOptions,
   OpenCode,
   Recording,
   Tui,

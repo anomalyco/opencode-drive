@@ -8,6 +8,7 @@ import { join } from "node:path"
 export interface Registration {
   readonly url: string
   readonly password?: string
+  readonly version?: string
 }
 
 export async function discoverRegistration(
@@ -39,6 +40,9 @@ export async function discoverRegistration(
         url: value.url,
         ...("password" in value && typeof value.password === "string"
           ? { password: value.password }
+          : {}),
+        ...("version" in value && typeof value.version === "string"
+          ? { version: value.version }
           : {}),
       }
   }

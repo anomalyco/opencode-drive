@@ -1,5 +1,6 @@
 import type {
   AutomaticScriptDefinition,
+  GuiScriptDefinition,
   ManualScriptDefinition,
   ScriptDefinition,
   ScriptDefinitionInput,
@@ -10,6 +11,7 @@ type Defined<Definition> = Definition & {
 }
 
 export function defineScript(script: ManualScriptDefinition): Defined<ManualScriptDefinition>
+export function defineScript(script: GuiScriptDefinition): Defined<GuiScriptDefinition>
 export function defineScript(
   script: AutomaticScriptDefinition,
 ): Defined<AutomaticScriptDefinition>
