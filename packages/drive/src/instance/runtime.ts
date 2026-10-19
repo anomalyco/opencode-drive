@@ -69,6 +69,8 @@ export interface TuiProcess {
 
 export interface Instance {
   readonly artifacts: string
+  /** OpenCode source checkout selected with `--dev`. */
+  readonly dev?: string
   /** The isolated project directory OpenCode runs in. */
   readonly directory: string
   readonly logs: string
@@ -647,6 +649,7 @@ export const make = Effect.fn("OpenCodeInstance.make")(function* (
 
   return {
     artifacts,
+    ...(options.dev ? { dev: resolve(options.dev) } : {}),
     directory: files,
     logs,
     environment: isolation,

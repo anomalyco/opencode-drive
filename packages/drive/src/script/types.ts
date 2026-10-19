@@ -2,6 +2,7 @@ import type * as Effect from "effect/Effect"
 import type * as Tool from "../tool/index.js"
 import type * as OpenCodeUi from "../driver/ui.js"
 import type * as OpenCodeTui from "../driver/client.js"
+import type * as OpenCodeGui from "../driver/gui.js"
 import type { Llm } from "../driver/llm.js"
 import type { Options as LlmOptions } from "../driver/llm-controller.js"
 import type { Network } from "../driver/network.js"
@@ -36,6 +37,8 @@ export interface ScriptContext {
   readonly tui: OpenCodeTui.Tui
   /** Convenience alias for the primary TUI's UI. */
   readonly ui: OpenCodeUi.Ui
+  /** OpenCode Desktop, available when the script sets `launch: "gui"`. */
+  readonly gui: undefined
   readonly tuis: OpenCodeTui.Tuis
   readonly server: ScriptServer
   readonly llm: Llm
@@ -54,12 +57,20 @@ export interface ScriptContext {
   readonly environment: Readonly<Record<string, string>>
 }
 
+export interface GuiScriptContext extends Omit<ScriptContext, "tui" | "ui" | "gui"> {
+  readonly tui: undefined
+  readonly ui: undefined
+  /** Playwright page for the OpenCode Desktop window. */
+  readonly gui: OpenCodeGui.Gui
+}
+
 export interface ManualScriptContext extends Omit<ScriptContext, "opencode" | "tui" | "ui"> {
   readonly tui: null
   readonly ui: null
 }
 
 export type ScriptRun = (context: ScriptContext) => Effect.Effect<void, unknown>
+export type GuiScriptRun = (context: GuiScriptContext) => Effect.Effect<void, unknown>
 export type ManualScriptRun = (
   context: ManualScriptContext,
 ) => Effect.Effect<void, unknown>
@@ -108,8 +119,18 @@ export interface ManualScriptDefinition {
   readonly run: ManualScriptRun
 }
 
+export interface GuiScriptDefinition extends Omit<ManualScriptDefinition, "launch" | "run"> {
+  /** The server and OpenCode Desktop are launched automatically. */
+  readonly launch: "gui"
+  /** Selects and configures the Desktop app. */
+  readonly gui?: OpenCodeGui.GuiOptions
+  /** Runs after Desktop is connected to the shared service. */
+  readonly run: GuiScriptRun
+}
+
 export type ScriptDefinitionInput =
   | AutomaticScriptDefinition
+  | GuiScriptDefinition
   | ManualScriptDefinition
 
 export type ScriptDefinition = ScriptDefinitionInput & {

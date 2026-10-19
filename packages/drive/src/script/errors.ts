@@ -6,6 +6,7 @@ export type RpcClientError = RpcClientErrors.RpcClientError
 export { FileSystemError } from "../project.js"
 
 export { OpenCodeDriverError } from "../driver/error.js"
+export { GuiLaunchError } from "../driver/gui.js"
 export { LlmControllerError, LlmModeError } from "../driver/llm-controller.js"
 export {
   UiCapabilityError,

@@ -579,8 +579,40 @@ Effect-returning operations. Compose them with `yield*`, `Effect.flatMap`, or
 other Effect operators. Scripts receive the same `Ui`, `Tui`, `Tuis`, and TUI
 options as `OpenCodeDriver`; `defineScript` does not define a second
 programmatic interface. Predicates passed to `ui.waitFor` may return a boolean
-or an Effect. Set `launch: "manual"` to launch the shared OpenCode server and
-every TUI explicitly:
+or an Effect.
+
+Set `launch: "gui"` to drive OpenCode Desktop instead of a TUI. Drive starts
+the shared server, launches Desktop against it, and passes the Desktop window
+as `gui`, a Playwright `Page`; `tui` and `ui` are undefined. With `--dev`, Drive runs
+`bun run dev:desktop` from that checkout. Otherwise it launches a packaged app,
+`/Applications/OpenCode.app` by default on macOS, and serves with that app's
+bundled CLI:
+
+```ts
+import { Effect } from "effect"
+import { defineScript, Llm } from "opencode-drive"
+
+export default defineScript({
+  launch: "gui",
+  gui: { app: "/Applications/OpenCode.app" },
+  run: ({ gui, llm }) =>
+    Effect.gen(function* () {
+      yield* llm.queue(Llm.text("Hello from Desktop"))
+      yield* Effect.promise(async () => {
+        const editor = gui.locator('[data-component="composer-editor"]')
+        await editor.fill("Say hello")
+        await editor.press("Enter")
+        await gui.getByText("Hello from Desktop").waitFor()
+      })
+    }),
+})
+```
+
+Desktop runs with an isolated profile and never touches your installed app's
+data.
+
+Set `launch: "manual"` to launch the shared OpenCode server and every TUI
+explicitly:
 
 ```ts
 import { Effect } from "effect"

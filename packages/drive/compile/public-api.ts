@@ -2,12 +2,17 @@ import * as Effect from "effect/Effect"
 import { OpenCodeDriver, Tool } from "../src/index.js"
 import type {
   Frontend,
+  Gui,
   Project,
   Tui,
   Tuis,
   Ui,
 } from "../src/index.js"
-import type { ScriptContext } from "../src/script/types.js"
+import type {
+  GuiScriptContext,
+  ManualScriptContext,
+  ScriptContext,
+} from "../src/script/types.js"
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends
@@ -21,6 +26,11 @@ export type ScriptUiIsCanonical = Assert<Equal<ScriptContext["ui"], Ui>>
 export type ScriptTuiIsCanonical = Assert<
   Equal<ScriptContext["tui"], Tui>
 >
+export type ScriptGuiIsAbsent = Assert<Equal<ScriptContext["gui"], undefined>>
+export type GuiScriptTuiIsAbsent = Assert<Equal<GuiScriptContext["tui"], undefined>>
+export type GuiScriptUiIsAbsent = Assert<Equal<GuiScriptContext["ui"], undefined>>
+export type GuiScriptGuiIsPage = Assert<Equal<GuiScriptContext["gui"], Gui>>
+export type ManualScriptUiIsNull = Assert<Equal<ManualScriptContext["ui"], null>>
 export type ScriptTuisAreCanonical = Assert<
   Equal<ScriptContext["tuis"], Tuis>
 >

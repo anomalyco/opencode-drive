@@ -1026,6 +1026,13 @@ describe("opencode-drive", () => {
     expect(await promise.exited).toBe(1)
     expect(await promiseError).toContain("OpenCode Drive scripts are Effect-only")
     expect(await promiseError).toContain("Effect.gen(function* ()")
+
+    await Bun.write(
+      join(directory, "gui.ts"),
+      'import { defineScript, Effect } from "opencode-drive"\nexport default defineScript({ launch: "gui", gui: { app: "OpenCode.app" }, run: ({ gui }) => Effect.promise(() => gui.bringToFront()) })\n',
+    )
+    const gui = spawn(["check", join(directory, "gui.ts")], root)
+    expect(await gui.exited).toBe(0)
   }, 60_000)
 
   test("runs a script imported from the Drive source checkout", async () => {

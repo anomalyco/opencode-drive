@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema"
 import * as OpenCodeDriver from "../driver/index.js"
 import type * as OpenCodeTui from "../driver/client.js"
 import * as OpenCodeUi from "../driver/ui.js"
+import * as OpenCodeGui from "../driver/gui.js"
 import * as PreparedDriver from "../driver/prepared.js"
 import type * as OpenCodeInstance from "../instance/runtime.js"
 import { createScriptFileSystem } from "../script/filesystem.js"
@@ -13,6 +14,7 @@ import { hasGitMetadata } from "../script/project.js"
 import { Names as ToolNames } from "../tool/types.js"
 import type {
   AutomaticScriptDefinition,
+  GuiScriptDefinition,
   ScriptDefinition,
 } from "../script/types.js"
 
@@ -153,12 +155,25 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
       opencode: prepared.driver.opencode,
       tui,
       ui: tui.ui,
+      gui: undefined,
     })
   }
+  const automaticGui = (definition: GuiScriptDefinition) =>
+    Effect.gen(function* () {
+      const opencode = yield* prepared.server.launch()
+      const { gui, failure } = yield* OpenCodeGui.launch(instance, definition.gui)
+      onReady?.()
+      return yield* Effect.raceFirst(
+        definition.run({ ...context, opencode, tui: undefined, ui: undefined, gui }),
+        failure,
+      )
+    })
   const execution =
-    "launch" in script
-      ? script.run({ ...context, tui: null, ui: null })
-      : automatic(script)
+    !("launch" in script)
+      ? automatic(script)
+      : script.launch === "gui"
+        ? automaticGui(script)
+        : script.run({ ...context, tui: null, ui: null, gui: undefined })
   if (!Effect.isEffect(execution))
     return yield* Effect.fail(new Error("script run must return an Effect"))
   if (primaryTui !== undefined) onReady?.()
@@ -199,7 +214,18 @@ function isScriptDefinition(value: unknown): value is ScriptDefinition {
     (value.network === undefined || typeof value.network === "boolean") &&
     (value.llm === undefined || isLlmOptions(value.llm)) &&
     (value.tui === undefined || isTuiOptions(value.tui)) &&
-    (!("launch" in value) || value.launch === "manual")
+    (value.gui === undefined || isGuiOptions(value.gui)) &&
+    (!("launch" in value) || value.launch === "manual" || value.launch === "gui")
+  )
+}
+
+function isGuiOptions(value: unknown) {
+  return (
+    isRecord(value) &&
+    (value.app === undefined || typeof value.app === "string") &&
+    (value.env === undefined ||
+      (isRecord(value.env) && Object.values(value.env).every((item) => typeof item === "string"))) &&
+    (value.timeout === undefined || (typeof value.timeout === "number" && value.timeout > 0))
   )
 }
 
