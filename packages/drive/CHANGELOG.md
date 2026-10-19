@@ -1,5 +1,11 @@
 # opencode-drive
 
+## 2.4.0
+
+### Minor Changes
+
+- e7e2e9b: Add `launch: "gui"` to drive OpenCode Desktop, from a `--dev` checkout or a packaged app, through a Playwright page passed to `run` as `gui`.
+
 ## 2.3.0
 
 ### Minor Changes
