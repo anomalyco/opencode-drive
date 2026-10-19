@@ -5,7 +5,8 @@ description: Use when an agent needs to drive OpenCode with an Effect program or
 
 # OpenCode Drive
 
-Use `opencode-drive` to launch an isolated OpenCode instance and control its TUI and simulated LLM.
+Use `opencode-drive` to launch an isolated OpenCode instance and control its TUI
+or OpenCode Desktop, and its simulated LLM.
 
 Default to a one-shot Effect program. Use `defineScript` for named, visible,
 restartable, or manual-launch workflows; it is also Effect-only. Use live
@@ -175,8 +176,9 @@ yield* llm.serve((_request, index) =>
 ```
 
 Use the capability names literally: `opencode` is the generated OpenCode SDK,
-`tui` is the primary frontend process, `ui` is `tui.ui`, and `tuis` launches
-additional frontend processes. `environment` holds the variables that point any
+`tui` is the primary frontend process, `ui` is `tui.ui`, `tuis` launches
+additional frontend processes, and `gui` is the OpenCode Desktop window in
+`launch: "gui"` scripts. `environment` holds the variables that point any
 other process, such as `opencode run` or an SDK script, at the isolated
 OpenCode; spread it over `process.env` and use `directory` as the working
 directory.
@@ -473,6 +475,73 @@ export default defineScript({
     }),
 })
 ```
+
+### OpenCode Desktop
+
+Set `launch: "gui"` to drive OpenCode Desktop instead of a TUI. Drive starts the
+shared server, launches Desktop against it with an isolated profile, and passes
+the Desktop window to `run` as `gui`, a Playwright
+[`Page`](https://playwright.dev/docs/api/class-page). `tui` and `ui` are
+`undefined`. The simulated LLM, `tools`, `opencode` SDK, `fs`, and `tuis` work
+exactly as in TUI scripts, so a TUI can watch the same server.
+
+```ts
+import { Effect } from "effect"
+import { defineScript, Llm } from "opencode-drive"
+
+export default defineScript({
+  launch: "gui",
+  project: { git: true, files: { "README.md": "# Fixture\n" } },
+  run: ({ gui, llm }) =>
+    Effect.gen(function* () {
+      yield* llm.queue(Llm.reasoning("Checking"), Llm.text("Hello from Desktop"))
+      yield* Effect.promise(async () => {
+        const overlay = gui.locator('[data-component="startup-overlay"]')
+        if (await overlay.count()) await overlay.waitFor({ state: "hidden" })
+        const editor = gui.locator('[data-component="composer-editor"]')
+        await editor.fill("Say hello")
+        await editor.press("Enter")
+        await gui.getByText("Hello from Desktop", { exact: true }).waitFor()
+        await gui.screenshot({ path: "desktop.png" })
+      })
+    }),
+})
+```
+
+```bash
+# Development Desktop from a source checkout
+opencode-drive start --name desktop --dev ~/projects/opencode --script ./desktop.ts
+# Packaged Desktop (defaults to /Applications/OpenCode.app on macOS)
+opencode-drive start --name desktop --script ./desktop.ts
+```
+
+Without `--dev`, set `gui: { app: "/path/to/OpenCode.app" }` (or the Desktop
+executable) to pick another install; Drive serves with that app's bundled CLI
+so Desktop adopts Drive's server. `gui.env` adds Desktop environment variables
+and `gui.timeout` (default 120000 ms) bounds startup. If Desktop exits during
+the run, the script fails.
+
+`gui` methods are Promise-based Playwright calls; wrap them in
+`Effect.promise` (or `Effect.tryPromise` to keep failures typed). Useful calls:
+
+- Find: `gui.locator(css)`, `gui.getByText(text, { exact })`,
+  `gui.getByRole(role, { name })`, `gui.getByPlaceholder(text)`. Prefer
+  `[data-component="..."]` selectors for app structure, such as
+  `composer-editor` and `startup-overlay`.
+- Wait: `locator.waitFor({ state })` for visible, hidden, attached, or detached
+  elements. Do not sleep for UI state.
+- Act: `locator.click()`, `locator.fill(text)`, `locator.press("Enter")`, and
+  `gui.keyboard.type(text)` / `gui.keyboard.press("Meta+K")` for the focused
+  element. Use `gui.mouse` for raw pointer input.
+- Inspect: `locator.innerText()`, `locator.count()`, `locator.all()`, and
+  `gui.evaluate(() => ...)` for renderer state.
+- Capture: `gui.screenshot({ path, fullPage })` or `locator.screenshot({ path })`.
+  Write PNGs to an absolute path, for example under `artifacts`.
+
+Desktop owns the window size, so `gui.viewportSize()` returns `null`; do not
+call `setViewportSize`. Wait for real elements instead of reading `gui.title()`,
+which is empty until the renderer loads. Drive closes Playwright and Desktop
+when the script ends; do not call `gui.close()`.
 
 Cancellation uses Effect interruption. Interrupting the script or an
 operation's fiber interrupts in-flight work and runs scoped finalizers; do not
