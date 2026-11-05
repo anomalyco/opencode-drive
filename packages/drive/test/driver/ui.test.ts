@@ -551,6 +551,49 @@ describe("OpenCodeUi", () => {
     })
   })
 
+  it.live("retries a polling attempt whose reply never arrives", () => {
+    const calls = new Map<string, number>()
+    const peer = startTransportPeer(({ request, socket }) => {
+      const call = (calls.get(request.method) ?? 0) + 1
+      calls.set(request.method, call)
+      if (call === 1 && request.method !== "simulation.handshake") return
+      if (request.method === "ui.matches") {
+        sendResult(socket, request, true)
+        return
+      }
+      if (request.method === "ui.snapshot") {
+        sendResult(socket, request, snapshot)
+        return
+      }
+      sendResult(socket, request, state)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { requestTimeout: 200 })
+      const wait = { timeout: 2_000, interval: 1 }
+
+      expect(yield* ui.waitFor("ready", wait)).toEqual(state)
+      expect(yield* ui.getNode("session.permission.action.once", wait)).toMatchObject({
+        id: "session.permission.action.once",
+      })
+      calls.delete("ui.state")
+      expect(yield* ui.getElement({ editor: true }, wait)).toEqual(editor)
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "ui.matches",
+        "ui.matches",
+        "ui.state",
+        "ui.matches",
+        "ui.state",
+        "ui.snapshot",
+        "ui.snapshot",
+        "ui.state",
+        "ui.state",
+      ])
+    })
+  })
+
   it.live("fails unanswered RPCs with UiTimeoutError, not the wait error", () => {
     const peer = startTransportPeer(() => {})
 

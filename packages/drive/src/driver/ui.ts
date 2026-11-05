@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import type { RpcClientError } from "effect/rpc"
 import {
@@ -243,6 +244,9 @@ export const transform = (ui: Ui, apply: Transform): Ui => ({
 export const make = (connection: UiConnection, options?: Options): Control => {
   const requestTimeout = RequestTimeout.make(options?.requestTimeout ?? 30_000)
   const evidenceTimeout = Math.min(requestTimeout, 1_000)
+  // OpenCode can drop a request without replying (for example when reading the
+  // screen races a render), so one lost reply must not consume a whole wait.
+  const attemptTimeout = Math.min(requestTimeout / 2, 1_000)
   const { rpc } = connection
   const call = <A, E>(
     operation: string,
@@ -374,6 +378,14 @@ export const make = (connection: UiConnection, options?: Options): Control => {
       ),
     )
 
+  const attempt = <A, E>(
+    effect: Effect.Effect<A, E>,
+  ): Effect.Effect<A | undefined, E> =>
+    effect.pipe(
+      Effect.timeoutOption(attemptTimeout),
+      Effect.map(Option.getOrUndefined),
+    )
+
   const poll = <A, E>(
     operation: string,
     read: Effect.Effect<A | undefined, E>,
@@ -428,13 +440,15 @@ export const make = (connection: UiConnection, options?: Options): Control => {
         "waitFor",
         typeof target === "string"
           ? Effect.gen(function* () {
-              if (!(yield* matches(target))) return undefined
-              return yield* state()
+              if (!(yield* attempt(matches(target)))) return undefined
+              return yield* attempt(state())
             })
-          : Effect.flatMap(state(), (value) =>
-              predicateEffect(target, value).pipe(
-                Effect.map((matches) => matches ? value : undefined),
-              ),
+          : Effect.flatMap(attempt(state()), (value) =>
+              value === undefined
+                ? Effect.succeed(undefined)
+                : predicateEffect(target, value).pipe(
+                    Effect.map((matches) => matches ? value : undefined),
+                  ),
             ),
         options,
         typeof target === "string"
@@ -447,7 +461,8 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     (target: number | string | ElementQuery, options?: WaitOptions) =>
       poll(
         "getElement",
-        Effect.flatMap(state(), (value) => {
+        Effect.flatMap(attempt(state()), (value) => {
+          if (value === undefined) return Effect.succeed(undefined)
           const elements = value.elements.filter((element) =>
             typeof target === "number"
               ? element.num === target
@@ -470,7 +485,8 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     (target: string | SemanticQuery, options?: WaitOptions) =>
       poll(
         "getNode",
-        Effect.flatMap(snapshot(), (value) => {
+        Effect.flatMap(attempt(snapshot()), (value) => {
+          if (value === undefined) return Effect.succeed(undefined)
           const nodes = value.nodes.filter((node) =>
             typeof target === "string"
               ? node.id === target
