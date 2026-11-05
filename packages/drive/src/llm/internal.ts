@@ -1,16 +1,34 @@
+const titleSystemPrefixes = [
+  "You name conversations so the user can find them later",
+  "You are a title generator.",
+]
+
+const titleUserPrefixes = [
+  "Here is the first message of the conversation:",
+  "Here is the conversation so far:",
+]
+
 export function isTitleRequest(body: unknown) {
   if (!isRecord(body) || !Array.isArray(body.messages)) return false
-  const first = body.messages.find(isMessageObject)
-  const firstContent = messageContent(first)
+  const messages = body.messages.filter(isMessageObject)
+  const first = messages[0]
   if (
     first?.role === "user" &&
-    firstContent?.startsWith("Generate a title for this conversation:")
+    messageContent(first)?.startsWith("Generate a title for this conversation:")
   )
     return true
-  const system = body.messages.find(
-    (message) => isMessageObject(message) && message.role === "system",
+  const system = messageContent(
+    messages.find((message) => message.role === "system"),
   )
-  return messageContent(system)?.startsWith("You are a title generator.") ?? false
+  if (titleSystemPrefixes.some((prefix) => system?.startsWith(prefix)))
+    return true
+  const users = messages.filter((message) => message.role === "user")
+  const content = users.length === 1 ? messageContent(users[0]) : undefined
+  return (
+    content !== undefined &&
+    titleUserPrefixes.some((prefix) => content.startsWith(prefix)) &&
+    content.trimEnd().endsWith("Reply with only the title.")
+  )
 }
 
 export function* chunkText(text: string, chunkSize: number) {
@@ -26,7 +44,9 @@ export function* chunkText(text: string, chunkSize: number) {
   }
 }
 
-function isMessageObject(value: unknown) {
+function isMessageObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> & { readonly role: string } {
   return isRecord(value) && typeof value.role === "string"
 }
 
