@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import wrangler from "../wrangler.jsonc"
-import { assetPath, metaTags } from "../worker"
+import worker, { assetPath, metaTags } from "../worker"
 
 const catalog = {
   variants: [
@@ -18,6 +18,19 @@ const catalog = {
 }
 
 describe("catalog worker", () => {
+  test("asks search engines not to index anything it serves", async () => {
+    const env = { ASSETS: { fetch: async () => Response.redirect("https://dev.opencode.ai/lab/catalog/", 307) } }
+    const responses = await Promise.all(
+      ["/lab/catalog/captures/x.png", "/lab/catalogue"].map((path) =>
+        worker.fetch(new Request(`https://dev.opencode.ai${path}`), env),
+      ),
+    )
+    expect(responses.map((response) => response.headers.get("X-Robots-Tag"))).toEqual([
+      "noindex, nofollow",
+      "noindex, nofollow",
+    ])
+  })
+
   test("serves the app shell for catalog routes", () => {
     expect(assetPath("/lab/catalog")).toBe("/index.html")
     expect(assetPath("/lab/catalog/")).toBe("/index.html")
