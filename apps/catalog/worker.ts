@@ -16,33 +16,41 @@ let catalogCache: Promise<CatalogIndex> | undefined
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-    const path = assetPath(url.pathname)
-    if (path === undefined) return new Response("Not found", { status: 404 })
-    const assetUrl = new URL(url)
-    assetUrl.pathname = path
-    const catalog = path === "/index.html"
-      ? catalogCache ??= env.ASSETS.fetch(new Request(new URL("/catalog.json", url.origin)))
-        .then((asset) => asset.json() as Promise<CatalogIndex>)
-        .catch((cause) => {
-          catalogCache = undefined
-          throw cause
-        })
-      : undefined
-    const response = await env.ASSETS.fetch(new Request(assetUrl, request))
-    if (path !== "/index.html" || !response.ok) return response
-
-    const index = await catalog?.catch(() => undefined)
-    if (!index) return response
-
-    const html = await response.text()
-    const headers = new Headers(response.headers)
-    headers.delete("content-length")
-    return new Response(html.replace("</head>", `${metaTags(url, index)}</head>`), {
-      status: response.status,
-      headers,
-    })
+    const response = await respond(request, env)
+    // The catalog lives on dev.opencode.ai only, and nothing there may be indexed in place of opencode.ai.
+    const marked = new Response(response.body, response)
+    marked.headers.set("X-Robots-Tag", "noindex, nofollow")
+    return marked
   },
+}
+
+async function respond(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  const path = assetPath(url.pathname)
+  if (path === undefined) return new Response("Not found", { status: 404 })
+  const assetUrl = new URL(url)
+  assetUrl.pathname = path
+  const catalog = path === "/index.html"
+    ? catalogCache ??= env.ASSETS.fetch(new Request(new URL("/catalog.json", url.origin)))
+      .then((asset) => asset.json() as Promise<CatalogIndex>)
+      .catch((cause) => {
+        catalogCache = undefined
+        throw cause
+      })
+    : undefined
+  const response = await env.ASSETS.fetch(new Request(assetUrl, request))
+  if (path !== "/index.html" || !response.ok) return response
+
+  const index = await catalog?.catch(() => undefined)
+  if (!index) return response
+
+  const html = await response.text()
+  const headers = new Headers(response.headers)
+  headers.delete("content-length")
+  return new Response(html.replace("</head>", `${metaTags(url, index)}</head>`), {
+    status: response.status,
+    headers,
+  })
 }
 
 export function assetPath(pathname: string) {
