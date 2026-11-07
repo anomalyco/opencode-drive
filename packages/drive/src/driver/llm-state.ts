@@ -56,7 +56,7 @@ export interface State {
   readonly titleHandler: TitleHandler | undefined
   readonly requests: ReadonlyArray<AttachedRequest>
   readonly responses: ReadonlyArray<QueuedResponse>
-  readonly activeNormal: ReadonlyArray<Completion>
+  readonly activeNormal: ReadonlyArray<ActiveNormal>
   readonly activeTitles: ReadonlyArray<Completion>
   readonly sendCompletions: ReadonlyArray<Completion>
   readonly requestIndex: number
@@ -64,6 +64,13 @@ export interface State {
   readonly failure: LlmControllerError | undefined
   readonly settling: boolean
   readonly settled: boolean
+}
+
+/** A normal response currently being streamed to OpenCode. */
+export interface ActiveNormal extends NormalStart {
+  readonly completion: Completion
+  /** Resolves when OpenCode has externally terminated the invocation. */
+  readonly cancel: Deferred.Deferred<void>
 }
 
 export const initial: State = {
@@ -219,13 +226,14 @@ export const startNormal = (
   state: State,
   start: NormalStart,
   completion: Completion,
+  cancel: Deferred.Deferred<void>,
 ): State => ({
   ...state,
   requests: state.requests.slice(1),
   responses: NormalSource.$is("Queued")(start.source)
     ? state.responses.slice(1)
     : state.responses,
-  activeNormal: [...state.activeNormal, completion],
+  activeNormal: [...state.activeNormal, { ...start, completion, cancel }],
   requestIndex: state.requestIndex + 1,
 })
 
@@ -236,7 +244,9 @@ export const finishNormal = (
   sendCompletion: Completion | undefined,
 ): State => ({
   ...state,
-  activeNormal: state.activeNormal.filter((active) => active !== completion),
+  activeNormal: state.activeNormal.filter(
+    (active) => active.completion !== completion,
+  ),
   sendCompletions:
     sendCompletion === undefined
       ? state.sendCompletions
@@ -266,7 +276,7 @@ export const startTitle = (
   {
     handler: state.titleHandler ?? (() => Effect.succeed("OpenCode Drive")),
     index: state.titleIndex,
-    awaiting: state.activeNormal,
+    awaiting: state.activeNormal.map((active) => active.completion),
   },
 ]
 

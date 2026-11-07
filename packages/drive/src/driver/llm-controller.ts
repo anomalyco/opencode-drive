@@ -11,7 +11,10 @@ import * as Semaphore from "effect/Semaphore"
 import * as Stream from "effect/Stream"
 import * as Llm from "../llm/index.js"
 import { isTitleRequest } from "../llm/internal.js"
-import type { BackendConnection } from "../simulation/connector.js"
+import {
+  supportsCapability,
+  type BackendConnection,
+} from "../simulation/connector.js"
 import {
   causeError,
   controllerError,
@@ -74,13 +77,12 @@ export interface Attachment {
 }
 
 /** A committed normal job: its selection plus the shell-owned completion. */
-interface NormalJob extends LlmState.NormalStart {
-  readonly completion: LlmState.Completion
-}
+interface NormalJob extends LlmState.ActiveNormal {}
 
 const NonNegativeMilliseconds = Schema.Finite.check(
   Schema.isGreaterThanOrEqualTo(0),
 )
+const externalTerminationPollInterval = 100
 const decodeOutputs = Schema.decodeUnknownEffect(Schema.Array(Llm.Output))
 
 export const make = Effect.fn("LlmController.make")(function* (
@@ -191,7 +193,8 @@ export const make = Effect.fn("LlmController.make")(function* (
           respondTo(job.request, handler(job.request.request, job.index)),
         ),
     })
-    return Effect.matchCauseEffect(output, {
+    const response = Effect.raceFirst(output, Deferred.await(job.cancel))
+    return Effect.matchCauseEffect(response, {
       onFailure: (cause) =>
         abandoned(cause)
           ? completeNormal(job)
@@ -207,8 +210,10 @@ export const make = Effect.fn("LlmController.make")(function* (
       const start = LlmState.nextNormal(current)
       if (start === undefined) return
       const completion = yield* Deferred.make<void, LlmControllerError>()
-      yield* Ref.set(state, LlmState.startNormal(current, start, completion))
-      yield* FiberSet.run(tasks, runNormal({ ...start, completion }))
+      const cancel = yield* Deferred.make<void>()
+      const job = { ...start, completion, cancel }
+      yield* Ref.set(state, LlmState.startNormal(current, start, completion, cancel))
+      yield* FiberSet.run(tasks, runNormal(job))
       yield* notify
     }
   })
@@ -421,6 +426,54 @@ export const make = Effect.fn("LlmController.make")(function* (
     }),
   )
 
+  /** Releases responses whose OpenCode invocations were interrupted externally. */
+  const refreshExternallyTerminated = Effect.fn(
+    "LlmController.refreshExternallyTerminated",
+  )(function* () {
+    const currentBackend = yield* Ref.get(attached)
+    if (
+      currentBackend === undefined ||
+      !supportsCapability(currentBackend.backend.compatibility, "llm.pending")
+    )
+      return
+
+    const activeAtQuery = (yield* Ref.get(state)).activeNormal.filter(
+      (job) => job.request.backend === currentBackend.backend,
+    )
+    if (activeAtQuery.length === 0) return
+    const activeCompletions = new Set(
+      activeAtQuery.map((job) => job.completion),
+    )
+
+    const pending = yield* Effect.exit(
+      currentBackend.backend.rpc["llm.pending"]().pipe(
+        Effect.timeout(requestTimeout),
+      ),
+    )
+    if (Exit.isFailure(pending)) return
+    const pendingIDs = new Set(
+      pending.value.invocations.map((invocation) => invocation.id),
+    )
+    yield* lock.withPermit(
+      Effect.gen(function* () {
+        const current = yield* Ref.get(state)
+        const terminated = current.activeNormal.filter(
+          (job) =>
+            activeCompletions.has(job.completion) &&
+            job.request.backend === currentBackend.backend &&
+            !pendingIDs.has(job.request.request.id),
+        )
+        if (terminated.length === 0) return
+        yield* Effect.forEach(
+          terminated,
+          (job) => Deferred.succeed(job.cancel, undefined),
+          { discard: true },
+        )
+        yield* notify
+      }),
+    )
+  })
+
   const awaitSettlement = (): Effect.Effect<
     void,
     LlmControllerError | LlmSettlementError
@@ -431,7 +484,13 @@ export const make = Effect.fn("LlmController.make")(function* (
         LlmState.Settlement.$match({
           Done: () => Effect.void,
           Fail: ({ error }) => Effect.fail(error),
-          Wait: () => Effect.andThen(Queue.take(changes), awaitSettlement()),
+          Wait: () =>
+            Effect.raceFirst(
+              Queue.take(changes),
+              Effect.sleep(externalTerminationPollInterval).pipe(
+                Effect.andThen(refreshExternallyTerminated()),
+              ),
+            ).pipe(Effect.andThen(awaitSettlement())),
         }),
       ),
     )

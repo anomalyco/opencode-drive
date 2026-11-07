@@ -165,6 +165,16 @@ stay out of the UI.
 
 Interruption uses the existing `llm.pending` simulation capability. If OpenCode rejects a response write after terminating the invocation, Drive confirms that the invocation is no longer pending and settles the response as externally terminated. If the invocation remains pending or the query fails, Drive preserves the original write failure.
 
+## LLM settlement after interruption
+
+[`anomalyco/opencode-drive#135`](https://github.com/anomalyco/opencode-drive/issues/135) reports that a response stream blocked on a `Deferred` keeps program settlement waiting after `session.interrupt` has made the session idle. The probe leaves the gate closed, confirms `session.active()` is empty, and then lets Drive's normal settlement path finish:
+
+```sh
+bun run --cwd packages/drive drive start --name llm-interrupt-settlement \
+  --script test/manual/tui-regressions/llm-interrupt-settlement.ts \
+  --dev "$OPENCODE_DEV"
+```
+
 ## Network chaos properties
 
 `network-properties.ts` runs a seeded state machine where user prompts and

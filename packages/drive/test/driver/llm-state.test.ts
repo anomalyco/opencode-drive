@@ -8,6 +8,8 @@ import * as LlmState from "../../src/driver/llm-state.js"
 const completion = () =>
   Effect.runSync(Deferred.make<void, LlmControllerError>())
 
+const cancel = () => Effect.runSync(Deferred.make<void>())
+
 const request = (id: string): LlmState.AttachedRequest =>
   ({
     request: { id, url: "https://example.test", body: {} },
@@ -75,7 +77,7 @@ describe("LlmState", () => {
       { output: [] },
     )
     const start = LlmState.nextNormal(state)!
-    const next = LlmState.startNormal(state, start, completion())
+    const next = LlmState.startNormal(state, start, completion(), cancel())
     expect(next.requests).toHaveLength(0)
     expect(next.responses).toHaveLength(0)
     expect(next.activeNormal).toHaveLength(1)
@@ -97,6 +99,7 @@ describe("LlmState", () => {
       unexpected,
       LlmState.nextNormal(unexpected)!,
       completion(),
+      cancel(),
     )
     const late = LlmState.pushRequest(drained, request("r2"))
     const settlement = LlmState.inspectSettlement({
