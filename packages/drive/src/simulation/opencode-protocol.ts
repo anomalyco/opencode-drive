@@ -312,6 +312,13 @@ function encodePressPayload(payload: unknown) {
         : `\u001b[1;${modifier + 1}${arrow.final}`,
     }
   }
+  const page = named === "pageup" ? 5 : named === "pagedown" ? 6 : undefined
+  if (page !== undefined)
+    return {
+      key: modifier === 0
+        ? `\u001b[${page}~`
+        : `\u001b[${page};${modifier + 1}~`,
+    }
   if (named === "tab" && modifier !== 0)
     return { key: kittySequence(9, modifier) }
   return payload
