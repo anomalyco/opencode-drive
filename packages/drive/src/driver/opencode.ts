@@ -18,7 +18,7 @@ import { error, type OpenCodeDriverError } from "./error.js"
 export type OpenCode = OpenCodeClient
 
 /** The URL and credential of a running OpenCode service. */
-export type Endpoint = Service.Endpoint
+export type ServiceEndpoint = Service.Endpoint
 
 const discoverWithServices = Effect.fn("OpenCode.discover")(function* (
   artifacts: string,
@@ -85,7 +85,7 @@ const makeWithServices = Effect.fn("OpenCode.make")(function* (
 /** Discovers the registered endpoint of an instance's isolated OpenCode service. */
 export const discover = (
   artifacts: string,
-): Effect.Effect<Endpoint, OpenCodeDriverError> =>
+): Effect.Effect<ServiceEndpoint, OpenCodeDriverError> =>
   discoverWithServices(artifacts).pipe(Effect.provide(NodeFileSystem.layer))
 
 export const make = (

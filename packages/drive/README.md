@@ -167,15 +167,18 @@ export default OpenCodeBackend.use(({ llm, server, directory }) =>
     yield* llm.queue(Llm.text("Hello from Drive"))
     const client = Bun.spawn(["my-client", "--server", url], {
       cwd: directory,
-      env: { ...process.env, OPENCODE_PASSWORD: auth?.password ?? "" },
+      env: { ...process.env, ...(auth && { OPENCODE_PASSWORD: auth.password }) },
     })
     yield* Effect.promise(() => client.exited)
   }),
 )
 ```
 
-The URL and credential stay the same across `server.kill()` and
-`server.launch()`, so the client can reconnect to the replacement service.
+Stop the client before the program returns, as the example does by waiting
+for it to exit, or with `Effect.acquireRelease`: settlement validates LLM work
+and then stops the service, so a client still running would race both. The URL
+and credential stay the same across `server.kill()` and `server.launch()`, so
+the client can reconnect to the replacement service.
 With `network: true`, the URL is the chaos proxy, and `network` degrades that
 client's traffic the same way it degrades a TUI's. `opencode` and service
 discovery through `environment` stay direct. `OpenCodeBackend.useReport` and

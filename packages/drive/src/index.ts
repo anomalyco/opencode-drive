@@ -7,11 +7,11 @@ export * as Errors from "./script/errors.js"
 export * as Tool from "./tool/index.js"
 export { Frontend } from "./client/protocol.js"
 export type {
-  Endpoint,
   Gui,
   GuiOptions,
   OpenCode,
   Recording,
+  ServiceEndpoint,
   Tui,
   TuiLaunchError,
   TuiOptions,

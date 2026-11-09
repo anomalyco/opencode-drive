@@ -192,9 +192,11 @@ const program = OpenCodeBackend.use(({ server, tuis }) =>
 )
 ```
 
-`server` is the same capability on drivers, backends, and scripts. A driver or
-automatic script launches it before the program runs; `server.launch()` then
-fails until `server.kill()` stops it.
+`server` is the same capability on drivers, backends, and scripts. Drivers,
+backends, and automatic scripts launch it before the program runs;
+`server.launch()` then fails until `server.kill()` stops it. Stop externally
+launched frontends before the program returns so they do not outlive the
+service or race settlement.
 
 ## Common scripts destructure UI and LLM control
 

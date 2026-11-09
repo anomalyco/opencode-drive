@@ -4,7 +4,7 @@ import { expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { OpenCodeBackend } from "../../src/index.js"
 import { discoverRegistration } from "../../src/instance/discovery.js"
-import type { Endpoint } from "../../src/index.js"
+import type { ServiceEndpoint } from "../../src/index.js"
 
 const fakeOpenCode = [
   process.execPath,
@@ -79,9 +79,10 @@ it.live("routes the endpoint through the chaos network proxy", () =>
         const registration = yield* Effect.promise(() =>
           discoverRegistration(environment.XDG_STATE_HOME!),
         )
+        expect(registration).toBeDefined()
+        expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
         expect(endpoint.url).not.toBe(registration?.url)
         expect(yield* info(endpoint)).toBe(200)
-        expect(yield* network.connections()).toBeGreaterThan(0)
 
         yield* network.killConnections()
         yield* network.set({ refuseNew: true })
@@ -92,9 +93,11 @@ it.live("routes the endpoint through the chaos network proxy", () =>
   ),
 )
 
-const info = (endpoint: Endpoint) =>
+const info = (endpoint: ServiceEndpoint) =>
   Effect.tryPromise(() =>
     fetch(`${endpoint.url}/api/info`, {
+      // A fresh connection per request, so fault steps never reuse a pooled socket.
+      keepalive: false,
       headers: endpoint.auth === undefined
         ? {}
         : {

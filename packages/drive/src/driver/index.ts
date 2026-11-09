@@ -182,7 +182,7 @@ export type {
 export type { Llm } from "./llm.js"
 export type { Network, NetworkConditions } from "./network.js"
 export type { Target as OpenCodeTarget } from "./server.js"
-export type { Endpoint, OpenCode } from "./opencode.js"
+export type { OpenCode, ServiceEndpoint } from "./opencode.js"
 export type { ScreenshotError, Ui } from "./ui.js"
 export type { Gui, GuiOptions } from "./gui.js"
 export type {

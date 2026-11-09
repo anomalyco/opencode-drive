@@ -56,7 +56,7 @@ export interface Server {
     | SimulationConnector.SimulationCompatibilityError
   >
   readonly kill: () => Effect.Effect<void, OpenCodeDriverError>
-  readonly endpoint: () => Effect.Effect<OpenCodeSdk.Endpoint, OpenCodeDriverError>
+  readonly endpoint: () => Effect.Effect<OpenCodeSdk.ServiceEndpoint, OpenCodeDriverError>
   readonly failure: Effect.Effect<never, OpenCodeDriverError | LlmController.LlmControllerError>
   readonly compatibility: Effect.Effect<
     ReadonlyArray<SimulationConnector.EndpointCompatibility>
