@@ -16,7 +16,11 @@ OpenCodeDriver
   ui            convenience alias for tui.ui
   llm           shared simulated-model control
   tools         runtime control for static adapters and arbitrary tools
+  server        shared service lifecycle and endpoint
 ```
+
+`OpenCodeBackend` composes the same resources without `tui` and `ui`, for
+programs that launch their own frontend.
 
 The names distinguish the two kinds of client involved:
 

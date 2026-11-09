@@ -30,6 +30,20 @@ export interface Options {
   readonly llm?: LlmController.Options
 }
 
+/** Controls the one shared OpenCode server of a driver or script. */
+export interface Controls {
+  /** Launches the shared OpenCode server. */
+  readonly launch: Server["launch"]
+  /** Stops the shared server. It may be launched again afterward. */
+  readonly kill: Server["kill"]
+  /**
+   * The running server's URL and credential, for clients that connect
+   * explicitly. With the network option, the URL is the chaos proxy. Both
+   * stay stable across server generations.
+   */
+  readonly endpoint: Server["endpoint"]
+}
+
 export interface Server {
   readonly llm: LlmController.Controller
   readonly tools: Tool.Controls
@@ -42,6 +56,7 @@ export interface Server {
     | SimulationConnector.SimulationCompatibilityError
   >
   readonly kill: () => Effect.Effect<void, OpenCodeDriverError>
+  readonly endpoint: () => Effect.Effect<OpenCodeSdk.Endpoint, OpenCodeDriverError>
   readonly failure: Effect.Effect<never, OpenCodeDriverError | LlmController.LlmControllerError>
   readonly compatibility: Effect.Effect<
     ReadonlyArray<SimulationConnector.EndpointCompatibility>
@@ -216,8 +231,21 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
     if (Exit.isFailure(stopped)) return yield* Effect.failCause(stopped.cause)
     return undefined
   })
+  // Network chaos routes explicit connections through the proxy, matching
+  // scripted TUIs. The SDK client and service discovery stay direct.
+  const currentEndpoint = Effect.fn("OpenCodeServer.endpoint")(function* () {
+    if ((yield* Ref.get(generation)) === undefined)
+      return yield* Effect.fail(
+        error("server.endpoint", "the script server is not running"),
+      )
+    const registered = yield* OpenCodeSdk.discover(instance.artifacts)
+    return instance.network === undefined
+      ? registered
+      : { ...registered, url: instance.network.url }
+  })
   const launch = () => lifecycle.withPermit(launchGeneration())
   const kill = () => lifecycle.withPermit(killGeneration())
+  const endpoint = () => lifecycle.withPermit(currentEndpoint())
 
   return {
     llm,
@@ -226,6 +254,7 @@ export const make = Effect.fn("OpenCodeServer.make")(function* (
     tuis,
     launch,
     kill,
+    endpoint,
     failure: Effect.raceFirst(
       toolProducer.failure.pipe(
         Effect.mapError((cause) => error("tools", cause)),

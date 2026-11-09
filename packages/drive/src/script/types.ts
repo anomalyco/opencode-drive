@@ -22,13 +22,12 @@ export type ScriptServerLaunchError = Effect.Error<
 export type ScriptServerKillError = Effect.Error<
   ReturnType<OpenCodeServer.Server["kill"]>
 >
+export type ScriptServerEndpointError = Effect.Error<
+  ReturnType<OpenCodeServer.Server["endpoint"]>
+>
 
-export interface ScriptServer {
-  /** Launches the one shared OpenCode server for this script. */
-  launch(): Effect.Effect<OpenCodeSdk.OpenCode, ScriptServerLaunchError>
-  /** Stops the shared server. It may be launched again afterward. */
-  kill(): Effect.Effect<void, ScriptServerKillError>
-}
+/** Launches, stops, and locates the one shared OpenCode server for this script. */
+export interface ScriptServer extends OpenCodeServer.Controls {}
 
 export interface ScriptContext {
   /** Generated SDK client connected to this script's private OpenCode service. */
@@ -86,7 +85,10 @@ export interface AutomaticScriptDefinition {
   readonly setup?: Setup
   /** Declares runtime-controlled tool names or fixed replacements before OpenCode starts. */
   readonly tools?: Tool.Configuration
-  /** Routes every launched TUI through a controllable chaos network proxy. */
+  /**
+   * Routes every launched TUI, and clients using `server.endpoint()`, through
+   * a controllable chaos network proxy.
+   */
   readonly network?: boolean
   /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
   readonly llm?: LlmOptions
@@ -109,7 +111,10 @@ export interface ManualScriptDefinition {
   readonly setup?: Setup
   /** Declares runtime-controlled tool names or fixed replacements before OpenCode starts. */
   readonly tools?: Tool.Configuration
-  /** Routes every launched TUI through a controllable chaos network proxy. */
+  /**
+   * Routes every launched TUI, and clients using `server.endpoint()`, through
+   * a controllable chaos network proxy.
+   */
   readonly network?: boolean
   /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
   readonly llm?: LlmOptions

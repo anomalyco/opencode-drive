@@ -168,6 +168,34 @@ physical per-character timing.
               ╰────╯            ╰───────────╯
 ```
 
+## `OpenCodeBackend` runs the service without a TUI
+
+`OpenCodeBackend.use`, `useReport`, and `make` take the driver options except
+`tui` and have the same lifecycle, but launch only the shared server. The
+backend exposes every driver capability except `tui` and `ui`. Programs
+launch their own frontend against `server.endpoint()`, which returns the
+running server's URL and basic-auth credential:
+
+```ts
+import { Effect } from "effect"
+import { OpenCodeBackend } from "opencode-drive"
+
+const program = OpenCodeBackend.use(({ server, tuis }) =>
+  Effect.gen(function* () {
+    const endpoint = yield* server.endpoint()
+    // Launch a desktop, web, or native client against endpoint.url.
+    yield* server.kill()
+    yield* server.launch()
+    // The endpoint is unchanged, so the client reconnects.
+    yield* tuis.launch() // TUIs can still join the same server.
+  }),
+)
+```
+
+`server` is the same capability on drivers, backends, and scripts. A driver or
+automatic script launches it before the program runs; `server.launch()` then
+fails until `server.kill()` stops it.
+
 ## Common scripts destructure UI and LLM control
 
 Scripts that only need the primary TUI should normally destructure the driver:
@@ -496,6 +524,8 @@ export default defineScript({
 
 `refuseNew: true` rejects new connections while established ones continue.
 Without `network: true`, every `network` operation fails with a driver error.
+With it, `server.endpoint()` returns the proxy URL, so external clients cross
+the same proxy as TUIs.
 
 ### LLM timeouts
 
@@ -554,6 +584,8 @@ shim.
 - `oc.tuis.launch(name, options?)` creates a TUI with a stable identity.
 - Additional TUIs expose their UI as `tui.ui`.
 - Drivers and scripts share the same `Tui`, `Tuis`, `Ui`, and option types.
+- `OpenCodeBackend` has the driver lifecycle without a primary TUI.
+- `server.endpoint()` locates the shared server for externally launched clients.
 - `Llm` exposes pure constructors over manually composed Effect Schemas.
 - Raw schema-compatible LLM output objects remain accepted.
 - One `llm.queue(...)` call describes one future model response.

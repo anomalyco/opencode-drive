@@ -1,33 +1,25 @@
 import * as Effect from "effect/Effect"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
-import * as Layer from "effect/Layer"
 import type * as Scope from "effect/Scope"
-import * as NodeServices from "@effect/platform-node/NodeServices"
-import * as OpenCodeInstance from "../instance/runtime.js"
-import * as SimulationConnector from "../simulation/connector.js"
 import type {
   OpenCodeConfig,
   OpenCodeTuiConfig,
   Project,
   Setup,
 } from "../project.js"
-import * as OpenCodeTui from "./client.js"
+import type * as OpenCodeTui from "./client.js"
 import type * as OpenCodeSdk from "./opencode.js"
-import { error, type OpenCodeDriverError } from "./error.js"
+import type { OpenCodeDriverError } from "./error.js"
+import * as Lifecycle from "./lifecycle.js"
 import type * as LlmController from "./llm-controller.js"
 import type {
   LlmControllerError,
   LlmSettlementError,
 } from "./llm-controller.js"
 import type * as OpenCodeNetwork from "./network.js"
-import * as OpenCodeProject from "./project.js"
-import * as PreparedDriver from "./prepared.js"
-import * as OpenCodeServer from "./server.js"
+import type * as OpenCodeServer from "./server.js"
 import type * as OpenCodeUi from "./ui.js"
 import type { Llm } from "./llm.js"
 import type { RunReport } from "./report.js"
-import * as ToolController from "../tool/controller.js"
 import type * as Tool from "../tool/index.js"
 
 export interface Options {
@@ -38,7 +30,10 @@ export interface Options {
   readonly tools?: Tool.Configuration
   readonly tui?: OpenCodeTui.TuiOptions
   readonly opencode?: OpenCodeServer.Target
-  /** Routes every launched TUI through a controllable chaos network proxy. */
+  /**
+   * Routes every launched TUI, and clients using `server.endpoint()`, through
+   * a controllable chaos network proxy.
+   */
   readonly network?: boolean
   /** Simulated LLM timeouts, e.g. a longer settlementTimeout for hang scenarios. */
   readonly llm?: LlmController.Options
@@ -57,6 +52,8 @@ export interface Driver {
   /** Runtime controls for tools declared by name in the driver options. */
   readonly tools: Tool.Controls
   readonly tuis: OpenCodeTui.Tuis
+  /** The shared OpenCode server, already launched by the driver. */
+  readonly server: OpenCodeServer.Controls
   readonly artifacts: string
   /** The isolated project directory OpenCode runs in. */
   readonly directory: string
@@ -78,32 +75,7 @@ export interface Driver {
 
 const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
   function* (options: Options = {}) {
-    const toolController = yield* ToolController.make(options.tools)
-    const project = yield* OpenCodeProject.make({
-      project: options.project,
-      config: options.config,
-      tui: options.tuiConfig,
-      setup: ToolController.composeSetup(toolController, options.setup),
-      keepArtifacts: options.keepArtifacts,
-    })
-    const instance = yield* OpenCodeInstance.make({
-      artifacts: project.artifacts,
-      directory: project.directory,
-      name: `library-${crypto.randomUUID().slice(0, 12)}`,
-      scripted: true,
-      command: options.opencode?.command,
-      dev: options.opencode?.dev,
-      env: options.opencode?.env,
-      network: options.network,
-      visible: options.opencode?.visible,
-    }, toolController).pipe(Effect.mapError((cause) => error("server.prepare", cause)))
-    const prepared = yield* PreparedDriver.makeWithServices(instance, {
-      visible: options.opencode?.visible,
-      tui: options.tui,
-      artifactsRetained: options.keepArtifacts ?? false,
-      compatibility: options.opencode?.compatibility,
-      ...(options.llm === undefined ? {} : { llm: options.llm }),
-    })
+    const prepared = yield* Lifecycle.prepare(options, "automatic")
     if (prepared.driver === undefined)
       return yield* Effect.die(
         new Error("automatic driver did not launch a TUI"),
@@ -113,7 +85,6 @@ const makeWithServices = Effect.fn("OpenCodeDriver.makeWithServices")(
 )
 
 type MakeWithServices = ReturnType<typeof makeWithServices>
-const layer = Layer.merge(SimulationConnector.layer, NodeServices.layer)
 
 const makeManaged = (
   options: Options = {},
@@ -123,39 +94,18 @@ const makeManaged = (
   Scope.Scope
 > =>
   makeWithServices(options).pipe(
-    Effect.provide(layer),
+    Effect.provide(Lifecycle.layer),
   )
 
 export const make = (options: Options = {}) =>
   makeManaged(options).pipe(Effect.map(({ driver }) => driver))
 
-type Program<A, E, R> = (
-  driver: Driver,
-) => Effect.Effect<A, E, R>
+type Program<A, E, R> = Lifecycle.Program<Driver, A, E, R>
 
 const runReport = <A, E, R>(
   options: Options,
   f: Program<A, E, R>,
-) =>
-  Effect.scoped(
-    Effect.uninterruptibleMask((restore) =>
-      Effect.gen(function* () {
-        const { driver, failure } = yield* makeManaged(options)
-        const useExit = yield* Effect.exit(
-          restore(Effect.raceFirst(f(driver), failure)),
-        )
-        const settlement = yield* Effect.exit(driver.settle())
-        if (Exit.isFailure(useExit) && Exit.isFailure(settlement))
-          return yield* Effect.failCause(
-            Cause.combine(useExit.cause, settlement.cause),
-          )
-        if (Exit.isFailure(useExit)) return yield* Effect.failCause(useExit.cause)
-        if (Exit.isFailure(settlement))
-          return yield* Effect.failCause(settlement.cause)
-        return { value: useExit.value, report: settlement.value }
-      }),
-    ),
-  )
+) => Lifecycle.runReport(makeManaged(options), f)
 
 export function useReport<A, E, R>(
   f: Program<A, E, R>,
@@ -232,7 +182,7 @@ export type {
 export type { Llm } from "./llm.js"
 export type { Network, NetworkConditions } from "./network.js"
 export type { Target as OpenCodeTarget } from "./server.js"
-export type { OpenCode } from "./opencode.js"
+export type { Endpoint, OpenCode } from "./opencode.js"
 export type { ScreenshotError, Ui } from "./ui.js"
 export type { Gui, GuiOptions } from "./gui.js"
 export type {
