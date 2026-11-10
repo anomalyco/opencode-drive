@@ -39,12 +39,11 @@ jobs:
           role-session-name: opencode-drive-catalog-${{ github.run_id }}
           aws-region: us-east-1
 
-      - name: Fetch the catalog secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@2297f9a879480a9e3af9b293ed15c70caf8e1c88 # v3.0.2
-        with:
-          secret-ids: |
-            CLOUDFLARE_API_TOKEN,opencode-drive/catalog-production/CLOUDFLARE_API_TOKEN
-          parse-json-secrets: false
+      - name: Cloudflare token
+        id: cloudflare-token
+        run: bash .github/release/cloudflare-token.sh
+        env:
+          CLOUDFLARE_TOKEN_URL: ${{ vars.CLOUDFLARE_TOKEN_URL }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -67,7 +66,8 @@ jobs:
         working-directory: apps/catalog
         run: bunx wrangler deploy
         env:
-          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ steps.cloudflare-token.outputs.token }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Verify deployment
         run: curl --fail --retry 5 --retry-all-errors --retry-delay 2 --silent --show-error --output /dev/null https://dev.opencode.ai/lab/catalog
