@@ -24,18 +24,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
-      name: catalog-production
+      name: catalog-dev
       url: https://dev.opencode.ai/lab/catalog
     permissions:
       id-token: write
       contents: read
+    env:
+      CLOUDFLARE_ACCOUNT_ID: d8e944f537ceef3f06a5bd3aec1d7a53
     steps:
       - uses: actions/checkout@v6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::604439173067:role/github/opencode-drive-catalog-production
+          role-to-assume: arn:aws:iam::604439173067:role/github/opencode-drive-catalog-dev
           role-session-name: opencode-drive-catalog-${{ github.run_id }}
           aws-region: us-east-1
 
@@ -67,7 +69,6 @@ jobs:
         run: bunx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ steps.cloudflare-token.outputs.token }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Verify deployment
         run: curl --fail --retry 5 --retry-all-errors --retry-delay 2 --silent --show-error --output /dev/null https://dev.opencode.ai/lab/catalog
