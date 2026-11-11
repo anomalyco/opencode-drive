@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "opencode-lab-catalog",
-  "account_id": "15d29c8639fd3733b1b5486a2acfd968",
+  "account_id": "d8e944f537ceef3f06a5bd3aec1d7a53",
   "main": "worker.ts",
   "compatibility_date": "2026-08-12",
   "workers_dev": false,
@@ -14,11 +14,11 @@
   "routes": [
     {
       "pattern": "dev.opencode.ai/lab/catalog",
-      "zone_name": "opencode.ai",
+      "zone_name": "dev.opencode.ai",
     },
     {
       "pattern": "dev.opencode.ai/lab/catalog/*",
-      "zone_name": "opencode.ai",
+      "zone_name": "dev.opencode.ai",
     },
   ],
 }
