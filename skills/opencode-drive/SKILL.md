@@ -183,6 +183,14 @@ other process, such as `opencode run` or an SDK script, at the isolated
 OpenCode; spread it over `process.env` and use `directory` as the working
 directory.
 
+To drive a non-TUI client (a desktop, web, or native app), use
+`OpenCodeBackend.use(options, run)`. It has the same options and lifecycle as
+`OpenCodeDriver.use`, minus `tui`, and launches no TUI. Launch the client
+against `yield* server.endpoint()`, which returns `{ url, auth }` and stays
+stable across `server.kill()` and `server.launch()`. With `network: true` the
+URL is the chaos proxy, so `network` faults reach that client too. The same
+`server.endpoint()` exists on drivers and scripts.
+
 Additional TUIs share the server and LLM controller:
 
 ```ts
