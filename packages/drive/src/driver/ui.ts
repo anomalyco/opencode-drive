@@ -1,3 +1,5 @@
+import * as Clock from "effect/Clock"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -241,47 +243,79 @@ export const transform = (ui: Ui, apply: Transform): Ui => ({
   getNode: (target, options) => apply(ui.getNode(target, options)),
 })
 
+interface ActivePoll {
+  readonly connection: UiConnection
+  readonly attempt: <A, E>(
+    operation: string,
+    effect: Effect.Effect<A, E>,
+  ) => Effect.Effect<Option.Option<A>, E | UiTimeoutError>
+  readonly sleep: () => Effect.Effect<void, UiTimeoutError>
+}
+
+const CurrentPoll = Context.Reference<ActivePoll | undefined>(
+  "opencode-drive/UiPoll",
+  { defaultValue: () => undefined },
+)
+
 export const make = (connection: UiConnection, options?: Options): Control => {
   const requestTimeout = RequestTimeout.make(options?.requestTimeout ?? 30_000)
   const evidenceTimeout = Math.min(requestTimeout, 1_000)
-  // OpenCode can drop a request without replying (for example when reading the
-  // screen races a render), so one lost reply must not consume a whole wait.
-  const attemptTimeout = Math.min(requestTimeout / 2, 1_000)
   const { rpc } = connection
+  const timeoutError = (operation: string) =>
+    new UiTimeoutError({
+      operation,
+      milliseconds: requestTimeout,
+      message: `ui.${operation} timed out after ${requestTimeout}ms`,
+    })
   const call = <A, E>(
     operation: string,
     effect: Effect.Effect<A, E>,
   ): Effect.Effect<A, E | UiTimeoutError> =>
     Effect.timeoutOrElse(effect, {
       duration: requestTimeout,
-      orElse: () =>
-        Effect.fail(
-          new UiTimeoutError({
-            operation,
-            milliseconds: requestTimeout,
-            message: `ui.${operation} timed out after ${requestTimeout}ms`,
-          }),
-        ),
+      orElse: () => Effect.fail(timeoutError(operation)),
     })
 
-  const state = Effect.fn("Ui.state")(() => call("state", rpc["ui.state"]()))
-  const snapshot = Effect.fn("Ui.snapshot")(function* () {
-    if (
-      !supportsCapability(connection.compatibility, "ui.snapshot")
-    )
-      return yield* Effect.fail(
-        new UiCapabilityError({
-          capability: "ui.snapshot",
-          message: "ui.snapshot is not available on this OpenCode endpoint",
-        }),
-      )
-    return yield* call("snapshot", rpc["ui.snapshot"]())
-  })
+  // OpenCode can drop a screen-read reply (for example when reading the buffer
+  // races a render), so inside a poll we bound and retry read-only RPCs while
+  // keeping consecutive unanswered time bounded by requestTimeout.
+  const read = <A, E>(
+    operation: string,
+    effect: Effect.Effect<A, E>,
+  ): Effect.Effect<A, E | UiTimeoutError> =>
+    Effect.flatMap(CurrentPoll, (active) => {
+      if (active === undefined || active.connection !== connection) {
+        return call(operation, effect)
+      }
+      return Effect.gen(function* () {
+        while (true) {
+          const result = yield* active.attempt(operation, effect)
+          if (Option.isSome(result)) return result.value
+          yield* active.sleep()
+        }
+      })
+    })
+
+  const ensureSnapshot = Effect.suspend(() =>
+    supportsCapability(connection.compatibility, "ui.snapshot")
+      ? Effect.void
+      : Effect.fail(
+          new UiCapabilityError({
+            capability: "ui.snapshot",
+            message: "ui.snapshot is not available on this OpenCode endpoint",
+          }),
+        ),
+  )
+
+  const state = Effect.fn("Ui.state")(() => read("state", rpc["ui.state"]()))
+  const snapshot = Effect.fn("Ui.snapshot")(() =>
+    Effect.andThen(ensureSnapshot, read("snapshot", rpc["ui.snapshot"]())),
+  )
   const capture = Effect.fn("Ui.capture")(() =>
     call("capture", rpc["ui.capture"]()),
   )
   const matches = Effect.fn("Ui.matches")((text: string) =>
-    call("matches", rpc["ui.matches"]({ text })),
+    read("matches", rpc["ui.matches"]({ text })),
   )
   const screenshot = Effect.fn("Ui.screenshot")(function* (name?: string) {
     const frame = yield* capture()
@@ -378,20 +412,12 @@ export const make = (connection: UiConnection, options?: Options): Control => {
       ),
     )
 
-  const attempt = <A, E>(
-    effect: Effect.Effect<A, E>,
-  ): Effect.Effect<A | undefined, E> =>
-    effect.pipe(
-      Effect.timeoutOption(attemptTimeout),
-      Effect.map(Option.getOrUndefined),
-    )
-
   const poll = <A, E>(
     operation: string,
-    read: Effect.Effect<A | undefined, E>,
+    step: (active: ActivePoll) => Effect.Effect<A | undefined, E>,
     options: WaitOptions | undefined,
     message: string,
-  ): Effect.Effect<A, E | WaitError> => {
+  ): Effect.Effect<A, E | WaitError | UiTimeoutError> => {
     const timeout = options?.timeout ?? 5_000
     const interval = options?.interval ?? 50
     const validate = Effect.gen(function* () {
@@ -416,11 +442,94 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     })
     return Effect.gen(function* () {
       yield* validate
+      const clock = yield* Clock.Clock
+      const now = () => Number(clock.monotonicTimeNanosUnsafe()) / 1_000_000
+      const startedAt = now()
+      const baseAttemptTimeout =
+        requestTimeout === 0
+          ? 0
+          : Math.min(
+              requestTimeout,
+              Math.max(
+                1,
+                Math.min(
+                  requestTimeout / 2,
+                  timeout > 0 ? timeout / 2 : 250,
+                  250,
+                ),
+              ),
+            )
+      let nextAttemptTimeout = baseAttemptTimeout
+      let unansweredSince: number | undefined
+      let unansweredOperation = operation
+      const onReply = () => {
+        unansweredSince = undefined
+        nextAttemptTimeout = baseAttemptTimeout
+      }
+      const active: ActivePoll = {
+        connection,
+        attempt: (rpcOperation, effect) =>
+          Effect.gen(function* () {
+            if (requestTimeout === 0) {
+              return yield* Effect.fail(timeoutError(rpcOperation))
+            }
+            const attemptStart = now()
+            const remainingRequest =
+              unansweredSince === undefined
+                ? requestTimeout
+                : requestTimeout - (attemptStart - unansweredSince)
+            if (remainingRequest <= 0) {
+              return yield* Effect.fail(timeoutError(rpcOperation))
+            }
+            const remainingWait = timeout - (attemptStart - startedAt)
+            if (remainingWait <= 0) {
+              return Option.none()
+            }
+            const duration = Math.min(
+              nextAttemptTimeout,
+              remainingRequest,
+              remainingWait,
+            )
+            const exhaustsRequest =
+              duration >= remainingRequest && remainingRequest <= remainingWait
+            const outcome = yield* effect.pipe(
+              Effect.tap(() => Effect.sync(onReply)),
+              Effect.tapError(() => Effect.sync(onReply)),
+              Effect.timeoutOption(duration),
+            )
+            if (Option.isSome(outcome)) {
+              return outcome
+            }
+            unansweredSince =
+              unansweredSince === undefined
+                ? attemptStart
+                : Math.min(unansweredSince, attemptStart)
+            unansweredOperation = rpcOperation
+            nextAttemptTimeout = Math.min(requestTimeout, nextAttemptTimeout * 2)
+            if (exhaustsRequest || now() - unansweredSince >= requestTimeout) {
+              return yield* Effect.fail(timeoutError(rpcOperation))
+            }
+            return Option.none()
+          }),
+        sleep: () =>
+          Effect.suspend(() => {
+            if (unansweredSince === undefined) {
+              return Effect.sleep(interval)
+            }
+            const remainingRequest = requestTimeout - (now() - unansweredSince)
+            if (remainingRequest <= 0) {
+              return Effect.fail(timeoutError(unansweredOperation))
+            }
+            return Effect.sleep(
+              Math.min(interval, Math.max(1, remainingRequest / 2)),
+            )
+          }),
+      }
       return yield* Effect.gen(function* () {
         while (true) {
-          const value = yield* read
+          const value = yield* step(active)
           if (value !== undefined) return value
-          yield* Effect.sleep(interval)
+          yield* active.sleep()
         }
       }).pipe(
         Effect.timeoutOrElse({
@@ -438,18 +547,31 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     ) =>
       poll(
         "waitFor",
-        typeof target === "string"
-          ? Effect.gen(function* () {
-              if (!(yield* attempt(matches(target)))) return undefined
-              return yield* attempt(state())
-            })
-          : Effect.flatMap(attempt(state()), (value) =>
-              value === undefined
-                ? Effect.succeed(undefined)
-                : predicateEffect(target, value).pipe(
-                    Effect.map((matches) => matches ? value : undefined),
-                  ),
-            ),
+        (active) =>
+          typeof target === "string"
+            ? Effect.gen(function* () {
+                const matched = yield* active.attempt(
+                  "matches",
+                  rpc["ui.matches"]({ text: target }),
+                )
+                if (Option.isNone(matched) || !matched.value) return undefined
+                return Option.getOrUndefined(
+                  yield* active.attempt("state", rpc["ui.state"]()),
+                )
+              })
+            : Effect.gen(function* () {
+                const current = yield* active.attempt(
+                  "state",
+                  rpc["ui.state"](),
+                )
+                if (Option.isNone(current)) return undefined
+                const matched = yield* Effect.provideService(
+                  predicateEffect(target, current.value),
+                  CurrentPoll,
+                  active,
+                )
+                return matched ? current.value : undefined
+              }),
         options,
         typeof target === "string"
           ? `timed out waiting for the UI to match ${JSON.stringify(target)}`
@@ -461,21 +583,25 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     (target: number | string | ElementQuery, options?: WaitOptions) =>
       poll(
         "getElement",
-        Effect.flatMap(attempt(state()), (value) => {
-          if (value === undefined) return Effect.succeed(undefined)
-          const elements = value.elements.filter((element) =>
-            typeof target === "number"
-              ? element.num === target
-              : typeof target === "string"
-                ? element.id === target
-                : matchesQuery(element, target),
-          )
-          if (elements.length > 1)
-            return Effect.fail(
-              new UiElementAmbiguousError({ count: elements.length }),
-            )
-          return Effect.succeed(elements[0])
-        }),
+        (active) =>
+          Effect.flatMap(
+            active.attempt("state", rpc["ui.state"]()),
+            (current) => {
+              if (Option.isNone(current)) return Effect.succeed(undefined)
+              const elements = current.value.elements.filter((element) =>
+                typeof target === "number"
+                  ? element.num === target
+                  : typeof target === "string"
+                    ? element.id === target
+                    : matchesQuery(element, target),
+              )
+              if (elements.length > 1)
+                return Effect.fail(
+                  new UiElementAmbiguousError({ count: elements.length }),
+                )
+              return Effect.succeed(elements[0])
+            },
+          ),
         options,
         "timed out waiting for the UI element",
       ),
@@ -485,19 +611,26 @@ export const make = (connection: UiConnection, options?: Options): Control => {
     (target: string | SemanticQuery, options?: WaitOptions) =>
       poll(
         "getNode",
-        Effect.flatMap(attempt(snapshot()), (value) => {
-          if (value === undefined) return Effect.succeed(undefined)
-          const nodes = value.nodes.filter((node) =>
-            typeof target === "string"
-              ? node.id === target
-              : matchesQuery(node, target),
-          )
-          if (nodes.length > 1)
-            return Effect.fail(
-              new UiNodeAmbiguousError({ count: nodes.length }),
-            )
-          return Effect.succeed(nodes[0])
-        }),
+        (active) =>
+          Effect.andThen(
+            ensureSnapshot,
+            Effect.flatMap(
+              active.attempt("snapshot", rpc["ui.snapshot"]()),
+              (current) => {
+                if (Option.isNone(current)) return Effect.succeed(undefined)
+                const nodes = current.value.nodes.filter((node) =>
+                  typeof target === "string"
+                    ? node.id === target
+                    : matchesQuery(node, target),
+                )
+                if (nodes.length > 1)
+                  return Effect.fail(
+                    new UiNodeAmbiguousError({ count: nodes.length }),
+                  )
+                return Effect.succeed(nodes[0])
+              },
+            ),
+          ),
         options,
         "timed out waiting for the semantic UI node",
       ),

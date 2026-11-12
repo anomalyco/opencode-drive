@@ -661,4 +661,267 @@ describe("OpenCodeUi", () => {
       expect(peer.received).toHaveLength(1)
     })
   })
+
+  it.live("fails waitFor with fatal UiTimeoutError when the peer stays frozen past requestTimeout", () => {
+    const peer = startTransportPeer(() => {})
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { requestTimeout: 100 })
+      const startedAt = performance.now()
+      const error = yield* ui.waitFor("ready", { timeout: 500 }).pipe(Effect.flip)
+      const elapsed = performance.now() - startedAt
+
+      expect(error).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(error).not.toBeInstanceOf(OpenCodeUi.UiWaitTimeoutError)
+      expect(error).toMatchObject({
+        operation: "matches",
+        milliseconds: 100,
+        message: "ui.matches timed out after 100ms",
+      })
+      expect(elapsed).toBeGreaterThanOrEqual(85)
+      expect(elapsed).toBeLessThan(350)
+
+      const zero = OpenCodeUi.make(connection, { requestTimeout: 0 })
+      const immediate = yield* zero.waitFor("ready", { timeout: 500 }).pipe(Effect.flip)
+      expect(immediate).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(immediate).toMatchObject({
+        operation: "matches",
+        milliseconds: 0,
+      })
+    })
+  })
+
+  it.live("resets unanswered tracking when the peer replies so non-matching waits still fail with UiWaitTimeoutError", () => {
+    let calls = 0
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.capture") {
+        sendResult(socket, request, frame)
+        return
+      }
+      calls++
+      // Drop every odd attempt, answer every even attempt with false so consecutive
+      // unanswered time never reaches requestTimeout.
+      if (calls % 2 === 1) return
+      sendResult(socket, request, false)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { requestTimeout: 120 })
+      const error = yield* ui.waitFor("never", { timeout: 260, interval: 1 }).pipe(Effect.flip)
+
+      expect(error).toBeInstanceOf(OpenCodeUi.UiWaitTimeoutError)
+      expect(error).not.toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+    })
+  })
+
+  it.live("succeeds when a stalled peer replies after 1,150ms within a 2,500ms wait", () => {
+    const timers: Array<ReturnType<typeof setTimeout>> = []
+    let readyAt: number | undefined
+    const peer = startTransportPeer(({ request, socket }) => {
+      readyAt ??= Date.now() + 1_150
+      const delay = Math.max(0, readyAt - Date.now())
+      const reply = () =>
+        sendResult(socket, request, request.method === "ui.matches" ? true : state)
+      if (delay === 0) {
+        reply()
+        return
+      }
+      timers.push(setTimeout(reply, delay))
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(async () => {
+          for (const timer of timers) clearTimeout(timer)
+          await peer.stop()
+        }),
+      )
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection)
+
+      expect(yield* ui.waitFor("ready", { timeout: 2_500 })).toEqual(state)
+    })
+  })
+
+  it.live("backs off per-attempt timeouts past 1s so a slow 1,150ms RPC does not livelock", () => {
+    const timers: Array<ReturnType<typeof setTimeout>> = []
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.matches") {
+        timers.push(setTimeout(() => sendResult(socket, request, true), 1_150))
+        return
+      }
+      sendResult(socket, request, state)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(async () => {
+          for (const timer of timers) clearTimeout(timer)
+          await peer.stop()
+        }),
+      )
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection)
+
+      expect(yield* ui.waitFor("ready", { timeout: 4_000 })).toEqual(state)
+      expect(
+        peer.received.filter(({ request }) => request.method === "ui.matches"),
+      ).toHaveLength(4)
+    })
+  })
+
+  it.live("retries a dropped ui.matches reply within a sub-second 800ms wait", () => {
+    let matchesCalls = 0
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.matches") {
+        matchesCalls++
+        if (matchesCalls === 1) return
+        sendResult(socket, request, true)
+        return
+      }
+      sendResult(socket, request, state)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection)
+
+      expect(yield* ui.waitFor("ready", { timeout: 800 })).toEqual(state)
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "ui.matches",
+        "ui.matches",
+        "ui.state",
+      ])
+    })
+  })
+
+  it.live("bounds and retries read-only RPCs inside an EffectPredicate without bounding user Effects", () => {
+    let matchesCalls = 0
+    let snapshotCalls = 0
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.matches") {
+        matchesCalls++
+        if (matchesCalls === 1) return
+        sendResult(socket, request, false)
+        return
+      }
+      if (request.method === "ui.snapshot") {
+        snapshotCalls++
+        if (snapshotCalls === 1) return
+        sendResult(socket, request, snapshot)
+        return
+      }
+      sendResult(socket, request, state)
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const fatalTimeouts: OpenCodeUi.UiTimeoutError[] = []
+      const ui = OpenCodeUi.transform(OpenCodeUi.make(connection), (effect) =>
+        effect.pipe(
+          Effect.tapError((cause) =>
+            Effect.sync(() => {
+              if (cause instanceof OpenCodeUi.UiTimeoutError) fatalTimeouts.push(cause)
+            }),
+          ),
+        ),
+      )
+
+      expect(
+        yield* ui.waitFor(
+          () => ui.matches("Refreshing").pipe(Effect.map((visible) => !visible)),
+          { timeout: 1_500 },
+        ),
+      ).toEqual(state)
+      expect(fatalTimeouts).toEqual([])
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "ui.state",
+        "ui.matches",
+        "ui.matches",
+      ])
+
+      peer.received.length = 0
+      expect(
+        yield* ui.waitFor(
+          () => ui.snapshot().pipe(Effect.map((current) => current.nodes.length === 2)),
+          { timeout: 1_500 },
+        ),
+      ).toEqual(state)
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "ui.state",
+        "ui.snapshot",
+        "ui.snapshot",
+      ])
+
+      let userEffectRuns = 0
+      expect(
+        yield* ui.waitFor(
+          () =>
+            Effect.gen(function* () {
+              userEffectRuns++
+              yield* Effect.sleep(320)
+              return true
+            }),
+          { timeout: 1_500 },
+        ),
+      ).toEqual(state)
+      expect(userEffectRuns).toBe(1)
+    })
+  })
+
+  it.live("never retries unanswered mutating RPCs outside or inside a poll", () => {
+    const peer = startTransportPeer(({ request, socket }) => {
+      if (request.method === "ui.state") {
+        sendResult(socket, request, state)
+      }
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const connection = yield* SimulationConnector.ui(peer.url)
+      const ui = OpenCodeUi.make(connection, { requestTimeout: 80 })
+
+      for (const expected of [
+        { run: () => ui.type("hello"), method: "ui.type", operation: "type" },
+        { run: () => ui.press("escape"), method: "ui.press", operation: "press" },
+        { run: () => ui.enter(), method: "ui.enter", operation: "enter" },
+        { run: () => ui.click(editor), method: "ui.click", operation: "click" },
+        { run: () => ui.submit("hello"), method: "ui.type", operation: "type" },
+      ]) {
+        peer.received.length = 0
+        const error = yield* expected.run().pipe(Effect.flip)
+        expect(error).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+        expect(error).toMatchObject({
+          operation: expected.operation,
+          milliseconds: 80,
+        })
+        expect(peer.received.map(({ request }) => request.method)).toEqual([
+          expected.method,
+        ])
+      }
+
+      peer.received.length = 0
+      const inPredicateError = yield* ui
+        .waitFor(
+          () => ui.type("inside").pipe(Effect.as(true)),
+          { timeout: 500 },
+        )
+        .pipe(Effect.flip)
+      expect(inPredicateError).toBeInstanceOf(OpenCodeUi.UiTimeoutError)
+      expect(inPredicateError).toMatchObject({
+        operation: "type",
+        milliseconds: 80,
+      })
+      expect(peer.received.map(({ request }) => request.method)).toEqual([
+        "ui.state",
+        "ui.type",
+      ])
+    })
+  })
 })
