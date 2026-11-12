@@ -1,5 +1,12 @@
 # opencode-drive
 
+## 2.4.1
+
+### Patch Changes
+
+- becb4d1: Retry `ui.waitFor`, `ui.getElement`, and `ui.getNode` polling attempts whose reply never arrives, so one RPC that OpenCode drops cannot consume the whole wait.
+- 5f64079: Recognize current OpenCode title requests so `llm.title` fires and title generation no longer consumes queued replies or fails settlement.
+
 ## 2.4.0
 
 ### Minor Changes
