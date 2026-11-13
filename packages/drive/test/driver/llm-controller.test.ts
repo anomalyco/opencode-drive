@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "@effect/vitest"
 import { Effect, Fiber } from "effect"
+import * as Deferred from "effect/Deferred"
+import * as Stream from "effect/Stream"
 import { TestClock } from "effect/testing"
 import * as LlmController from "../../src/driver/llm-controller.js"
 import * as Llm from "../../src/llm/index.js"
@@ -383,6 +385,219 @@ describe("LlmController", () => {
         "llm.chunk",
         "llm.pending",
       ])
+    })
+  })
+
+  it.live("settles an interrupted stream when pending no longer lists the request", () => {
+    const gate = Effect.runSync(Deferred.make<void>())
+    let pendingCalls = 0
+    const peer = startTransportPeer(({ request: frame, socket }) => {
+      if (frame.method === "llm.attach") {
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "llm.request",
+            params: request,
+          }),
+        )
+        return sendResult(socket, frame, { attached: true })
+      }
+      if (frame.method === "llm.pending") {
+        pendingCalls += 1
+        return sendResult(socket, frame, {
+          invocations: pendingCalls === 1 ? [request] : [],
+        })
+      }
+      return sendResult(socket, frame, { ok: true })
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend, { settlementTimeout: 500 })
+      yield* llm.serve(() =>
+        Stream.fromEffect(Deferred.await(gate)).pipe(
+          Stream.flatMap(() => Stream.make(Llm.text("released"))),
+        ),
+      )
+      yield* Effect.yieldNow
+      const settling = yield* Effect.forkChild(llm.settle())
+      yield* Effect.sleep(100)
+      yield* Fiber.join(settling)
+
+      expect(pendingCalls).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  it.live("does not interrupt a request that arrives during a pending check", () => {
+    const gate = Effect.runSync(Deferred.make<void>())
+    const firstPendingReceived = Effect.runSync(Deferred.make<void>())
+    const secondPendingReceived = Effect.runSync(Deferred.make<void>())
+    const secondStarted = Effect.runSync(Deferred.make<void>())
+    const requestTwo = { ...request, id: "exchange-2" }
+    let pendingCalls = 0
+    let releaseFirstPending: (() => void) | undefined
+    let releaseSecondPending: (() => void) | undefined
+    let secondCanceled = false
+    const peer = startTransportPeer(({ request: frame, socket }) => {
+      if (frame.method === "llm.attach") {
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "llm.request",
+            params: request,
+          }),
+        )
+        return sendResult(socket, frame, { attached: true })
+      }
+      if (frame.method === "llm.pending") {
+        pendingCalls += 1
+        if (pendingCalls === 1) {
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              method: "llm.request",
+              params: requestTwo,
+            }),
+          )
+          releaseFirstPending = () =>
+            sendResult(socket, frame, { invocations: [request] })
+          Effect.runSync(Deferred.succeed(firstPendingReceived, undefined))
+          return
+        }
+        releaseSecondPending = () =>
+          sendResult(socket, frame, { invocations: [] })
+        Effect.runSync(Deferred.succeed(secondPendingReceived, undefined))
+        return
+      }
+      sendResult(socket, frame, { ok: true })
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend, { settlementTimeout: 2_000 })
+      yield* llm.serve((exchange) =>
+        Stream.fromEffect(
+          Effect.gen(function* () {
+            if (exchange.id === requestTwo.id)
+              yield* Deferred.succeed(secondStarted, undefined)
+            yield* Deferred.await(gate)
+            return Llm.text("released")
+          }),
+        ).pipe(
+          Stream.ensuring(
+            Effect.sync(() => {
+              if (exchange.id === requestTwo.id) secondCanceled = true
+            }),
+          ),
+        ),
+      )
+      yield* Effect.yieldNow
+      const settling = yield* Effect.forkChild(llm.settle())
+      yield* Deferred.await(firstPendingReceived)
+      yield* Deferred.await(secondStarted)
+
+      releaseFirstPending!()
+      yield* Deferred.await(secondPendingReceived)
+      expect(secondCanceled).toBe(false)
+
+      releaseSecondPending!()
+      yield* Fiber.join(settling)
+      expect(secondCanceled).toBe(true)
+      expect(pendingCalls).toBe(2)
+    })
+  })
+
+  it.live("retries a failed pending check without releasing its active response", () => {
+    const gate = Effect.runSync(Deferred.make<void>())
+    const retryObserved = Effect.runSync(Deferred.make<void>())
+    let pendingCalls = 0
+    let completed = false
+    const peer = startTransportPeer(({ request: frame, socket }) => {
+      if (frame.method === "llm.attach") {
+        socket.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "llm.request",
+            params: request,
+          }),
+        )
+        return sendResult(socket, frame, { attached: true })
+      }
+      if (frame.method === "llm.pending") {
+        pendingCalls += 1
+        if (pendingCalls === 1)
+          return sendError(socket, frame, "temporary pending failure")
+        sendResult(socket, frame, {
+          invocations: completed ? [] : [request],
+        })
+        if (pendingCalls === 2)
+          Effect.runSync(Deferred.succeed(retryObserved, undefined))
+        return
+      }
+      if (frame.method === "llm.finish") completed = true
+      sendResult(socket, frame, { ok: true })
+    })
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend, { settlementTimeout: 2_000 })
+      yield* llm.serve(() =>
+        Stream.fromEffect(Deferred.await(gate)).pipe(
+          Stream.flatMap(() => Stream.make(Llm.text("recovered"))),
+        ),
+      )
+      yield* Effect.yieldNow
+      const settling = yield* Effect.forkChild(llm.settle())
+      const outcome = yield* Effect.raceFirst(
+        Fiber.join(settling).pipe(Effect.as("settled")),
+        Deferred.await(retryObserved).pipe(Effect.as("retried")),
+      ).pipe(Effect.timeout("1 second"))
+      expect(outcome).toBe("retried")
+
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(settling)
+      expect(pendingCalls).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  it.live("keeps legacy settlement behavior without the pending capability", () => {
+    let pendingCalls = 0
+    const peer = startTransportPeer(
+      ({ request: frame, socket }) => {
+        if (frame.method === "llm.attach")
+          socket.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              method: "llm.request",
+              params: request,
+            }),
+          )
+        if (frame.method === "llm.pending") pendingCalls += 1
+        sendResult(
+          socket,
+          frame,
+          frame.method === "llm.attach" ? { attached: true } : { invocations: [] },
+        )
+      },
+      {
+        capabilities: (offered) =>
+          offered.filter((capability) => capability !== "llm.pending"),
+      },
+    )
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const backend = yield* SimulationConnector.backend(peer.url)
+      const llm = yield* LlmController.make(backend, { settlementTimeout: 50 })
+      yield* llm.serve(() => Stream.never)
+      yield* Effect.yieldNow
+      const error = yield* llm.settle().pipe(Effect.flip)
+
+      expect(error).toBeInstanceOf(LlmController.LlmSettlementError)
+      expect(pendingCalls).toBe(0)
     })
   })
 
