@@ -11,6 +11,32 @@ const state = {
 }
 
 describe("OpenCode Effect RPC compatibility protocol", () => {
+  it.live("encodes page navigation as functional key sequences", () => {
+    const peer = startTransportPeer(({ request, socket }) =>
+      sendResult(socket, request, state),
+    )
+
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => Effect.promise(() => peer.stop()))
+      const protocol = yield* OpenCodeRpcProtocol.make(peer.url)
+      const client = yield* RpcClient.make(UiRpcs).pipe(
+        Effect.provideService(RpcClient.Protocol, protocol),
+      )
+
+      yield* client["ui.press"]({ key: "pageup" })
+      yield* client["ui.press"]({ key: "pagedown" })
+      yield* client["ui.press"]({ key: "pageup", modifiers: { ctrl: true } })
+      yield* client["ui.press"]({ key: "pagedown", modifiers: { meta: true } })
+
+      expect(peer.received.map(({ request }) => request.params)).toEqual([
+        { key: "\u001b[5~" },
+        { key: "\u001b[6~" },
+        { key: "\u001b[5;5~" },
+        { key: "\u001b[6;3~" },
+      ])
+    })
+  })
+
   it.live("drives generated UI clients over exact OpenCode JSON-RPC", () => {
     const notifications: unknown[] = []
     const peer = startTransportPeer(({ request, socket }) => {
