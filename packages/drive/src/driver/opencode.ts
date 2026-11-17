@@ -17,9 +17,11 @@ import { error, type OpenCodeDriverError } from "./error.js"
 
 export type OpenCode = OpenCodeClient
 
-const makeWithServices = Effect.fn("OpenCode.make")(function* (
+/** The URL and credential of a running OpenCode service. */
+export type ServiceEndpoint = Service.Endpoint
+
+const discoverWithServices = Effect.fn("OpenCode.discover")(function* (
   artifacts: string,
-  directory: string,
 ) {
   const state = join(artifacts, "home", ".local", "state", "opencode")
   const fs = yield* FileSystem.FileSystem
@@ -43,7 +45,14 @@ const makeWithServices = Effect.fn("OpenCode.make")(function* (
     return yield* Effect.fail(
       error("opencode.connect", "OpenCode service registration was not found"),
     )
+  return endpoint
+})
 
+const makeWithServices = Effect.fn("OpenCode.make")(function* (
+  artifacts: string,
+  directory: string,
+) {
+  const endpoint = yield* discoverWithServices(artifacts)
   return yield* Effect.gen(function* () {
     const base = yield* HttpClient.HttpClient
     const located = base.pipe(
@@ -72,6 +81,12 @@ const makeWithServices = Effect.fn("OpenCode.make")(function* (
     Effect.mapError((cause) => error("opencode.connect", cause)),
   )
 })
+
+/** Discovers the registered endpoint of an instance's isolated OpenCode service. */
+export const discover = (
+  artifacts: string,
+): Effect.Effect<ServiceEndpoint, OpenCodeDriverError> =>
+  discoverWithServices(artifacts).pipe(Effect.provide(NodeFileSystem.layer))
 
 export const make = (
   artifacts: string,

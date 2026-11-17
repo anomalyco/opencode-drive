@@ -16,7 +16,11 @@ OpenCodeDriver
   ui            convenience alias for tui.ui
   llm           shared simulated-model control
   tools         runtime control for static adapters and arbitrary tools
+  server        shared service lifecycle and endpoint
 ```
+
+`OpenCodeBackend` composes the same resources without `tui` and `ui`, for
+programs that launch their own frontend.
 
 The names distinguish the two kinds of client involved:
 
@@ -148,8 +152,10 @@ by `driver.tuis` have exactly the same `Tui` type. `driver.ui` is only
 The server process writes an authenticated service registration into its
 isolated state directory. `driver/opencode.ts` discovers that registration and
 constructs the generated Effect SDK client with the project directory header.
-Passwords and registration paths remain internal. The resulting value is
-exposed as `driver.opencode` and `ScriptContext.opencode`.
+Registration paths remain internal. The resulting value is exposed as
+`driver.opencode` and `ScriptContext.opencode`. `server.endpoint()`
+deliberately returns the registered URL and password, or the chaos proxy URL
+with that password, so programs can connect frontends Drive does not launch.
 
 ## Canonical Protocol
 
@@ -222,6 +228,7 @@ must not reference script types.
 
 - `opencode-drive`: Effect driver, scripts, project contracts, LLM constructors.
 - `opencode-drive/driver`: complete Effect driver namespace.
+- `opencode-drive/backend`: the driver without a primary TUI.
 - `opencode-drive/script`: `defineScript` and script contracts.
 - `opencode-drive/client`: canonical simulation protocol schemas and default ports.
 - `opencode-drive/llm`: pure LLM output constructors and schemas.

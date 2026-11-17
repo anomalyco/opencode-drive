@@ -151,6 +151,40 @@ export default OpenCodeDriver.use(({ llm, directory, environment }) =>
 ordinary OpenCode clients. They share the service, sessions, and simulated LLM
 with the TUIs, but Drive does not control or record their terminals.
 
+Use `OpenCodeBackend` when the program launches its own frontend, such as a
+desktop, web, or native client, instead of a TUI. It prepares the same isolated
+project, starts the service with the simulated LLM and tool controls, and
+settles like `OpenCodeDriver.use`, but launches no TUI. `server.endpoint()`
+returns the service URL and credential for clients that connect explicitly:
+
+```ts
+import { Effect } from "effect"
+import { Llm, OpenCodeBackend } from "opencode-drive"
+
+export default OpenCodeBackend.use(({ llm, server, directory }) =>
+  Effect.gen(function* () {
+    const { url, auth } = yield* server.endpoint()
+    yield* llm.queue(Llm.text("Hello from Drive"))
+    const client = Bun.spawn(["my-client", "--server", url], {
+      cwd: directory,
+      env: { ...process.env, ...(auth && { OPENCODE_PASSWORD: auth.password }) },
+    })
+    yield* Effect.promise(() => client.exited)
+  }),
+)
+```
+
+Stop the client before the program returns, as the example does by waiting
+for it to exit, or with `Effect.acquireRelease`: settlement validates LLM work
+and then stops the service, so a client still running would race both. The URL
+and credential stay the same across `server.kill()` and `server.launch()`, so
+the client can reconnect to the replacement service.
+With `network: true`, the URL is the chaos proxy, and `network` degrades that
+client's traffic the same way it degrades a TUI's. `opencode` and service
+discovery through `environment` stay direct. `OpenCodeBackend.useReport` and
+`OpenCodeBackend.make` mirror their `OpenCodeDriver` counterparts, and
+`OpenCodeDriver` and scripts expose the same `server`.
+
 Enable recording per TUI. Settlement finishes each timeline and exports its
 video automatically:
 

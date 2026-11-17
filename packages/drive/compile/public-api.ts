@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect"
-import { OpenCodeDriver, Tool } from "../src/index.js"
+import { OpenCodeBackend, OpenCodeDriver, Tool } from "../src/index.js"
 import type {
   Frontend,
   Gui,
@@ -60,6 +60,20 @@ export type DriverProjectIsCanonical = Assert<
 const zeroConfig = OpenCodeDriver.use(() => Effect.void)
 export type ZeroConfigUseIsRunnable = Assert<
   Equal<Effect.Services<typeof zeroConfig>, never>
+>
+
+const zeroConfigBackend = OpenCodeBackend.use(({ server }) => server.endpoint())
+export type ZeroConfigBackendUseIsRunnable = Assert<
+  Equal<Effect.Services<typeof zeroConfigBackend>, never>
+>
+export type BackendHasNoPrimaryTui = Assert<
+  Equal<Extract<keyof OpenCodeBackend.Backend, "tui" | "ui">, never>
+>
+export type DriverServerIsCanonical = Assert<
+  Equal<OpenCodeDriver.Driver["server"], ScriptContext["server"]>
+>
+export type BackendServerIsCanonical = Assert<
+  Equal<OpenCodeBackend.Backend["server"], ScriptContext["server"]>
 >
 
 const controlledOptions: OpenCodeDriver.Options = { tools: ["shell"] }

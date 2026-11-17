@@ -1,6 +1,7 @@
 export * from "./script/index.js"
 export * as Effect from "effect/Effect"
 export * as Llm from "./llm/index.js"
+export * as OpenCodeBackend from "./driver/backend.js"
 export * as OpenCodeDriver from "./driver/index.js"
 export * as Errors from "./script/errors.js"
 export * as Tool from "./tool/index.js"
@@ -10,6 +11,7 @@ export type {
   GuiOptions,
   OpenCode,
   Recording,
+  ServiceEndpoint,
   Tui,
   TuiLaunchError,
   TuiOptions,

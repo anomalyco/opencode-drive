@@ -447,6 +447,25 @@ it.live("returns structured evidence from the safe lifecycle boundary", () =>
   }),
 )
 
+it.live("restarts the shared server under a primary TUI", () =>
+  OpenCodeDriver.use(
+    { opencode: { command: fakeOpenCode } },
+    ({ server, ui, opencode }) =>
+      Effect.gen(function* () {
+        expect(yield* server.launch().pipe(Effect.flip)).toMatchObject({
+          operation: "server.launch",
+        })
+        const endpoint = yield* server.endpoint()
+        yield* server.kill()
+        yield* server.launch()
+        expect(yield* server.endpoint()).toEqual(endpoint)
+        expect(yield* opencode.server.info()).toMatchObject({ version: "test" })
+        yield* ui.submit("after restart")
+        yield* ui.waitFor("after restart")
+      }),
+  ),
+)
+
 it.live("settles and exports recordings when the user program fails", () =>
   Effect.gen(function* () {
     let artifacts = ""

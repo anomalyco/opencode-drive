@@ -135,6 +135,7 @@ export const runScript = Effect.fn("DriveCli.runScript")(function* (
     server: {
       launch: () => prepared.server.launch().pipe(Effect.tap(() => Effect.sync(() => onReady?.()))),
       kill: prepared.server.kill,
+      endpoint: prepared.server.endpoint,
     },
     llm: prepared.llm,
     network: prepared.network,

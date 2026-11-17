@@ -33,7 +33,7 @@ export interface Prepared {
   readonly network: OpenCodeNetwork.Network
   readonly tools: Driver["tools"]
   readonly tuis: OpenCodeTui.Tuis
-  readonly server: Pick<OpenCodeServer.Server, "launch" | "kill">
+  readonly server: OpenCodeServer.Controls
   readonly artifacts: string
   readonly directory: string
   readonly environment: Driver["environment"]
@@ -56,6 +56,11 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       ...(options.llm === undefined ? {} : { llm: options.llm }),
     })
     const network = OpenCodeNetwork.make(instance.network)
+    const controls: Prepared["server"] = {
+      launch: server.launch,
+      kill: server.kill,
+      endpoint: server.endpoint,
+    }
     const opencode = (options.launch ?? "automatic") === "automatic"
       ? yield* server.launch()
       : undefined
@@ -109,6 +114,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
           network,
           tools: server.tools,
           tuis: server.tuis,
+          server: controls,
           artifacts: instance.artifacts,
           directory: instance.directory,
           environment: instance.environment,
@@ -121,7 +127,7 @@ export const makeWithServices = Effect.fn("OpenCodeDriver.makePreparedWithServic
       network,
       tools: server.tools,
       tuis: server.tuis,
-      server,
+      server: controls,
       artifacts: instance.artifacts,
       directory: instance.directory,
       environment: instance.environment,
