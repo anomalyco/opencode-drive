@@ -314,6 +314,13 @@ function encodePressPayload(payload: unknown) {
   }
   if (named === "tab" && modifier !== 0)
     return { key: kittySequence(9, modifier) }
+  // OpenTUI names this key RETURN, so "enter" would otherwise be typed as text.
+  if (named === "enter")
+    return modifier === 0
+      ? { ...payload, key: "\r" }
+      : { key: kittySequence(13, modifier) }
+  if (named === "space")
+    return { ...payload, key: " " }
   return payload
 }
 
